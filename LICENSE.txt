@@ -1,0 +1,29 @@
+CoE5SE
+Copyright musical_pianist. All rights reserved. This uses Nexus standard license.
+
+Use it as intended: download CoE5SE, play with it, and make mods that need it. A mod that
+needs CoE5SE tells its players to install CoE5SE; it never includes CoE5SE's files.
+The example mods and files in ToolsAndExamples/, and coe5.lua, are free to copy and change
+for your own mods.
+
+Mods built on CoE5SE are yours: sell them, earn Donation Points with them, do whatever you
+want with them. CoE5SE itself is not monetized for any reason, Donation Points included. No
+one may copy any part of CoE5SE and sell it or earn from it.
+
+Upload permission
+You are not allowed to upload this file to other sites under any circumstances
+
+Modification permission
+You must get permission from me before you are allowed to modify my files to improve it
+
+Conversion permission
+You are not allowed to convert this file to work on other games under any circumstances
+
+Asset use permission (assets include code)
+You must get permission from me before you are allowed to use any of the assets in this file
+
+Asset use permission in mods/files that are being sold
+You are not allowed to sell CoE5SE or any part of it, on Steam Workshop or any other platform. Mods built on CoE5SE may be sold.
+
+Asset use permission in mods/files that earn donation points
+CoE5SE and any part of it never earn Donation Points. Mods built on CoE5SE may earn them.

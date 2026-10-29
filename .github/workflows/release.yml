@@ -1,0 +1,100 @@
+# Builds each CoE5SE release on GitHub's own Mac from this repository's source, and publishes it.
+# On a CoE5SE-v<version> tag it:
+#   1. downloads the two pinned compilers (the same files, checked by the same SHA-256, as mac-verify.command),
+#   2. rebuilds the three DLLs and three dylibs from src/ (src/build.sh, src/build_mac.sh),
+#   3. stops unless every rebuilt file matches its line in SHA256.txt, byte for byte,
+#   4. zips the release (every file here but README.md, LICENSE.txt and .github/, plus the six it built),
+#   5. signs a build provenance attestation for the six files and the zip,
+#   6. creates the GitHub Release from the tag's message, with the zip attached.
+# Check a download with: gh attestation verify <file> -R musical-pianist/coe5se
+name: release
+
+on:
+  push:
+    tags: ["CoE5SE-v*"]
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    env:
+      TAG: ${{ github.ref_name }}
+      TC_URL: https://github.com/mstorsjo/llvm-mingw/releases/download/20260922/llvm-mingw-20260922-ucrt-macos-universal.tar.xz
+      TC_SHA256: 52e5f5a7b131021d0c39a37a38fa380a1da7885cd04bd61afd0cd4ecfb8bc1f3
+      TC_DIR: llvm-mingw-20260922-ucrt-macos-universal
+      ZIG_URL: https://ziglang.org/download/0.16.0/zig-aarch64-macos-0.16.0.tar.xz
+      ZIG_SHA256: b23d70deaa879b5c2d486ed3316f7eaa53e84acf6fc9cc747de152450d401489
+      ZIG_DIR: zig-aarch64-macos-0.16.0
+    steps:
+      - uses: actions/checkout@v5
+      - name: Read the tag's message
+        run: |
+          git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+          git tag -l --format='%(contents)' "$TAG" > "$RUNNER_TEMP/message.txt"
+          test "$(git cat-file -t "$TAG")" = tag
+          head -1 "$RUNNER_TEMP/message.txt" > "$RUNNER_TEMP/title.txt"
+          tail -n +3 "$RUNNER_TEMP/message.txt" > "$RUNNER_TEMP/notes.md"
+          # Every release's title reads "CoE5SE <version> - Patch <game version> - <message>".
+          version="${TAG#CoE5SE-v}"
+          if ! grep -Eq "^CoE5SE ${version//./\\.} - Patch [0-9]+\.[0-9]+ - .+$" "$RUNNER_TEMP/title.txt"; then
+            echo "The tag's title must read: CoE5SE $version - Patch <game version> - <message>. It reads: $(cat "$RUNNER_TEMP/title.txt")"
+            exit 1
+          fi
+      - name: Download the pinned compilers
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fL --retry 3 -sS -o tc.tar.xz "$TC_URL"
+          curl -fL --retry 3 -sS -o zig.tar.xz "$ZIG_URL"
+          echo "$TC_SHA256  tc.tar.xz" | shasum -a 256 -c
+          echo "$ZIG_SHA256  zig.tar.xz" | shasum -a 256 -c
+          tar -xf tc.tar.xz
+          tar -xf zig.tar.xz
+      - name: Build the DLLs and dylibs from src/
+        run: |
+          export CC="$RUNNER_TEMP/$TC_DIR/bin/x86_64-w64-mingw32-clang"
+          export WINDRES="$RUNNER_TEMP/$TC_DIR/bin/x86_64-w64-mingw32-windres"
+          export ZIG="$RUNNER_TEMP/$ZIG_DIR/zig"
+          export ZIG_GLOBAL_CACHE_DIR="$RUNNER_TEMP/zig-cache" ZIG_LOCAL_CACHE_DIR="$RUNNER_TEMP/zig-cache"
+          "$CC" --version | head -1
+          echo "zig $("$ZIG" version)"
+          src/build.sh
+          src/build_mac.sh
+      - name: Check every file against SHA256.txt
+        run: shasum -a 256 -c SHA256.txt
+      - name: Zip the release
+        run: |
+          version="${TAG#CoE5SE-v}"
+          python3 - "CoE5SE-$version.zip" <<'PY'
+          import sys, zipfile
+          from pathlib import Path
+          skip = {"README.md", "LICENSE.txt"}
+          files = sorted(p for p in Path(".").rglob("*") if p.is_file() and p.parts[0] not in (".git", ".github")
+                         and p.as_posix() not in skip and p.name != ".DS_Store")
+          with zipfile.ZipFile(sys.argv[1], "w", zipfile.ZIP_DEFLATED) as z:
+              for p in files:
+                  info = zipfile.ZipInfo(f"CoE5SE/{p.as_posix()}", (1980, 1, 1, 0, 0, 0))
+                  info.external_attr = (p.stat().st_mode & 0o777 | 0o100000) << 16
+                  info.compress_type = zipfile.ZIP_DEFLATED
+                  z.writestr(info, p.read_bytes())
+          PY
+          shasum -a 256 "CoE5SE-$version.zip"
+          echo "ZIP=CoE5SE-$version.zip" >> "$GITHUB_ENV"
+      - uses: actions/attest@v4
+        with:
+          subject-path: |
+            glu32.dll
+            coe5se_loader.dll
+            coe5se.c5plugin.dll
+            coe5se.dylib
+            coe5se_loader.dylib
+            coe5se.c5plugin.dylib
+            ${{ env.ZIP }}
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$TAG" "$ZIP" --verify-tag --title "$(cat "$RUNNER_TEMP/title.txt")" --notes-file "$RUNNER_TEMP/notes.md"
