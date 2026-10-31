@@ -1,4 +1,3 @@
-// The Mac monster move's frame growth and sizes: each word's immediate CoE5SE changes, and its new value.
 #pragma once
 
 #define MONSTER_FRAME_MAC_SITE_COUNT 240

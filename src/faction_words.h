@@ -1,4 +1,3 @@
-// Mods' factions from .c5se words: the newfaction block, and each faction's slot in a game.
 #pragma once
 
 #define NEWFACTION_WORD      "newfaction"
@@ -20,19 +19,16 @@
 enum { FACTION_SITE_NONE, FACTION_SITE_OWN_CITADEL, FACTION_SITE_MONUMENT };
 enum { FACTION_TERRAIN_ANY, FACTION_TERRAIN_MAGMA, FACTION_TERRAIN_ICE, FACTION_TERRAIN_WASTE };
 
-// One factionspawn line: with at least `min` fuel (and the terrain), a draw below `chance` makes `group`, using `use`.
 typedef struct {
     int min, use, chance, terrain;
     char group[FACTION_GROUP_SIZE];
 } FactionSpawn;
 
-// One factionunits line.
 typedef struct {
     char monster[MONSTER_NAME_SIZE], plane[PLANE_NAME_SIZE];
     int count, chance, terrain;
 } FactionUnits;
 
-// One factionpopulateterrain line: the Independents' stock on the terrain and plane ("" any) becomes the faction's.
 typedef struct {
     char plane[PLANE_NAME_SIZE];
     int terrain;
@@ -80,23 +76,19 @@ typedef struct {
 static Faction factions[FACTION_SLOT_TARGET];
 static int factionCount;
 
-// The game's names of slots 24 to 30, the presets factionlike takes.
 static const char *const FACTION_PRESET_NAMES[] = {"Independents", "Special Monsters", "Horrors", "Hades", "Inferno", "Celestial", "Empire"};
 
-// The vanilla slot whose preset `name` names, or -1.
 static int factionPresetNamed(const char *name) {
     for (int i = 0; i < (int)(sizeof FACTION_PRESET_NAMES / sizeof FACTION_PRESET_NAMES[0]); i++)
         if (!strcasecmp(name, FACTION_PRESET_NAMES[i])) return 24 + i;
     return !strcasecmp(name, "Kingdom") ? 30 : -1;
 }
 
-// A preset's home plane name ("" for none) and active rule: the vanilla movers' planes and gates.
 static const char *factionPresetHome(int like) { return like == 28 ? "Inferno" : like == 27 ? "Hades" : like == 29 ? "Celestial Plane" : ""; }
 static int factionPresetActive(int like) { return like == 28 ? 1 : like == 29 ? 2 : FACTION_ACTIVE_ALWAYS; }
 static int factionPresetPopulate(int like) { return like == 24 || like == 26 || like == 27 || like == 28; }
 static int factionPresetWander(int like) { return like == 24 || like == 27 || like == 28 || like == 29 ? like : -1; }
 
-// A preset's spawns, as the movers' tables hold them.
 static const FactionSpawn INFERNO_SPAWNS[] = {
     {40, 40, 100, FACTION_TERRAIN_ANY, "c*Greater Devil & 1d3*Devil & 2d6*Hellhound & 2d6*Fiery Imp"},
     {10, 10, 25, FACTION_TERRAIN_ANY, "c*Bone Devil & 1d4*Bone Imp & 1d6*Longdead"},
@@ -112,18 +104,14 @@ static const FactionSpawn HADES_SPAWNS[] = {
     {10, 10, 25, FACTION_TERRAIN_ANY, "c*Wraith & 1d4*Umbral"},
     {10, 10, 50, FACTION_TERRAIN_ANY, "c*Shade Mage & 2d4*Shade"},
 };
-// Hades' founding news, as the game's event sends it.
 static const char *const HADES_MONUMENT_NEWS = "It is said that %s has started to construct the Monument of Hades. A construction that will draw "
                                                "the spirits of Hades to it and empower them to kill the living beings of Elysium. This "
                                                "construction must be stopped if Elysium is to survive.";
-// The Inferno's gateway news, as the game sends it.
 static const char *const INFERNO_GATEWAY_NEWS =
     "Infernal forces has managed to restore the gateway to Inferno by sacrificing a huge number of sinners there. Elysium risks getting "
     "overrun by devils and demons if this gateway isn't closed once again.";
-// The Merchants' caravan news, as the game sends it.
 static const char *const MERCHANT_CARAVAN_NEWS = "A wealthy merchant from a land across the sea is travelling through the country. He has recently "
                                                  "come ashore in %s.";
-// A preset's caravan: the Special Monsters' (RVA_CARAVAN_EVENT_TURN_TEST's numbers, the Merchants' crew), none for the others.
 static void factionCaravanDefaults(Faction *f) {
     int merchants = f->like == 25;
     f->caravanTurn = merchants ? 12 : -1, f->caravanChance = 2, f->caravanTerrain = -93;
@@ -131,7 +119,6 @@ static void factionCaravanDefaults(Faction *f) {
     snprintf(f->caravanNews, sizeof f->caravanNews, "%s", merchants ? MERCHANT_CARAVAN_NEWS : "");
 }
 
-// A preset's monument founding: Hades' event (RVA_MONUMENT_EVENT_TURN_TEST), none for the others.
 static void factionPresetMonumentEvent(Faction *f) {
     int hades = f->like == 27;
     f->eventTurn = hades ? 48 : -1, f->eventChance = 8, f->eventTerrain = 38;
@@ -148,24 +135,20 @@ static void factionPresetSpawns(Faction *f) {
     f->spawnCount = count;
 }
 
-// The declared faction of that name, or NULL.
 static Faction *findFaction(const char *name) {
     for (int i = 0; i < factionCount; i++)
         if (!strcasecmp(factions[i].name, name)) return &factions[i];
     return NULL;
 }
 
-// A faction's slot in a game: PLAYER_SLOTS_GAME + its place in the list.
 static int factionSlotOf(const Faction *f) { return PLAYER_SLOTS_GAME + (int)(f - factions); }
 
-// The slot of the faction named `name` in this game, or -1.
 __attribute__((unused)) static int factionSlotNamed(const char *name) {
     const Faction *f = findFaction(name);
     return f ? factionSlotOf(f) : -1;
 }
 
 // ---- Each game's faction slots -------------------------------------------------------------------
-// After the game's reset, the declared factions take their slots: independent, named, coloured.
 static void resetFactionTurnState(void);
 static void setUpFactionSlots(void) {
     resetFactionTurnState();
@@ -211,7 +194,6 @@ static void resetGameStateHook(void) {
     setUpFactionSlots();
 }
 
-// Hooks the game's reset, once; 1 when it is in.
 static int factionResetHookState;
 static int installFactionResetHook(void) {
     if (!factionResetHookState) {
@@ -222,7 +204,6 @@ static int installFactionResetHook(void) {
     return factionResetHookState > 0;
 }
 
-// Declares a faction for this pass; NULL, or the reason it was refused.
 static const char *declareFaction(const char *mod, const Faction *draft) {
     const char *name = draft->name;
     if (!name[0] || strlen(name) >= FACTION_NAME_SIZE) return "bad_name";
@@ -281,7 +262,6 @@ static struct {
     Faction draft;
 } factionBlock;
 
-// The block words, which a newfaction block takes; any other word ends it.
 static const char *const FACTION_BLOCK_WORDS[] = {"factionlike", "factioncolor", "factionhome", "factionactive", "factionpopulate", "factionwander",
                                                    "factionwandergate", "factiontithe", "factionworldevents", "factionconquest", "factionstatue",
                                                    "factionspawnsite", "factionfuel", "factionspawn", "factionmonument",
@@ -297,7 +277,6 @@ static int isFactionBlockWord(const char *line, size_t len) {
 
 static const char *addFactionMod, *addFactionFieldNow;
 
-// Refuses a block word's line: logged with its line number, or as the coe5.addFaction field it came from.
 static PRINTF_FORMAT(4, 5) void refuseFactionLine(const char *word, int mod, const char *reason, const char *fmt, ...) {
     char details[300];
     va_list ap;
@@ -312,7 +291,6 @@ static PRINTF_FORMAT(4, 5) void refuseFactionLine(const char *word, int mod, con
     refuseC5mLine(word, spellModName(mod), reason, "line=%d %s", G32(RVA_MOD_LINE), details);
 }
 
-// Whether a block word's line applies: level 2, inside an open block that wasn't refused.
 static int factionBlockTakes(const char *word, int mod, int level) {
     if (level != 2) return 0;
     if (!factionBlock.open || factionBlock.mod != mod) {
@@ -322,12 +300,10 @@ static int factionBlockTakes(const char *word, int mod, int level) {
     return !factionBlock.refused;
 }
 
-// Whether a draft's own factionpopulate on names a game plane's population, which stays the game's faction's.
 static int factionPopulatesGamePlane(const Faction *d) {
     return d->hasPopulate && d->populate && vanillaPlaneNamed(d->hasHome ? d->home : factionPresetHome(d->like)) >= 0;
 }
 
-// Ends the open block: declares its faction, or refuses the block.
 static void finishFactionBlock(void) {
     if (!factionBlock.open) return;
     factionBlock.open = 0;
@@ -342,7 +318,6 @@ static void finishFactionBlock(void) {
     if (reason) refuseC5mLine(NEWFACTION_WORD, mod, reason, "line=%d name=%s", factionBlock.line, factionBlock.draft.name);
 }
 
-// newfaction "<name>": opens a faction's block, and ends the game's blocks and the one before.
 static void newfactionLine(const char *args, int mod, int level) {
     if (level != 2) return;
     finishSpellBlock();
@@ -393,7 +368,6 @@ static void factioncolorLine(const char *args, int mod, int level) {
     factionBlock.draft.hasColour = 1;
 }
 
-// factionhome "<plane>": the faction's home plane.
 static void factionhomeLine(const char *args, int mod, int level) {
     if (!factionBlockTakes("factionhome", mod, level)) return;
     const char *p = args;
@@ -407,7 +381,6 @@ static void factionhomeLine(const char *args, int mod, int level) {
     factionBlock.draft.hasHome = 1;
 }
 
-// factionactive portals <n> | always | never: when the faction's turn spawns.
 static void factionactiveLine(const char *args, int mod, int level) {
     if (!factionBlockTakes("factionactive", mod, level)) return;
     const char *p = args;
@@ -425,7 +398,6 @@ static void factionactiveLine(const char *args, int mod, int level) {
     factionBlock.draft.active = active, factionBlock.draft.hasActive = 1;
 }
 
-// The index of the bare word `args` starts with among `words` (case ignored), or -1.
 static int factionWordChoice(const char *args, const char *const *words, int count) {
     const char *p = args;
     while (*p == ' ' || *p == '\t') p++;
@@ -435,7 +407,6 @@ static int factionWordChoice(const char *args, const char *const *words, int cou
     return -1;
 }
 
-// A block word taking off or on: the value, or -1 refused (logged).
 static int factionOnOffLine(const char *word, const char *args, int mod, int level) {
     static const char *const OFF_ON[] = {"off", "on"};
     if (!factionBlockTakes(word, mod, level)) return -1;
@@ -444,13 +415,11 @@ static int factionOnOffLine(const char *word, const char *args, int mod, int lev
     return on;
 }
 
-// factionpopulate on|off: whether its home's population is its own.
 static void factionpopulateLine(const char *args, int mod, int level) {
     int on = factionOnOffLine("factionpopulate", args, mod, level);
     if (on >= 0) factionBlock.draft.populate = on, factionBlock.draft.hasPopulate = 1;
 }
 
-// factionwander "<word>": the wander word its commanders take, by the game's names.
 static void factionwanderLine(const char *args, int mod, int level) {
     static const char *const WORDS[] = {"wander", "indwander", "infwander", "hadeswander", "celwander"};
     static const int SLOTS[] = {-1, 24, 28, 27, 29};
@@ -480,7 +449,6 @@ static void factionworldeventsLine(const char *args, int mod, int level) {
     if (on >= 0) factionBlock.draft.worldEvents = on, factionBlock.draft.hasWorldEvents = 1;
 }
 
-// factionconquest independent|normal: whether its squares are conquered as the Independents' are.
 static void factionconquestLine(const char *args, int mod, int level) {
     static const char *const WORDS[] = {"normal", "independent"};
     if (!factionBlockTakes("factionconquest", mod, level)) return;
@@ -497,7 +465,6 @@ static void factionstatueLine(const char *args, int mod, int level) {
     if (on >= 0) factionBlock.draft.statue = on, factionBlock.draft.hasStatue = 1;
 }
 
-// factionspawnsite owncitadel | monument ["<plane>"] | none: where the faction's turn spawns.
 static void factionspawnsiteLine(const char *args, int mod, int level) {
     if (!factionBlockTakes("factionspawnsite", mod, level)) return;
     static const char *const SITES[] = {"none", "owncitadel", "monument"};
@@ -521,7 +488,6 @@ static void factionspawnsiteLine(const char *args, int mod, int level) {
     snprintf(factionBlock.draft.spawnPlane, sizeof factionBlock.draft.spawnPlane, "%s", plane);
 }
 
-// factionfuel "<monster>": the units the faction's spawns use up.
 static void factionfuelLine(const char *args, int mod, int level) {
     if (!factionBlockTakes("factionfuel", mod, level)) return;
     const char *p = args;
@@ -535,7 +501,6 @@ static void factionfuelLine(const char *args, int mod, int level) {
     factionBlock.draft.hasFuel = 1;
 }
 
-// factionspawn <min> <use> <chance> "<group>" [magma|ice|waste]: one of the faction's spawns, after those before it.
 static void factionspawnLine(const char *args, int mod, int level) {
     if (!factionBlockTakes("factionspawn", mod, level)) return;
     Faction *f = &factionBlock.draft;
@@ -567,7 +532,6 @@ static void factionspawnLine(const char *args, int mod, int level) {
     f->spawns[f->spawnCount++] = spawn;
 }
 
-// The quoted name `args` starts with, or none (the bare word): 1 read, 0 none, -1 refused (logged).
 static int factionNameOrNone(const char *word, const char *args, int mod, char *out, size_t size) {
     static const char *const NONE[] = {"none"};
     if (factionWordChoice(args, NONE, 1) == 0) return out[0] = 0, 0;
@@ -582,7 +546,6 @@ static int factionNameOrNone(const char *word, const char *args, int mod, char *
     return 1;
 }
 
-// factionmonument "<monster>" | none: the faction's monument.
 static void factionmonumentLine(const char *args, int mod, int level) {
     if (!factionBlockTakes("factionmonument", mod, level)) return;
     if (factionNameOrNone("factionmonument", args, mod, factionBlock.draft.monument, sizeof factionBlock.draft.monument) >= 0)
@@ -594,7 +557,6 @@ static void factionmonumentruleLine(const char *args, int mod, int level) {
     if (on >= 0) factionBlock.draft.monumentRule = on, factionBlock.draft.hasMonumentRule = 1;
 }
 
-// Whether `news` is safe as the game message's format: each % starts %% or the one %s (the commander's name).
 static int factionNewsFormatOk(const char *news) {
     int names = 0;
     for (const char *c = news; *c; c++) {
@@ -606,7 +568,6 @@ static int factionNewsFormatOk(const char *news) {
     return 1;
 }
 
-// factionplaneshift "<monster>" <percent> <each> | none: the spirits its monument shifts off its home.
 static void factionplaneshiftLine(const char *args, int mod, int level) {
     if (!factionBlockTakes("factionplaneshift", mod, level)) return;
     Faction *f = &factionBlock.draft;
@@ -630,14 +591,12 @@ static void factionplaneshiftLine(const char *args, int mod, int level) {
     f->shiftPercent = (int)percent, f->shiftEach = (int)each, f->hasShift = 1;
 }
 
-// factionloyalty "<monster>" | none: the units on its monument plane that become its own.
 static void factionloyaltyLine(const char *args, int mod, int level) {
     if (!factionBlockTakes("factionloyalty", mod, level)) return;
     if (factionNameOrNone("factionloyalty", args, mod, factionBlock.draft.loyaltyMonster, sizeof factionBlock.draft.loyaltyMonster) >= 0)
         factionBlock.draft.hasLoyalty = 1;
 }
 
-// factiongather <ability> | none: the ability that makes its units carriers.
 static void factiongatherLine(const char *args, int mod, int level) {
     if (!factionBlockTakes("factiongather", mod, level)) return;
     static const char *const NONE[] = {"none"};
@@ -651,7 +610,6 @@ static void factiongatherLine(const char *args, int mod, int level) {
     factionBlock.draft.gatherAbility = (int)ability, factionBlock.draft.hasGather = 1;
 }
 
-// factiongateway <fuel> <ruin> <gate> <exit> ["<news>"] | none: the gateway its carriers restore.
 static void factiongatewayLine(const char *args, int mod, int level) {
     if (!factionBlockTakes("factiongateway", mod, level)) return;
     Faction *f = &factionBlock.draft;
@@ -681,7 +639,6 @@ static void factiongatewayLine(const char *args, int mod, int level) {
     snprintf(f->gatewayNews, sizeof f->gatewayNews, "%s", news);
 }
 
-// factionavoid "<faction>" <percent> | none: a faction whose armies its own step onto only at that chance.
 static void factionavoidLine(const char *args, int mod, int level) {
     if (!factionBlockTakes("factionavoid", mod, level)) return;
     Faction *f = &factionBlock.draft;
@@ -707,7 +664,6 @@ static void factionavoidLine(const char *args, int mod, int level) {
     f->avoidPercent[f->avoidCount++] = (int)percent;
 }
 
-// The optional terrain number and quoted plane at `p`: 1 read (terrain -1 and plane "" for each left out), 0 refused.
 static int readFactionTerrainPlane(const char *p, int *terrain, char *plane, size_t size) {
     while (*p == ' ' || *p == '\t') p++;
     long long code = -1;
@@ -724,7 +680,6 @@ static int readFactionTerrainPlane(const char *p, int *terrain, char *plane, siz
     return 1;
 }
 
-// factionunits "<monster>" <count> <chance> [terrain] ["<plane>"]: its own units on free squares, as planeunits'.
 static void factionunitsLine(const char *args, int mod, int level) {
     if (!factionBlockTakes("factionunits", mod, level)) return;
     Faction *f = &factionBlock.draft;
@@ -746,7 +701,6 @@ static void factionunitsLine(const char *args, int mod, int level) {
     f->units[f->unitCount++] = u;
 }
 
-// factionpopulateterrain <terrain> ["<plane>"]: the Independents' stock on that terrain becomes its own.
 static void factionpopulateterrainLine(const char *args, int mod, int level) {
     if (!factionBlockTakes("factionpopulateterrain", mod, level)) return;
     Faction *f = &factionBlock.draft;
@@ -769,7 +723,6 @@ static void factionhorrorsLine(const char *args, int mod, int level) {
     if (on >= 0) factionBlock.draft.horrors = on, factionBlock.draft.hasHorrors = 1;
 }
 
-// factioncaravan <turn> <chance> "<plane>" <terrain> ["<group>"] ["<news>"] | none: its caravan event.
 static void factioncaravanLine(const char *args, int mod, int level) {
     if (!factionBlockTakes("factioncaravan", mod, level)) return;
     Faction *f = &factionBlock.draft;
@@ -803,7 +756,6 @@ static void factioncaravanLine(const char *args, int mod, int level) {
     snprintf(f->caravanNews, sizeof f->caravanNews, "%s", news);
 }
 
-// factionmonumentevent <turn> <chance> "<plane>" <terrain> "<unfinished monster>" ["<news>"] | none: its founding.
 static void factionmonumenteventLine(const char *args, int mod, int level) {
     if (!factionBlockTakes("factionmonumentevent", mod, level)) return;
     Faction *f = &factionBlock.draft;
@@ -838,7 +790,6 @@ static void factionmonumenteventLine(const char *args, int mod, int level) {
 
 // ---- coe5.addFaction -----------------------------------------------------------------------------
 
-// One value of a field's table, and its kind.
 typedef struct {
     const char *key;
     int place;
@@ -861,7 +812,6 @@ static const AddFactionPart ADD_FACTION_TAKE[] = {{"terrain", 0, 'n'}, {"plane",
 
 #define ADD_FACTION_PARTS_OF(table) table, (int)(sizeof table / sizeof table[0])
 
-// coe5.addFaction's fields, each with its block word's handler, in the order the handlers read them.
 static const struct {
     const char *field;
     void (*line)(const char *args, int mod, int level);
@@ -900,7 +850,6 @@ static const struct {
 
 #define ADD_FACTION_LINE_SIZE 1024
 
-// Appends ` <value>` to `out`, the value at `index` read as `kind`; NULL, or the reason.
 static const char *addFactionValue(lua_State *L, int index, char kind, char *out, size_t size) {
     size_t used = strlen(out);
     int n;
@@ -918,7 +867,6 @@ static const char *addFactionValue(lua_State *L, int index, char kind, char *out
     return n < 0 || (size_t)n >= size - used ? "too_long" : NULL;
 }
 
-// Appends the values of the table at `index` (an absolute index), as `parts` reads them; NULL, or the reason.
 static const char *addFactionParts(lua_State *L, int index, const AddFactionPart *parts, int count, char *out, size_t size) {
     if (lua_type(L, index) != LUA_TTABLE) return "bad_field";
     const char *reason = NULL;
@@ -936,7 +884,6 @@ static const char *addFactionParts(lua_State *L, int index, const AddFactionPart
     return reason;
 }
 
-// Feeds the field at `index` to its word's handler as one line or more; NULL, or the reason it was refused before.
 static const char *feedAddFactionField(lua_State *L, int index, int field) {
     char line[ADD_FACTION_LINE_SIZE] = "";
     int kind = ADD_FACTION_FIELDS[field].kind, type = lua_type(L, index);
@@ -1015,7 +962,6 @@ static const char *feedAddFactionField(lua_State *L, int index, int field) {
     return NULL;
 }
 
-// Whether every key of the table at 1 is one of coe5.addFaction's fields; the first that isn't in `bad`.
 static int addFactionKeysKnown(lua_State *L, char *bad, size_t size) {
     lua_pushnil(L);
     while (lua_next(L, 1)) {
@@ -1035,7 +981,6 @@ static int addFactionKeysKnown(lua_State *L, char *bad, size_t size) {
     return 1;
 }
 
-// coe5.addFaction{name =, like =, ...}: declares a faction of the mod's, at script load; true, or false when refused.
 static int lAddFaction(lua_State *L) {
     luaL_checktype(L, 1, LUA_TTABLE);
     lua_settop(L, 1);
@@ -1084,14 +1029,12 @@ static int lAddFaction(lua_State *L) {
 }
 
 // ---- The line hook and the passes -----------------------------------------------------------------
-// Ends the open newfaction block at its file's end or another word's line; returns the line.
 static const char *factionWordLineHook(const char *line, size_t len, int mod, int level) {
     if (level != 2 || !factionBlock.open) return line;
     if (factionBlock.mod != mod || factionBlock.fileId != modFileNow() || !isFactionBlockWord(line, len)) finishFactionBlock();
     return line;
 }
 
-// Before a level-2 mod pass: the pass reads every block again.
 static void placeSavedFactions(void);
 static void factionWordsBeforePass(int level) {
     if (level != 2) return;
@@ -1101,7 +1044,6 @@ static void factionWordsBeforePass(int level) {
     placeSavedFactions();
 }
 
-// After a level-2 mod pass: the last block ends, and factions no block named again go.
 static void factionWordsAfterPass(int level) {
     if (level != 2) return;
     finishFactionBlock();
@@ -1117,7 +1059,6 @@ static void factionWordsAfterPass(int level) {
     factionCount = kept;
 }
 
-// Adds the words.
 static void factionWordsInit(void) {
     int words = apiAddModCommand("newfaction", newfactionLine) + apiAddModCommand("factionlike", factionlikeLine) +
                 apiAddModCommand("factioncolor", factioncolorLine) + apiAddModCommand("factionhome", factionhomeLine) +

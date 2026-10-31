@@ -1,12 +1,9 @@
-// Saves that name a mod no longer installed.
-
 #define SAVE_MODC_VERSION      1
 #define SAVE_MODH_VERSION      2
 #define MOD_ADDED_NO_CONTENT   1
 #define MOD_LINE_MAX           50000
 
 // ---- What each mod's files add ------------------------------------------------------------------
-// The first words of the lines a content-free mod may have.
 static const char *const CONTENT_FREE_WORDS[] = {
     "icon", "description", "coeversion", "modversion", "modprio", "requires",
     "needs_script_extender", "needs_coe5se", "needs_glu32.dll_and_CoE5SE_enabled_at_launch", "maxdata",
@@ -18,7 +15,6 @@ static int isContentFreeWord(const char *word) {
     return 0;
 }
 
-// Reads one line's first word into `word`.
 static int firstModWord(const char *line, char *word, size_t size) {
     int crLed = 0;
     for (; *line && strchr(" \t\r\n", *line); line++) crLed |= *line == '\r' || *line == '\n';
@@ -29,7 +25,6 @@ static int firstModWord(const char *line, char *word, size_t size) {
     return crLed && n;
 }
 
-// The content hash: FNV-1a 64 over the mod's content lines, normalized.
 static const char *const UNHASHED_WORDS[] = {"icon", "description", "needs_script_extender", "needs_coe5se", "needs_glu32.dll_and_CoE5SE_enabled_at_launch"};
 #define CONTENT_HASH_START  0xcbf29ce484222325ULL
 #define CONTENT_HASH_PRIME  0x100000001b3ULL
@@ -40,7 +35,6 @@ static int isUnhashedWord(const char *word) {
     return 0;
 }
 
-// Adds `line` to `hash`, normalized.
 static int hashContentLine(const char *line, u64 *hash) {
     u64 h = *hash;
     int quoted = 0, space = 0, kept = 0;
@@ -62,7 +56,6 @@ static int hashContentLine(const char *line, u64 *hash) {
     return 1;
 }
 
-// One reading of a mod's files: whether they add content, and the content hash.
 typedef struct { int settingsOpen, contentFree, longLine; u64 hash; } ModFileScan;
 
 static void scanModLine(const char *line, ModFileScan *scan) {
@@ -88,7 +81,6 @@ static void scanModLine(const char *line, ModFileScan *scan) {
     if (!isUnhashedWord(word)) hashContentLine(line, &scan->hash);
 }
 
-// Reads the file at `path` into `scan`.
 #define SCAN_SIDECAR  0
 #define SCAN_C5M      1
 #define SCAN_INCLUDED 2
@@ -123,7 +115,6 @@ static int scanModFile(int mod, const char *path, ModFileScan *scan, int kind) {
     return 1;
 }
 
-// Reads mod `mod`'s .c5m and .c5se.
 static int scanMod(int mod, ModFileScan *scan) {
     *scan = (ModFileScan){.contentFree = 1, .hash = CONTENT_HASH_START};
     char path[MAX_PATH];
@@ -139,7 +130,6 @@ static int scanMod(int mod, ModFileScan *scan) {
     return 1;
 }
 
-// What the last full pass read of each mod, by name.
 typedef struct { char name[MOD_NAME_MAX]; int contentFree, hashed; u64 hash; } ModContentNote;
 static ModContentNote *modContentNotes;
 static int modContentNoteCount, modContentNoteCapacity;
@@ -150,7 +140,6 @@ static ModContentNote *findModContentNote(const char *name) {
     return NULL;
 }
 
-// Notes what mod `mod` adds.
 static void noteModContent(int mod) {
     if (mod < 0 || mod > G32(RVA_MOD_LAST_INDEX)) return;
     ModContentNote *note = findModContentNote(modName(mod));
@@ -169,7 +158,6 @@ static void noteModContent(int mod) {
 }
 
 // ---- Writing ------------------------------------------------------------------------------------
-// Adds MODH: each enabled mod's content hash from the last full pass, for mods a pass read.
 static void addModHashChunk(SaveList *list) {
     SaveBuffer b = {0};
     int count = 0;
@@ -191,7 +179,6 @@ static void addModHashChunk(SaveList *list) {
     saveListAdd(list, SAVE_TAG_MODH, &b);
 }
 
-// Adds MODH, then MODC.
 static void addModContentChunk(SaveList *list) {
     addModHashChunk(list);
     SaveBuffer b = {0};
@@ -211,7 +198,6 @@ static void addModContentChunk(SaveList *list) {
 }
 
 // ---- Reading ------------------------------------------------------------------------------------
-// What a save's MODC chunk said.
 typedef struct { char name[SAVE_STRING_MAX + 1]; int flags; } SavedModEntry;
 typedef struct {
     const char *result;
@@ -225,7 +211,6 @@ static void freeSavedMods(SavedMods *saved) {
     *saved = (SavedMods){"none", NULL, 0};
 }
 
-// Reads a MODC payload (trailer included) into `saved`.
 static const char *readModContentPayload(const unsigned char *payload, int size, SavedMods *saved) {
     if (size < 16) return "bad";
     SaveCursor c = {payload, payload + size - 8, 0};
@@ -245,7 +230,6 @@ static const char *readModContentPayload(const unsigned char *payload, int size,
     return "found";
 }
 
-// Reads 4 bytes as an int with our own fread; 0 on a short read.
 static int readFileInt(FILE *f, int *value) {
     unsigned char le[4];
     *value = 0;
@@ -254,7 +238,6 @@ static int readFileInt(FILE *f, int *value) {
     return 1;
 }
 
-// What a save's MODH chunk said: the content hash of each mod it names.
 typedef struct { char name[SAVE_STRING_MAX + 1]; u64 hash; } SavedModHash;
 typedef struct {
     const char *result;
@@ -268,14 +251,12 @@ static void freeSavedModHashes(SavedModHashes *saved) {
     *saved = (SavedModHashes){"none", NULL, 0};
 }
 
-// The saved content hash of mod `name`, or NULL when the save has none for it.
 static const SavedModHash *findSavedModHash(const char *name) {
     for (int i = 0; i < savedModHashes.count; i++)
         if (!strcmp(savedModHashes.mods[i].name, name)) return &savedModHashes.mods[i];
     return NULL;
 }
 
-// Reads a MODH payload (trailer included) into `saved`.
 static const char *readModHashPayload(const unsigned char *payload, int size, SavedModHashes *saved) {
     if (size < 16) return "bad";
     SaveCursor c = {payload, payload + size - 8, 0};
@@ -296,7 +277,6 @@ static const char *readModHashPayload(const unsigned char *payload, int size, Sa
     return "found";
 }
 
-// Reads the chunk tagged `tag` whose payload ends at offset `end` of `f`.
 static unsigned char *readTrailedChunk(FILE *f, long end, int tag, int *size, const char **result) {
     int trailerSize, trailerTag, headTag, headSize;
     *result = "none";
@@ -318,7 +298,6 @@ static unsigned char *readTrailedChunk(FILE *f, long end, int tag, int *size, co
     return payload;
 }
 
-// Reads MODC and MODH from the end of the save at `path`.
 static const char *readSavedModContent(const char *path, SavedMods *saved, SavedModHashes *hashes) {
     freeSavedMods(saved);
     freeSavedModHashes(hashes);
@@ -348,16 +327,13 @@ static const char *readSavedModContent(const char *path, SavedMods *saved, Saved
 }
 
 // ---- Saves whose mods are all content-free ------------------------------------------------------
-// Which hooks this launch has.
 static int loadGameOpenHooked, modListEndHooked, saveModListHooked;
 
-// The player's on or off state of each mod when a load opened its save.
 static struct {
     unsigned char *enabled;
     int count, capacity, noted;
 } playerModStates;
 
-// Notes every mod's state.
 static void notePlayerModStates(void) {
     int count = G32(RVA_MOD_LAST_INDEX) + 1;
     playerModStates.noted = 0;
@@ -370,7 +346,6 @@ static void notePlayerModStates(void) {
     playerModStates.noted = 1;
 }
 
-// At the end of a load's mod list: gives content-free mods the player's state back.
 static int keepPlayerModStates(void) {
     if (!playerModStates.noted) {
         writeLog("player_mod_states_not_kept", "reason=not_noted");
@@ -391,10 +366,8 @@ static int keepPlayerModStates(void) {
     return kept;
 }
 
-// This save_game's choice: 1 when the game's list leaves every mod out.
 static int modListLeftOut;
 
-// Whether the save being written leaves its mods out of the game's list.
 static int chooseModListLeftOut(void) {
     const char *reason = "all_content_free", *mod = "-";
     int enabled = 0;
@@ -414,7 +387,6 @@ static int chooseModListLeftOut(void) {
     return leftOut;
 }
 
-// save_game's write of an enabled mod's name.
 typedef void (*WriteModNameFn)(const char *name, void *file);
 static void writeSavedModName(const char *name, void *file, WriteModNameFn writeName) {
     ptrdiff_t offset = name - (const char *)(gameBase + RVA_MOD_NAMES);
@@ -429,20 +401,17 @@ static void writeSavedModName(const char *name, void *file, WriteModNameFn write
     if (!modListLeftOut) writeName(name, file);
 }
 
-// save_game's fwrite of that mod's checksum, right after its name: skipped with the name.
 static UNUSED size_t writeSavedModChecksum(const void *checksum, size_t size, size_t count, FILE *file) {
     return modListLeftOut ? count : fwrite(checksum, size, count, file);
 }
 
 // ---- The load -----------------------------------------------------------------------------------
-// The index of the mod record named exactly `name`, or -1.
 static int modIndexExact(const char *name) {
     for (int m = 0; m <= G32(RVA_MOD_LAST_INDEX); m++)
         if (!strcmp(modName(m), name)) return m;
     return -1;
 }
 
-// Whether load_game may go on without the mod the save names `name`.
 static int isSkippableMissingMod(const char *name) {
     if (!name[0] || modIndexExact(name) >= 0) return 0;
     const SavedModEntry *entry = NULL;
@@ -460,7 +429,6 @@ static int isSkippableMissingMod(const char *name) {
 static void readLoadedSavePlanes(const char *path);
 static void readLoadedSaveFactions(const char *path);
 
-// The save's fopen in load_game.
 static void *openLoadedSave(const char *path, void *file) {
     playerModStates.noted = 0;
     if (file) {
@@ -474,7 +442,6 @@ static void *openLoadedSave(const char *path, void *file) {
     return file;
 }
 
-// load_game's fread of a mod's checksum.
 #ifdef __APPLE__
 #define SAVED_MOD_NAME_AFTER_CRC LOAD_GAME_MOD_NAME_AFTER_CRC
 #else
@@ -517,7 +484,6 @@ static int installMissingModsHooks(int *wanted) {
                                              (void *)readSavedModChecksumHook, "load_game_mod_checksum", NULL);
 }
 
-// save_game's write_string(record name, file) and fwrite of the checksum for each enabled mod.
 static void writeSavedModNameHook(const char *name, void *file) {
     writeSavedModName(name, file, GAME_FN(WriteModNameFn, RVA_WRITE_STRING));
 }
@@ -526,7 +492,6 @@ static size_t writeSavedModChecksumHook(const void *checksum, size_t size, size_
     return modListLeftOut ? count : GAME_FN(size_t (*)(const void *, size_t, size_t, void *), RVA_FWRITE)(checksum, size, count, file);
 }
 
-// Hooks one writer's name and checksum writes.
 static int hookSavedModListWrites(unsigned int checksumRva, unsigned int nameRva, unsigned char *stubs, const char *checksumName,
                                   const char *nameName) {
     if (!redirectCall(checksumRva, RVA_FWRITE, stubs, (void *)writeSavedModChecksumHook, checksumName, NULL))
@@ -537,7 +502,6 @@ static int hookSavedModListWrites(unsigned int checksumRva, unsigned int nameRva
 }
 
 #define SAVE_MOD_LIST_HOOKS 4
-// save_game's list, and the server's.
 static int installSaveModListHooks(void) {
     unsigned char *stubs = allocNear(gameBase + RVA_TEXT_SECTION);
     if (!stubs) {
@@ -559,7 +523,6 @@ static size_t readSavedModChecksumHook(void *checksum, size_t size, size_t count
     return readSavedModChecksum(checksum, size, count, file, freadSavedMod);
 }
 
-// Points the `bl` at `callRva` at `hook` through a trampoline.
 static int pointMissingModsCall(unsigned int callRva, unsigned int targetRva, void *hook, const char *name) {
     if (blTarget(gameBase + callRva) != gameBase + targetRva) {
         writeLog("hook_skipped", "site=%s reason=not_the_expected_call va=0x%llx", name, callRva + 0x100000000ULL);
@@ -579,7 +542,6 @@ static int installMissingModsHooks(int *wanted) {
            pointMissingModsCall(RVA_LOAD_GAME_MOD_CRC_READ, RVA_FREAD, (void *)readSavedModChecksumHook, "load_game_mod_checksum");
 }
 
-// save_game's write_string(record, file) for each enabled mod.
 static void writeSavedModNameHook(const char *name, void *file) {
     writeSavedModName(name, file, GAME_FN(WriteModNameFn, RVA_WRITE_STRING));
 }
@@ -595,7 +557,6 @@ static int installSaveModListHooks(void) {
 }
 #endif
 
-// Installs the load hooks and save_game's.
 static void missingModsInit(void) {
     int wanted = 0, ok = installMissingModsHooks(&wanted);
     writeLog("missing_mods_hooks_installed", "ok=%d of %d", ok, wanted);

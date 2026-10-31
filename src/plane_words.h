@@ -1,4 +1,3 @@
-// Mods' planes from .c5se words: the newplane block, planeshape, and plane names in the game's plane words.
 #pragma once
 
 #define NEWPLANE_WORD          "newplane"
@@ -13,7 +12,6 @@ static void notePlaneName(const char *name, const char *mod);
 static void noteRefusedPlane(const char *name, const char *mod);
 
 // ---- Reading the words ----------------------------------------------------------------------------
-// Reads a terrain by number or quoted name; -1, with *why set, when there is none.
 static int readPlaneTerrain(const char **p, const char **why) {
     skipSpaces(p);
     if (**p == '"') {
@@ -37,7 +35,6 @@ static int readPlaneTerrain(const char **p, const char **why) {
     return (int)n;
 }
 
-// Finds planefile `spec` in the mod's folder (findModFile; "x.coem" is read as "./x.coem").
 static const char *findPlaneFile(int mod, const char *spec, char *path, size_t size) {
     static const char *const ENDINGS[2] = {".coem", ".coem"};
     static const char *const REASONS[4] = {"bad_file", "file_not_found", "file_wrong_case", "file_link"};
@@ -46,7 +43,6 @@ static const char *findPlaneFile(int mod, const char *spec, char *path, size_t s
     return findModFile(modFolder(mod), dotted, ENDINGS, REASONS, path, size);
 }
 
-// The first `mapsize <w> <h>` line of map file `path`: 1 and the size, or 0.
 static int planeFileMapsize(const char *path, int *w, int *h) {
     FILE *f = fopen(path, "rb");
     if (!f) return 0;
@@ -80,7 +76,6 @@ static struct {
     int zoneOpen;
 } planeBlock;
 
-// The block words, which a newplane block takes; any other word ends it.
 static const char *const PLANE_BLOCK_WORDS[] = {
     "planesize", "planefill", "planelike", "planepopulate", "planeswap", "planeicon", "planefile",
     "planepiece", "planezone", "planezoneswap", "planezoneunits", "planezonepopulate", "planeunits",
@@ -103,7 +98,6 @@ static int isPlaneBlockWord(const char *line, size_t len) {
     return 0;
 }
 
-// Refuses a block word's line: logged with its line number.
 static PRINTF_FORMAT(4, 5) void refusePlaneLine(const char *word, int mod, const char *reason, const char *fmt, ...) {
     char details[300];
     va_list ap;
@@ -113,7 +107,6 @@ static PRINTF_FORMAT(4, 5) void refusePlaneLine(const char *word, int mod, const
     refuseC5mLine(word, spellModName(mod), reason, "line=%d %s", G32(RVA_MOD_LINE), details);
 }
 
-// Whether a block word's line applies: level 2, inside an open block that wasn't refused.
 static int planeBlockTakes(const char *word, int mod, int level) {
     if (level != 2) return 0;
     if (!planeBlock.open || planeBlock.mod != mod) {
@@ -123,7 +116,6 @@ static int planeBlockTakes(const char *word, int mod, int level) {
     return !planeBlock.refused;
 }
 
-// newplane "<name>": opens a plane's block, and ends the game's blocks and the one before.
 static void newplaneLine(const char *args, int mod, int level) {
     if (level != 2) return;
     finishSpellBlock();
@@ -170,7 +162,6 @@ static void planefillLine(const char *args, int mod, int level) {
     planeBlock.fill = terrain, planeBlock.hasFill = 1;
 }
 
-// Reads a vanilla plane's name into *plane: 1, or 0 having refused the line.
 static int readVanillaPlane(const char *word, const char *args, int mod, int *plane) {
     const char *p = args;
     char name[PLANE_NAME_SIZE + 2];
@@ -205,7 +196,6 @@ static void planepopulateLine(const char *args, int mod, int level) {
     planeBlock.populate = populate, planeBlock.populateSet = 1;
 }
 
-// planeswap <vanilla terrain> <terrain> inside a block (planeWordLineHook takes it before the game's word).
 static void planeswapBlockLine(const char *args, int mod) {
     if (planeBlock.refused) return;
     const char *p = args, *why = NULL;
@@ -250,7 +240,6 @@ static void planefileLine(const char *args, int mod, int level) {
     }
 }
 
-// Ends the open block: declares its plane through declareCustomPlane, or refuses the block.
 static void finishPlaneBlock(void) {
     if (!planeBlock.open) return;
     planeBlock.open = 0;
@@ -287,7 +276,6 @@ static void finishPlaneBlock(void) {
              p->swapCount, hasFile ? p->file : "-", p->layout.pieceCount, p->layout.zoneCount, p->layout.units.count);
 }
 
-// planeshape "<plane>" "<monster>": the current monster's shape on a mod's plane ("" for none).
 static void planeshapeLine(const char *args, int mod, int level) {
     if (level != 2) return;
     int monster = G32(RVA_MONSTER_CURRENT);
@@ -313,7 +301,6 @@ static void planeshapeLine(const char *args, int mod, int level) {
 // ---- Plane names in the game's plane words ----------------------------------------------------------
 enum { PLANE_REF_RITUAL, PLANE_REF_CLASS };
 
-// The game's words outside events whose first number is a plane: a ritual's effect, or the class's startplane.
 static const struct { const char *word; int kind, id; } PLANE_NUMBER_WORDS[] = {
     {"planereq", PLANE_REF_RITUAL, RITUAL_FX_PLANEREQ},     {"noplanereq", PLANE_REF_RITUAL, RITUAL_FX_NOPLANEREQ},
     {"setplane", PLANE_REF_RITUAL, RITUAL_FX_SETPLANE},     {"planeloc", PLANE_REF_RITUAL, RITUAL_FX_PLANELOC},
@@ -321,12 +308,10 @@ static const struct { const char *word; int kind, id; } PLANE_NUMBER_WORDS[] = {
     {"startplane", PLANE_REF_CLASS, CLASS_ABILITY_STARTPLANE},
 };
 
-// The game's event words with a plane number, and which number it is (from 0).
 static const struct { const char *word; int arg; } PLANE_EVENT_WORDS[] = {
     {"+plane", 0}, {"-plane", 0}, {"randloc", 0}, {"+minterrains", 2}, {"-minterrains", 2}, {"+minunits", 2}, {"-minunits", 2},
 };
 
-// A plane name read on a pass, and where its number went: a ritual's effect or a class's startplane pair.
 typedef struct {
     int kind, record, id;
     int slot;
@@ -339,7 +324,6 @@ static int planeRefCount, planeRefCapacity;
 static char planeNameLine[PLANE_LINE_MAX];
 static char planeEventLine[PLANE_LINE_MAX];
 
-// The index plane `name` has in this world: a vanilla plane's, or a mod's that this world holds; else -1.
 static int planeIndexNamed(const char *name) {
     int vanilla = vanillaPlaneNamed(name);
     if (vanilla >= 0) return vanilla;
@@ -347,14 +331,12 @@ static int planeIndexNamed(const char *name) {
     return p && !p->skipped && p->index > PLANE_ELYSIUM2 && p->index <= PLANE_INDEX_LAST_MOVED ? p->index : -1;
 }
 
-// Whether this world's planes have their indices: a world built, or a save with mods' planes loaded.
 static int planeIndicesKnown(void) {
     for (int i = 0; i < customPlaneCount; i++)
         if (customPlanes[i].index >= 0) return 1;
     return 0;
 }
 
-// Writes `number` in place of the quoted name at `at` in `line` (`len` bytes of word first), into out.
 static int putPlaneNumber(const char *line, const char *at, const char *rest, long long number, char *out, const char *word, const char *mod) {
     int n = snprintf(out, PLANE_LINE_MAX, "%.*s%lld%s", (int)(at - line), line, number, rest);
     if (n >= 0 && n < PLANE_LINE_MAX) return 1;
@@ -362,7 +344,6 @@ static int putPlaneNumber(const char *line, const char *at, const char *rest, lo
     return 0;
 }
 
-// A ritual's or class's plane word with a quoted name; NULL when refused.
 static const char *planeNumberWordLine(const char *line, size_t len, const char *args, int mod, int kind, int id) {
     char word[16], name[PLANE_NAME_SIZE + 2];
     snprintf(word, sizeof word, "%.*s", (int)(len < sizeof word ? len : sizeof word - 1), line);
@@ -388,16 +369,13 @@ static const char *planeNumberWordLine(const char *line, size_t len, const char 
     return putPlaneNumber(line, args, rest, number, planeNameLine, word, spellModName(mod)) ? planeNameLine : NULL;
 }
 
-// The effect at `slot` of ritual `record`: its int id, then its int64 value at RITUAL_FX_VALUE.
 static unsigned char *ritualEffectAt(int record, int slot) {
     return GAME_PTR(ritualTableRva()) + (size_t)record * RITUAL_SIZE + RITUAL_FX + (size_t)slot * RITUAL_FX_SIZE;
 }
-// The ability pair at `slot` of class `record`.
 static int *classAbilityPairAt(int record, int slot) {
     return (int *)(tableAddress(TABLE_CLASS) + (size_t)record * CLASS_SIZE + CLASS_ABILITIES) + 2 * slot;
 }
 
-// Finds where each reference of the pass landed: the effect or pair holding its placeholder.
 static void findPlaneRefSlots(void) {
     for (int i = 0; i < planeRefCount; i++) {
         PlaneNameRef *r = &planeRefs[i];
@@ -424,7 +402,6 @@ static void findPlaneRefSlots(void) {
     }
 }
 
-// Writes each reference's plane number for this world's indices.
 static void resolvePlaneNames(int planesKnown) {
     int resolved = 0, missing = 0;
     for (int i = 0; i < planeRefCount; i++) {
@@ -453,7 +430,6 @@ static void resolvePlaneNames(int planesKnown) {
     if (planeRefCount) writeLog("plane_names_resolved", "names=%d resolved=%d not_in_world=%d planes_known=%d", planeRefCount, resolved, missing, planesKnown);
 }
 
-// An event line with a quoted plane name: the line with the plane's index, or NULL when it fails the event.
 static const char *planeNameEventLine(const char *line, int level, const char *mod) {
     if (line[0] != '+' && line[0] != '-' && line[0] != 'r') return line;
     size_t len = strcspn(line, " \t");
@@ -487,7 +463,6 @@ static const char *planeNameEventLine(const char *line, int level, const char *m
 }
 
 // ---- The missing plane pop-up -------------------------------------------------------------------------
-// The plane names mods used, for the missing plane pop-up.
 #define MISSING_PLANE_ENTRIES 6
 typedef struct {
     char name[PLANE_NAME_SIZE], mod[MOD_NAME_MAX];
@@ -498,7 +473,6 @@ typedef struct {
 static NamedPlane *namedPlanes;
 static int namedPlaneCount, namedPlaneCapacity;
 
-// Adds plane `name`, used by mod `mod` at `line` of `file`, to the list: once per mod, its first use.
 static void notePlaneNameAt(const char *name, const char *mod, const char *file, int line, int script) {
     if (!name[0] || !mod[0] || vanillaPlaneNamed(name) >= 0) return;
     for (int i = 0; i < namedPlaneCount; i++)
@@ -513,12 +487,10 @@ static void notePlaneNameAt(const char *name, const char *mod, const char *file,
     p->line = line, p->script = script;
 }
 
-// The same for the line the game is reading now: its file (RVA_EVENT_FILE) and line (RVA_MOD_LINE).
 static void notePlaneName(const char *name, const char *mod) {
     notePlaneNameAt(name, mod, (const char *)GAME_PTR(RVA_EVENT_FILE), G32(RVA_MOD_LINE), 0);
 }
 
-// The scripts' coe5.setPlaneShape planes join the list, with each script's mod, file and line.
 static void noteScriptPlaneNames(void) {
     for (int i = 0; i < planeShapeDeclarationCount; i++) {
         const PlaneShapeDeclaration *d = &planeShapeDeclarations[i];
@@ -531,7 +503,6 @@ static void noteScriptPlaneNames(void) {
     }
 }
 
-// The newplane blocks the latest pass refused, by name.
 typedef struct {
     char name[PLANE_NAME_SIZE], mod[MOD_NAME_MAX];
 } RefusedPlane;
@@ -549,19 +520,16 @@ static void noteRefusedPlane(const char *name, const char *mod) {
     refusedPlaneCount++;
 }
 
-// The mod whose newplane block of that name was refused on the latest pass, or NULL.
 static const char *refusedPlaneMod(const char *name) {
     for (int i = 0; i < refusedPlaneCount; i++)
         if (!strcmp(refusedPlanes[i].name, name)) return refusedPlanes[i].mod;
     return NULL;
 }
 
-// Whether no game plane and no declared plane has the name.
 static int isPlaneNameMissing(const char *name) {
     return vanillaPlaneNamed(name) < 0 && !findCustomPlane(name);
 }
 
-// The missing plane pop-up's text; *missing gets the count of entries.
 static size_t missingPlanesText(char *text, size_t size, int *missing) {
     size_t n = 0;
     int count = 0;
@@ -580,7 +548,6 @@ static size_t missingPlanesText(char *text, size_t size, int *missing) {
     return n;
 }
 
-// The pop-up, between main menu frames, once for each new set of missing planes (as popupRitualsLeftOut).
 static void popupMissingPlanes(void) {
     static unsigned int shownHash;
     static char text[POPUP_TEXT_SIZE];
@@ -606,7 +573,6 @@ static void popupMissingPlanes(void) {
 }
 
 // ---- The line hook and the passes -----------------------------------------------------------------
-// Every .c5m and .c5se line outside events comes here after nameListLineHook (modCommandHook).
 static const char *planeWordLineHook(const char *line, size_t len, int mod, int level) {
     if (level != 2) return line;
     if (planeBlock.open && (planeBlock.mod != mod || planeBlock.fileId != modFileNow())) finishPlaneBlock();
@@ -626,7 +592,6 @@ static const char *planeWordLineHook(const char *line, size_t len, int mod, int 
     return line;
 }
 
-// The same when no plugin loaded; returns 1 to skip the line.
 static int declinedPlaneLine(const char *line, size_t len, int mod, int level) {
     static int inBlock, blockMod, blockLevel;
     if (mod != blockMod || level != blockLevel) inBlock = 0;
@@ -642,7 +607,6 @@ static int declinedPlaneLine(const char *line, size_t len, int mod, int level) {
     return 0;
 }
 
-// An event line with a quoted plane name, for declinedEventLineHook: 1 to skip it.
 static int declinedPlaneEventLine(const char *line) {
     size_t len = strcspn(line, " \t");
     for (size_t i = 0; i < sizeof PLANE_EVENT_WORDS / sizeof PLANE_EVENT_WORDS[0]; i++)
@@ -650,7 +614,6 @@ static int declinedPlaneEventLine(const char *line) {
     return 0;
 }
 
-// Before a level-2 mod pass: the pass reads every block, planeshape and plane name again.
 static void planeWordsBeforePass(int level) {
     if (level != 2) return;
     finishPlaneBlock();
@@ -662,7 +625,6 @@ static void planeWordsBeforePass(int level) {
     dropPassPlaneProblems();
 }
 
-// After a level-2 mod pass: ends the last block, drops planes not named again, numbers plane names.
 static void planeWordsAfterPass(int level) {
     if (level != 2) return;
     finishPlaneBlock();
@@ -687,7 +649,6 @@ static void planeWordsAfterPass(int level) {
 }
 
 // ---- planefile: a plane's squares from a map file ---------------------------------------------------
-// The game's map reader reads the file into the placed plane; only square words pass.
 static const char *const PLANE_FILE_WORDS[] = {"terrainrow", "groundrow", "temprow", "squarename", "squarespec", "portal"};
 
 static struct {
@@ -706,7 +667,6 @@ static void passMapLine(const char *line, int decorate, const char *name, int pl
     else GAME_FN(MapLineFn, RVA_MAP_LINE)(line, decorate, name, plane);
 }
 
-// A square word's line with its y moved down by `shift`, into `out`; NULL when out of range.
 static const char *shiftMapLineY(const char *p, size_t len, int arg, int shift, int rows, char *out, size_t size) {
     const char *at = p + len;
     for (int n = 0; n < arg; n++) {
@@ -761,7 +721,6 @@ static void planeFileLineHook(const char *line, int decorate, const char *name, 
     refuseC5mLine(planeFileLoad.rows ? "planepiece" : "planefile", planeFileLoad.p->mod, "map_word_left_out", "plane=%s word=%s", planeFileLoad.p->name, word);
 }
 
-// Installs the hook on the map reader's line call, once; 1 when it is in.
 static int planeFileHookState;
 static int installPlaneFileHook(void) {
     if (!planeFileHookState)
@@ -769,7 +728,6 @@ static int installPlaneFileHook(void) {
     return planeFileHookState > 0;
 }
 
-// Copies the w x h squares at (x, y) to or from `buffer`, a column at a time.
 static void copyPlaneSquares(int x, int y, int w, int h, unsigned char *buffer, int toBuffer) {
     size_t column = (size_t)h * SQUARE_SIZE;
     for (int c = 0; c < w; c++) {
@@ -779,7 +737,6 @@ static void copyPlaneSquares(int x, int y, int w, int h, unsigned char *buffer, 
     }
 }
 
-// Reads map file `path` through the game's map reader into record `index`'s rectangle.
 static void readMapFileThroughGame(const CustomPlane *p, const char *path, int index, int yShift, int rows) {
     unsigned char hasPlane[PLANE_RECORDS_GAME];
     memcpy(hasPlane, GAME_PTR(RVA_MAP_FILE_HAS_PLANE), sizeof hasPlane);
@@ -793,7 +750,6 @@ static void readMapFileThroughGame(const CustomPlane *p, const char *path, int i
     G32(RVA_MAP_FILE_PLANE) = filePlane, G32(RVA_MAP_VERSION) = version, G32(RVA_MAP_PLANE_INDEX) = planeIndex;
 }
 
-// Sets the cold flag of each square of the rectangle from its temperature.
 static void setColdFlagsFromTemperatures(int x0, int y0, int w, int h) {
     for (int x = x0; x < x0 + w; x++)
         for (int y = y0; y < y0 + h; y++) {
@@ -804,7 +760,6 @@ static void setColdFlagsFromTemperatures(int x0, int y0, int w, int h) {
         }
 }
 
-// Loads plane p's planefile over its fill, then sets its cold squares from the file's temperatures.
 static void loadCustomPlaneFile(const CustomPlane *p) {
     int x0 = planeField(p->index, PLANE_X), y0 = planeField(p->index, PLANE_Y);
     if (!installPlaneFileHook()) {
@@ -837,7 +792,6 @@ static void loadCustomPlaneFile(const CustomPlane *p) {
 }
 
 // ---- The recipes' script state ----------------------------------------------------------------------
-// A newplane block's recipe runs in a script state CoE5SE makes for the block's mod.
 static LuaScript *wordPlaneScripts[CUSTOM_PLANE_TARGET];
 
 static LuaScript *wordPlaneScript(const CustomPlane *p) {
@@ -859,7 +813,6 @@ static LuaScript *wordPlaneScript(const CustomPlane *p) {
     return s;
 }
 
-// Adds the words.
 static void planeWordsInit(void) {
     int words = apiAddModCommand("newplane", newplaneLine) + apiAddModCommand("planesize", planesizeLine) +
                 apiAddModCommand("planefill", planefillLine) + apiAddModCommand("planelike", planelikeLine) +

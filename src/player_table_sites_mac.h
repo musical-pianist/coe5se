@@ -1,4 +1,3 @@
-// Every ADRP in coe5_mac that builds an address in the game's per-player tables, home_y's rebased uses, and every slot bound.
 #pragma once
 
 enum { PLAYER_GROUP_BLOCKS, PLAYER_GROUP_HOMES, PLAYER_GROUP_CONTROLLER, PLAYER_GROUP_CLASS, PLAYER_GROUP_COLOURS, PLAYER_GROUP_PLANE_SEEN, PLAYER_GROUP_COUNT };
@@ -2285,7 +2284,6 @@ static const PlayerMacSite PLAYER_MAC_SITES[PLAYER_MAC_SITE_COUNT] = {
     {MAC(0x100586170), PLAYER_GROUP_PLANE_SEEN},
 };
 
-// A use of home_y whose offset moves 0x40 further: add step to the word's imm12 (0x40 over the access size).
 typedef struct { unsigned int rva; unsigned char step; } PlayerMacRebase;
 #define PLAYER_MAC_REBASE_COUNT 99
 static const PlayerMacRebase PLAYER_MAC_REBASES[PLAYER_MAC_REBASE_COUNT] = {
@@ -2390,7 +2388,6 @@ static const PlayerMacRebase PLAYER_MAC_REBASES[PLAYER_MAC_REBASE_COUNT] = {
     {MAC(0x10058c684), 32},
 };
 
-// A slot bound: the cmp's imm12, 31 or 32 in the game.
 typedef struct { unsigned int rva; unsigned short game; } PlayerMacBound;
 #define PLAYER_MAC_BOUND_COUNT 524
 static const PlayerMacBound PLAYER_MAC_BOUNDS[PLAYER_MAC_BOUND_COUNT] = {

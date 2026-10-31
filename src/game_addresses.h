@@ -145,6 +145,9 @@
 #define RVA_SPRITE_FILES                       ADDR(        0x5ea8420,         0x1062a5800)
 #define RVA_SPRITE_REPLACED                    ADDR(        0x57f2f80,         0x1062a5930)
 #define RVA_REPLACED_SPRITE                    ADDR(        0x064c20,          MAC_INLINED)
+#define RVA_LOAD_SPRITE_FSA_EXIT               ADDR(        0x064727,          0x10034f4ec)
+#define RVA_RESET_MODS_SPRITE_WIPE             ADDR(        0x1cafb8,          0x100529154)
+#define RVA_CLEAR_REPLACED_SPRITES             ADDR(        0x063620,          MAC_NOT_FOUND)
 #define RVA_SPRITE_WIDTHS                      ADDR(        0x5c0eed0,         0x1062a6424)
 #define RVA_SPRITE_HEIGHTS                     ADDR(        0x5ea8550,         0x106504ff4)
 #define RVA_TOKEN_ITEM_ICON_CALL               ADDR(        0x0ff177,          0x10057ebac)
@@ -433,7 +436,7 @@
 #define RVA_ARMY_ABILITY_TOTAL                 ADDR(        0x12c120,          0x10046915c)
 #define RVA_AI_PROGRESS_DRAW                   ADDR(        0x07df90,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_COUNT_CITADELS                  ADDR(        0x077330,          0x1004d30a4)
-#define RVA_AI_CITADEL_COUNT                   ADDR(        0x59eac7c,         MAC_NOT_LOOKED_UP)
+#define RVA_AI_CITADEL_COUNT                   ADDR(        0x59eac7c,         MAC_IN_CODE)
 #define RVA_AI_ATTACK_DIV_OTHER                ADDR(        0x1aa7c64,         0x105a0aeac)
 #define RVA_AI_ATTACK_DIV_AI                   ADDR(        0x1aa6664,         0x105a0aeb0)
 #define RVA_AI_ATTACK_DIV_HUMAN                ADDR(        0x1aa634c,         0x105a0aeb4)
@@ -442,15 +445,15 @@
 #define RVA_AI_SET_ATTACK_DIVS_COPY            ADDR(        0x06fc20,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_STRONGEST_ENEMY                 ADDR(        WIN_NOT_FOUND,     MAC_NOT_LOOKED_UP)
 #define RVA_AI_STRONGEST_ENEMY_SCAN            ADDR(        0x07c5e0,          MAC_NOT_LOOKED_UP)
-#define RVA_AI_WANTS_HANDS                     ADDR(        0x5802f58,         MAC_NOT_LOOKED_UP)
-#define RVA_AI_WANTS_HERBS                     ADDR(        0x5802f64,         MAC_NOT_LOOKED_UP)
-#define RVA_AI_WANTS_FUNGUS                    ADDR(        0x580335c,         MAC_NOT_LOOKED_UP)
-#define RVA_AI_WANTS_SACRIFICES                ADDR(        0x5802f5c,         MAC_NOT_LOOKED_UP)
-#define RVA_AI_WANTS_WEED                      ADDR(        0x5803358,         MAC_NOT_LOOKED_UP)
-#define RVA_AI_WANTS_GEMS                      ADDR(        0x5802f54,         MAC_NOT_LOOKED_UP)
-#define RVA_AI_IRON_FLAG                       ADDR(        0x5802f68,         MAC_NOT_LOOKED_UP)
-#define RVA_AI_WANTS_LIFEFORCE                 ADDR(        0x5802f6c,         MAC_NOT_LOOKED_UP)
-#define RVA_AI_SAVE_RESOURCE                   ADDR(        0x6128620,         MAC_NOT_LOOKED_UP)
+#define RVA_AI_WANTS_HANDS                     ADDR(        0x5802f58,         0x10857c568)
+#define RVA_AI_WANTS_HERBS                     ADDR(        0x5802f64,         0x10857c55c)
+#define RVA_AI_WANTS_FUNGUS                    ADDR(        0x580335c,         0x10857c558)
+#define RVA_AI_WANTS_SACRIFICES                ADDR(        0x5802f5c,         0x10857c560)
+#define RVA_AI_WANTS_WEED                      ADDR(        0x5803358,         0x10857c56c)
+#define RVA_AI_WANTS_GEMS                      ADDR(        0x5802f54,         0x10857c574)
+#define RVA_AI_IRON_FLAG                       ADDR_DIFFERS(0x5802f68,         0x10857c564)
+#define RVA_AI_WANTS_LIFEFORCE                 ADDR(        0x5802f6c,         0x10857c570)
+#define RVA_AI_SAVE_RESOURCE                   ADDR(        0x6128620,         0x10857c58c)
 #define RVA_AI_UPDATE_STRENGTH_MEMORY          ADDR(        0x06d870,          0x1004e4204)
 #define RVA_AI_STRENGTH_MEMORY_CALL            ADDR(        0x06fb32,          0x1004e38c0)
 #define RVA_AI_STRENGTH_MEMORY_CALL_2          ADDR(        0x06fb47,          0x1004e3ba0)
@@ -549,7 +552,7 @@
 #define RVA_AI_COMMANDER_BOAT_PLACES           ADDR(        0x072cc0,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_SPEC_MESSAGES_OFF               ADDR(        0x07ab42,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_GATEWAY_CALL                    ADDR(        0x07acde,          MAC_NOT_LOOKED_UP)
-#define RVA_AI_ITEM_USE_RATING                 ADDR(        0x183e80,          MAC_NOT_LOOKED_UP)
+#define RVA_AI_ITEM_USE_RATING                 ADDR(        0x183e80,          0x1004e84dc)
 #define MONSTER_ABILITY_AIHOLD                 0x34
 #define MONSTER_ABILITY_AIPOWCOM1              0x66
 #define MONSTER_ABILITY_AIMAXSHOP              0x90
@@ -561,12 +564,12 @@
 #define RVA_AI_TRADE_CHOICE                    ADDR(        0x0700f0,          MAC_NOT_LOOKED_UP)
 #define RVA_TRADE_INCOME_APPLY                 ADDR(        0x149790,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_PLAN_SQUARE_BONUS               ADDR(        0x0771c0,          MAC_NOT_LOOKED_UP)
-#define RVA_AI_ITEM_VALUE                      ADDR(        0x073900,          MAC_NOT_LOOKED_UP)
+#define RVA_AI_ITEM_VALUE                      ADDR(        0x073900,          0x1004d40f0)
 #define RVA_AI_REDISTRIBUTE_ITEMS              ADDR(        0x0735a0,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_SHIPS                           ADDR(        0x071750,          MAC_NOT_LOOKED_UP)
-#define RVA_AI_RITUAL_AI_BAD                   ADDR(        0x06d070,          MAC_NOT_LOOKED_UP)
+#define RVA_AI_RITUAL_AI_BAD                   ADDR(        0x06d070,          0x1004df84c)
 #define RVA_AI_RITUAL_TARGET                   ADDR(        0x06c4f0,          MAC_NOT_LOOKED_UP)
-#define RVA_AI_RITUAL_BAD_TIME                 ADDR(        0x06d290,          MAC_NOT_LOOKED_UP)
+#define RVA_AI_RITUAL_BAD_TIME                 ADDR(        0x06d290,          0x1004df248)
 #define RVA_AI_EXPLORE_TERRAIN_SKIP            ADDR(        0x075290,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_TARGET_IMPOSSIBLE               ADDR(        0x07cf40,          MAC_NOT_LOOKED_UP)
 #define RVA_PLAYER_ARMY_STRENGTH               ADDR(        0x0f9310,          MAC_NOT_LOOKED_UP)
@@ -735,11 +738,11 @@
 #define RVA_MAP_INSPECTED_X                    ADDR(        0xfb31b04,         MAC_NOT_LOOKED_UP)
 #define RVA_MAP_INSPECTED_Y                    ADDR(        0x11d37a34,        MAC_NOT_LOOKED_UP)
 #define RVA_UNIT_REPICK_MEMORIZED              ADDR(        0x2e75a0,          MAC_NOT_LOOKED_UP)
-#define RVA_COMMANDER_AI_MOVES                 ADDR(        0x11c08f20,        MAC_NOT_LOOKED_UP)
-#define RVA_COMMANDER_AI_FROM_X                ADDR(        0xfb2cca0,         MAC_NOT_LOOKED_UP)
-#define RVA_COMMANDER_AI_FROM_Y                ADDR(        0xfb36940,         MAC_NOT_LOOKED_UP)
-#define RVA_COMMANDER_AI_LAST_TARGET_X         ADDR(        0xfb89960,         MAC_NOT_LOOKED_UP)
-#define RVA_COMMANDER_AI_LAST_TARGET_Y         ADDR(        0xfb31b20,         MAC_NOT_LOOKED_UP)
+#define RVA_COMMANDER_AI_MOVES                 ADDR(        0x11c08f20,        0x1085a2174)
+#define RVA_COMMANDER_AI_FROM_X                ADDR(        0xfb2cca0,         0x1085a6f80)
+#define RVA_COMMANDER_AI_FROM_Y                ADDR(        0xfb36940,         0x1085abd8c)
+#define RVA_COMMANDER_AI_LAST_TARGET_X         ADDR(        0xfb89960,         0x1085b0b98)
+#define RVA_COMMANDER_AI_LAST_TARGET_Y         ADDR(        0xfb31b20,         0x1085b59a4)
 #define RVA_PLAYER_TRADE_TYPE                  ADDR(        0x11c12b94,        0x10cce2e88)
 #define RVA_PLAYER_TRADE_MODE                  ADDR(        0x11c12b96,        0x10cce2e8a)
 #define RVA_COMMANDER_AT                       ADDR(        0x129440,          MAC_NOT_LOOKED_UP)
@@ -879,6 +882,20 @@
 #define RVA_MONTH_SQUARE_RESET_CALL            ADDR(        0x166d5d,          MAC_NOT_LOOKED_UP)
 #define RVA_MAGIC_TAINTED_MONTHS               ADDR(        0x5822f80,         0x10ce02edc)
 #define RVA_DROWN_CHECK                        ADDR(        0x114940,          MAC_INLINED)
+#define RVA_DROWN_CHECK_CALL                   ADDR_DIFFERS(0x166d2b,          0x1003b5df4)
+#define RVA_DROWN_CHECK_AFTER                  ADDR_DIFFERS(0x166d30,          0x1003b6b84)
+#define RVA_DROWN_CHECK_COUNT                  ADDR(        0x5822eec,         0x106cd54cc)
+#define RVA_DROWN_CHECK_TEST_VALUE             ADDR(        0x58356c4,         0x10b903c54)
+#define RVA_DROWN_CHECK_TEST_FLAG              ADDR_DIFFERS(0x58356f0,         0x106cee4f4)
+#define RVA_DROWN_COMMANDER_SEARCH             ADDR(        0x114fe5,          0x1003b6370)
+#define RVA_DROWN_COMMANDER_SEARCH_2           ADDR(        WIN_NO_EQUIVALENT, 0x1003b663c)
+#define RVA_DROWN_UNIT_SKIP                    ADDR(        0x115181,          0x1003b635c)
+#define RVA_DROWN_UNIT_SKIP_2                  ADDR(        WIN_NO_EQUIVALENT, 0x1003b6628)
+#define RVA_DROWN_KILL_CALL                    ADDR(        0x11516a,          0x1003b65b4)
+#define RVA_DROWN_KILL_CALL_2                  ADDR(        WIN_NO_EQUIVALENT, 0x1003b6884)
+#define RVA_LAND_DROWN_KILL_CALL               ADDR(        0x1152bd,          0x1003b6214)
+#define RVA_UNIT_MAY_BE_ON_LAND                ADDR(        0x3201a0,          MAC_NOT_LOOKED_UP)
+#define UNIT_STATE_FLYING_OVER_WATER           0x2000000000
 #define RVA_CRASH_LANDING_CHECK                ADDR(        0x114300,          MAC_INLINED)
 #define RVA_TURN_UNIT_UPKEEP                   ADDR(        0x144150,          0x100399c30)
 #define RVA_SQUARE_UPKEEP                      ADDR(        0x1ddb50,          0x1005991a0)
@@ -1180,7 +1197,7 @@
 #define RVA_MAP_DESCRIPTION                    ADDR_DIFFERS(0xf06c420,         0x11306ebf4)
 #define RVA_SIMULTANEOUS                       ADDR(        WIN_IN_CODE,       MAC_IN_CODE)
 #define RVA_AUTOSAVE_ON                        ADDR_DIFFERS(0x5828b28,         0x1069b16a4)
-#define RVA_AI_MOVE_DELAY                      ADDR(        0x1a52c7c,         MAC_NOT_LOOKED_UP)
+#define RVA_AI_MOVE_DELAY                      ADDR(        0x1a52c7c,         0x101cce574)
 #define RVA_WORLD_W                            ADDR(        0xd63e948,         0x1121121ec)
 #define RVA_WORLD_H                            ADDR(        0xd63e94c,         0x1121121f0)
 #define RVA_SQUARE_INFO_X                      ADDR(        0x1aba43c,         0x100873504)
@@ -1394,12 +1411,12 @@
 #define RVA_MARK_NEIGHBOURS                    RVA_GEN_MARK_NEAR_TERRAIN
 #define RVA_CAVE_WALL_SPOT                     RVA_GEN_FIND_CAVE_SPOT
 #define RVA_SET_COLD_FLAGS                     ADDR(        0x2a89d0,          MAC_INLINED)
-#define RVA_HEAT_BLOB                          ADDR(        0x2a6c30,          MAC_NOT_LOOKED_UP)
+#define RVA_HEAT_BLOB                          ADDR(        0x2a6c30,          MAC_INLINED)
 #define RVA_SET_PORTAL_PAIR                    ADDR(        0x241690,          0x1005705a8)
 #define RVA_LINK_SQUARES_NEW_PORTAL            RVA_NEW_PORTAL_PAIR
 #define RVA_RANDOM_LAND_SQUARE                 RVA_RANDOM_RITUAL_SQUARE
-#define RVA_SQUARE_IS_OPEN_LAND                ADDR(        0x2a3f70,          MAC_NOT_LOOKED_UP)
-#define RVA_SQUARE_WATERLIKE                   ADDR(        0x2adf10,          MAC_NOT_LOOKED_UP)
+#define RVA_SQUARE_IS_OPEN_LAND                ADDR(        0x2a3f70,          MAC_INLINED)
+#define RVA_SQUARE_WATERLIKE                   ADDR(        0x2adf10,          0x1004aca74)
 #define RVA_SPREAD_TERRAIN                     RVA_GEN_SPREAD_TERRAIN
 #define RVA_INFERNO_CENTRE_X                   ADDR(        0x1ae02d4,         0x10487ff30)
 #define RVA_INFERNO_CENTRE_Y                   ADDR(        0x1ae0664,         0x10487ff34)
@@ -1727,6 +1744,12 @@
 #define RVA_EVENT_HASUNITHERE_CALL             ADDR(        0x1c66a0,          0x10052de60)
 #define RVA_EVENT_HASITEM_CALL                 ADDR(        0x1c6a7e,          0x10052e464)
 #define RVA_EVENT_HASITEMHERE_CALL             ADDR(        0x1c6b40,          0x10052e574)
+#define RVA_EVENT_HASAFFUNITHERE_CALL          ADDR(        0x1c67a8,          0x10052dffc)
+#define RVA_EVENT_MINUNITSHERE_CALL            ADDR(        0x1c68dc,          0x10052e348)
+#define RVA_EVENT_MINUNITS_CALL                ADDR(        0x1c697c,          0x10052e2bc)
+#define RVA_COUNT_UNITS_AT                     ADDR(        0x106640,          0x100479090)
+#define RVA_STR_COUNT_UNITS_AT_TRACE           ADDR(        0x1b2b9c0,         0x100632ec0)
+#define RVA_FIND_AFFLICTED_UNIT_AT             ADDR(        0x105cf0,          0x100480364)
 #define RVA_COUNT_UNITS                        ADDR(        0x104e50,          0x100481b4c)
 #define RVA_SQUARE_OWNER_AT                    ADDR(        0x335850,          MAC_INLINED)
 #define RVA_ARMY_OWNER_AT                      ADDR(        0x129bf0,          MAC_INLINED)
@@ -1843,6 +1866,11 @@
 #define RVA_PARSER_TERRAIN_ABILITY_WORD        ADDR(        0x1c8ac0,          0x1005397b0)
 #define RVA_SOULLESS_FORM                      ADDR(        0x1da2d0,          0x100490f88)
 #define RVA_UNIT_TRAIT_LIST                    ADDR(        0x1d19f0,          0x10051cc50)
+#define MONSTER_ABILITY_HATES                  0x9b
+#define MONSTER_ABILITY_HATED                  0x9c
+#define HATES_KILL_CHANCE                      15
+#define RVA_RUN_HATREDS                        ADDR(        0x143370,          MAC_INLINED)
+#define RVA_UNIT_WITH_ABILITY_AT               ADDR(        0x1134e0,          0x100468c10)
 #define MONSTER_ABILITY_LIMITED_GEM_BONUS      0xbf
 #define MONSTER_ABILITY_RANGE_BONUS            0xc7
 #define MONSTER_ABILITY_WALL_COVER             0x198
@@ -3242,7 +3270,6 @@
 #define RVA_TRS_DECODE_RLE_OLD                 ADDR(        0x0630d0,          0x10035013c)
 #define RVA_TRS_DECODE_RAW                     ADDR(        0x063290,          MAC_INLINED)
 #define RVA_SPRITE_ALPHA_MODE                  ADDR(        0x026130,          0x100339b6c)
-// How a mod image loads.
 #define RVA_IMAGE_TEXTURE_LOAD                 ADDR(        0x06a4d0,          0x10033b558)
 #define RVA_IMAGE_READ                         ADDR(        0x0284b0,          0x100337d08)
 #define RVA_TGA_DECODE                         ADDR(        0x025d80,          MAC_INLINED)
@@ -3256,7 +3283,6 @@
 #define SPRITE_KIND_WALLS                      0x23
 #define TREE_TRS_SPRITES                       943
 #define TERRAIN_TRS_SPRITES                    356
-// The ground layer:
 #define RVA_CREATE_BACKGROUND_IMAGE            ADDR(        0x07e9b0,          0x10054dcd8)
 #define RVA_GROUND_TEXTURES_LOAD               ADDR(        0x07ed60,          MAC_INLINED)
 #define RVA_GROUND_TEXTURE_NAMES               ADDR(        0x440b48,          0x100847d10)
@@ -3292,7 +3318,6 @@
 #define TERRAIN_FLAG_SMOKE                     0x80
 #define RVA_TERRAIN_SPR_SKIP                   ADDR(        0xd259fa0,         0x10857bd76)
 #define RVA_TERRAIN_SPR_DRAW_CALL              ADDR(        0x19cf69,          0x10049b580)
-// The decoration layer:
 #define RVA_MAP_DECORATIONS                    ADDR(        0x1a26a0,          0x100494e28)
 #define RVA_MAP_DECORATIONS_CALL               ADDR(        0x19cf86,          0x10049b594)
 #define RVA_MAP_DECORATION_CASES               ADDR(        0x1a7aa0,          MAC_STORED_DIFFERENTLY)
@@ -3606,7 +3631,7 @@
 #define RVA_TM_CLASS_COPY_MAC_SIZE_EXCLUDE_3   ADDR(        WIN_NOT_LOOKED_UP, 0x1003915ec)
 #define RVA_TM_CLASS_COPY_MAC_SIZE_EXCLUDE_4   ADDR(        WIN_NOT_LOOKED_UP, 0x100529270)
 
-#endif   // GAME_ADDRESSES_H
+#endif
 
 // ---- Call sites -----------------------------------------------------------------------------------
 #if defined(GAME_ADDRESSES_SITE_TABLE) && !defined(GAME_ADDRESSES_SITE_TABLE_DONE)
@@ -3629,290 +3654,303 @@ typedef struct {
 #endif
 static const SiteInfo SITES[SITE_COUNT] = {
     [SITE_MAIN_MENU_WAIT] = SITE("main_menu_wait", 1,
-        /* windows */ (0x192782),       0x23f240,
-        /* mac     */ (M(0x10032e284)), M(0x100484ef8)),
+ (0x192782),       0x23f240,
+ (M(0x10032e284)), M(0x100484ef8)),
     [SITE_MAIN_MENU_PLAY_GAME] = SITE("main_menu_play_game", 0,
-        /* windows */ (0x1927eb),       0x091ce0,
-        /* mac     */ (M(0x10032e2e4)), M(0x100389844)),
+ (0x1927eb),       0x091ce0,
+ (M(0x10032e2e4)), M(0x100389844)),
     [SITE_PLAY_GAME_NEW_WORLD] = SITE("play_game_new_world", 0,
-        /* windows */ (0x091e00),       0x303360,
-        /* mac     */ (M(0x100389c68)), M(0x100587238)),
+ (0x091e00),       0x303360,
+ (M(0x100389c68)), M(0x100587238)),
     [SITE_NEW_WORLD_MAP_SCREEN] = SITE("new_world_map_screen", 0,
-        /* windows */ (0x3034fa),       0x2aa590,
-        /* mac     */ (M(0x100587428)), M(0x1004b2454)),
+ (0x3034fa),       0x2aa590,
+ (M(0x100587428)), M(0x1004b2454)),
     [SITE_NEW_WORLD_INIT_PARTICIPANTS] = SITE("new_world_init_participants", 0,
-        /* windows */ (0x30383d), 0x2ea3a0,
-        /* mac     */ (0),        0),
+ (0x30383d), 0x2ea3a0,
+ (0),        0),
     [SITE_NEW_WORLD_CREATING_WORLD] = SITE("new_world_creating_world", 0,
-        /* windows */ (0x30505f),       0x0899e0,
-        /* mac     */ (M(0x1005893fc)), M(0x1004900c0)),
+ (0x30505f),       0x0899e0,
+ (M(0x1005893fc)), M(0x1004900c0)),
     [SITE_MAP_SETTINGS_WAIT] = SITE("map_settings_wait", 0,
-        /* windows */ (0x2ab1d7),       0x23f240,
-        /* mac     */ (M(0x1004b2984)), M(0x100484ef8)),
+ (0x2ab1d7),       0x23f240,
+ (M(0x1004b2984)), M(0x100484ef8)),
     [SITE_PARTICIPANTS_WAIT] = SITE("participants_wait", 0,
-        /* windows */ (0x3048e8),       0x23f240,
-        /* mac     */ (M(0x100588760)), M(0x100484ef8)),
+ (0x3048e8),       0x23f240,
+ (M(0x100588760)), M(0x100484ef8)),
     [SITE_PARTICIPANTS_DIFFICULTY_WAIT] = SITE("participants_difficulty_wait", 0,
-        /* windows */ (0x303045),       0x23f240,
-        /* mac     */ (M(0x100586a48)), M(0x100484ef8)),
+ (0x303045),       0x23f240,
+ (M(0x100586a48)), M(0x100484ef8)),
     // @platform-split participants_button_row: Mac's chain ends in CoE5SE's copy of button_row
     [SITE_PARTICIPANTS_BUTTON_ROW] = SITE("participants_button_row", 0,
-        /* windows */ (0x3042a4),                       0x03a3f0,
-        /* mac     */ (M(0x1005889e8), M(0x10058848c)), M(0x10033cbb4)),
+ (0x3042a4),                       0x03a3f0,
+ (M(0x1005889e8), M(0x10058848c)), M(0x10033cbb4)),
     [SITE_GAME_MENU_SAVING_SECTION_END] = SITE("game_menu_saving_section_end", 0,
-        /* windows */ (0x124aed),       0x035400,
-        /* mac     */ (M(0x100380758)), M(0x100340ac4)),
+ (0x124aed),       0x035400,
+ (M(0x100380758)), M(0x100340ac4)),
     [SITE_GAME_MENU_WAIT] = SITE("game_menu_wait", 0,
-        /* windows */ (0x124f3c),       0x23f240,
-        /* mac     */ (M(0x1003809c8)), M(0x100484ef8)),
+ (0x124f3c),       0x23f240,
+ (M(0x1003809c8)), M(0x100484ef8)),
     [SITE_RITUAL_SCREEN_ROW] = SITE("ritual_screen_row", 0,
-        /* windows */ (0x2b0156),       0x2d6c10,
-        /* mac     */ (M(0x1003604e4)), M(0x100351d60)),
+ (0x2b0156),       0x2d6c10,
+ (M(0x1003604e4)), M(0x100351d60)),
     [SITE_RITUAL_SCREEN_LOCATION_CHECK] = SITE("ritual_screen_location_check", 0,
-        /* windows */ (0x2b00b4),       0x2cd460,
-        /* mac     */ (M(0x10036030c)), M(0x100559868)),
+ (0x2b00b4),       0x2cd460,
+ (M(0x10036030c)), M(0x100559868)),
     [SITE_RITUAL_SCREEN_CAN_CAST] = SITE("ritual_screen_can_cast", 0,
-        /* windows */ (0x2b00c1),       0x2c9f30,
-        /* mac     */ (M(0x10036031c)), M(0x10055bea8)),
+ (0x2b00c1),       0x2c9f30,
+ (M(0x10036031c)), M(0x10055bea8)),
     [SITE_MAP_SCREEN_WAIT] = SITE("map_screen_wait", 0,
-        /* windows */ (0x097667),       0x23f240,
-        /* mac     */ (M(0x1003800d8)), M(0x100484ef8)),
+ (0x097667),       0x23f240,
+ (M(0x1003800d8)), M(0x100484ef8)),
     [SITE_MAP_MENU_BUTTON_TEXT] = SITE("map_menu_button_text", 0,
-        /* windows */ (0x09dc31),       0x038f60,
-        /* mac     */ (M(0x10037b004)), M(0x10033da20)),
+ (0x09dc31),       0x038f60,
+ (M(0x10037b004)), M(0x10033da20)),
     [SITE_GAME_START] = SITE("game_start", 0,
-        /* windows */ (0x09209f),       0x1b0e90,
-        /* mac     */ (M(0x10038a290)), M(0x100491c3c)),
+ (0x09209f),       0x1b0e90,
+ (M(0x10038a290)), M(0x100491c3c)),
     [SITE_MONTH_START] = SITE("month_start", 0,
-        /* windows */ (0x09227c),       0x0899e0,
-        /* mac     */ (M(0x10038a5c0)), M(0x1004900c0)),
+ (0x09227c),       0x0899e0,
+ (M(0x10038a5c0)), M(0x1004900c0)),
     [SITE_PLAYER_TURN_START] = SITE("player_turn_start", 0,
-        /* windows */ (0x09242f, 0x0926c6, 0x0927de),                   0x167ce0,
-        /* mac     */ (M(0x10038a808), M(0x10038a990), M(0x10038abbc)), M(0x100392874)),
+ (0x09242f, 0x0926c6, 0x0927de),                   0x167ce0,
+ (M(0x10038a808), M(0x10038a990), M(0x10038abbc)), M(0x100392874)),
     [SITE_HUMAN_TURN] = SITE("human_turn", 0,
-        /* windows */ (0x0929cf),       0x0949d0,
-        /* mac     */ (M(0x10038b050)), M(0x10037b204)),
+ (0x0929cf),       0x0949d0,
+ (M(0x10038b050)), M(0x10037b204)),
     [SITE_AI_TURN] = SITE("ai_turn", 0,
-        /* windows */ (0x092461),       0x06f9d0,
-        /* mac     */ (M(0x10038abf8)), M(0x1004e05a8)),
+ (0x092461),       0x06f9d0,
+ (M(0x10038abf8)), M(0x1004e05a8)),
     [SITE_PLAYER_TURN_END] = SITE("player_turn_end", 0,
-        /* windows */ (0x0924e2),       0x1e1e30,
-        /* mac     */ (M(0x10038bfac)), M(0x1004c53c8)),
+ (0x0924e2),       0x1e1e30,
+ (M(0x10038bfac)), M(0x1004c53c8)),
     // @platform-split game_over: Mac's call is the Game Over screen's, not game_over's
     [SITE_GAME_OVER] = SITE("game_over", 0,
-        /* windows */ (0x09403c),       0x10d3a0,
-        /* mac     */ (M(0x1003900a8)), M(0x100473b14)),
+ (0x09403c),       0x10d3a0,
+ (M(0x1003900a8)), M(0x100473b14)),
     // @platform-split game_save: Windows' calls pass (name, FILE *); CoE5SE's outermost wrapper passes (path, name) on
     [SITE_GAME_SAVE] = SITE("game_save", 0,
-        /* windows */ (0x09213e, 0x0929a5, 0x09447b, 0x18b8fc),         0x18eb50,
-        /* mac     */ (M(0x10038a340), M(0x10038b018), M(0x1004f4bf0)), M(0x1004f1fd0)),
+ (0x09213e, 0x0929a5, 0x09447b, 0x18b8fc),         0x18eb50,
+ (M(0x10038a340), M(0x10038b018), M(0x1004f4bf0)), M(0x1004f1fd0)),
     [SITE_GAME_LOAD] = SITE("game_load", 0,
-        /* windows */ (0x18b366, 0x191355, 0x191561),                   0x185f10,
-        /* mac     */ (M(0x10032e388), M(0x100333438), M(0x100333908)), M(0x1004eb2a8)),
+ (0x18b366, 0x191355, 0x191561),                   0x185f10,
+ (M(0x10032e388), M(0x100333438), M(0x100333908)), M(0x1004eb2a8)),
     [SITE_MODS_RUN] = SITE("mods_run", 0,
-        /* windows */ (0x091f9c, 0x094070, 0x094391, 0x167d72, 0x186140, 0x191299, 0x1ca9df),                           0x1cb9a0,
-        /* mac     */ (M(0x100389d88), M(0x100391658), M(0x100392938), M(0x1004eb860), M(0x100332b00), M(0x10032f148)), M(0x10053a1dc)),
+ (0x091f9c, 0x094070, 0x094391, 0x167d72, 0x186140, 0x191299, 0x1ca9df),                           0x1cb9a0,
+ (M(0x100389d88), M(0x100391658), M(0x100392938), M(0x1004eb860), M(0x100332b00), M(0x10032f148)), M(0x10053a1dc)),
     [SITE_MOD_COMMAND] = SITE("mod_command", 0,
-        /* windows */ (0x1bb8a0),                       0x1bbb90,
-        /* mac     */ (M(0x10052a1c0), M(0x10052a50c)), M(0x10052ee34)),
+ (0x1bb8a0),                       0x1bbb90,
+ (M(0x10052a1c0), M(0x10052a50c)), M(0x10052ee34)),
     [SITE_SQUARE_INFO_SCREEN] = SITE("square_info_screen", 0,
-        /* windows */ (0x097c23),       0x331c50,
-        /* mac     */ (M(0x10038430c)), M(0x1004c9b00)),
+ (0x097c23),       0x331c50,
+ (M(0x10038430c)), M(0x1004c9b00)),
     // @platform-split square_info_button_row: Mac's chain ends in CoE5SE's copy of button_row
     [SITE_SQUARE_INFO_BUTTON_ROW] = SITE("square_info_button_row", 0,
-        /* windows */ (0x334a8c),       0x03a3f0,
-        /* mac     */ (M(0x1004cd1fc)), M(0x10033cbb4)),
+ (0x334a8c),       0x03a3f0,
+ (M(0x1004cd1fc)), M(0x10033cbb4)),
     [SITE_SQUARE_INFO_WAIT] = SITE("square_info_wait", 0,
-        /* windows */ (0x334cf5),       0x23f240,
-        /* mac     */ (M(0x1004cd2e0)), M(0x100484ef8)),
+ (0x334cf5),       0x23f240,
+ (M(0x1004cd2e0)), M(0x100484ef8)),
     [SITE_TEXT_FORMAT] = SITE("text_format", 0,
-        /* windows */ (0x0336a9, 0x039b4d, 0x039fbd, 0x039dfe, 0x039d1d, 0x03982d, 0x039a80, 0x038dc6, 0x038a15,
+ (0x0336a9, 0x039b4d, 0x039fbd, 0x039dfe, 0x039d1d, 0x03982d, 0x039a80, 0x038dc6, 0x038a15,
                        0x038bd1, 0x039216, 0x0361b4, 0x036473, 0x038ff6, 0x042fbe, 0x042bc0), 0x005724,
-        /* mac     */ (0),                                                                    0),
+ (0),                                                                    0),
     [SITE_TEXT_BUILD] = SITE("text_build", 0,
-        /* windows */ (0x0f8dc3, 0x0f8e3b, 0x0f9191, 0x0f92bc, 0x0f92db, 0x11912c, 0x2afec2, 0x2aff26, 0x2affb4,
+ (0x0f8dc3, 0x0f8e3b, 0x0f9191, 0x0f92bc, 0x0f92db, 0x11912c, 0x2afec2, 0x2aff26, 0x2affb4,
                        0x2b0009, 0x2b0093, 0x2b00df, 0x2b02d7, 0x2b0345, 0x2b0353, 0x2c2777, 0x2c27c6, 0x2c2838,
                        0x2c28a8, 0x2c2918, 0x2c298a, 0x2c29fc), 0x001430,
-        /* mac     */ (0),                                      0),
+ (0),                                      0),
     [SITE_LOAD_GAME_BROWSER] = SITE("load_game_browser", 0,
-        /* windows */ (0x18b2d4, 0x18b332), 0x03f430,
-        /* mac     */ (M(0x10032e364)),     M(0x10034a3d4)),
+ (0x18b2d4, 0x18b332), 0x03f430,
+ (M(0x10032e364)),     M(0x10034a3d4)),
     [SITE_FILE_BROWSER_ROW_DATE] = SITE("file_browser_row_date", 0,
-        /* windows */ (0x040cde),       0x039ad0,
-        /* mac     */ (M(0x10034b218)), M(0x10033d2e4)),
+ (0x040cde),       0x039ad0,
+ (M(0x10034b218)), M(0x10033d2e4)),
     [SITE_FILE_BROWSER_WAIT] = SITE("file_browser_wait", 0,
-        /* windows */ (0x04118a),       0x23f240,
-        /* mac     */ (M(0x10034b740)), M(0x100484ef8)),
+ (0x04118a),       0x23f240,
+ (M(0x10034b740)), M(0x100484ef8)),
     [SITE_FILE_BROWSER_HOVERED] = SITE("file_browser_hovered", 0,
-        /* windows */ (0), 0,
-        /* mac     */ (0), 0),
+ (0), 0,
+ (0), 0),
     [SITE_MAIN_MENU_MODS_SCREEN] = SITE("main_menu_mods_screen", 0,
-        /* windows */ (0x1928db),       0x1ca220,
-        /* mac     */ (M(0x10032f14c)), M(0x10032a52c)),
+ (0x1928db),       0x1ca220,
+ (M(0x10032f14c)), M(0x10032a52c)),
     // @platform-split mod_banner_draw: Mac's call goes to a copy with another signature
     [SITE_MOD_BANNER_DRAW] = SITE("mod_banner_draw", 0,
-        /* windows */ (0x23fdf7),       0x02f9c0,
-        /* mac     */ (M(0x1004889d4)), M(0x1003454c8)),
+ (0x23fdf7),       0x02f9c0,
+ (M(0x1004889d4)), M(0x1003454c8)),
     [SITE_MOD_ERROR_DIALOG] = SITE("mod_error_dialog", 0,
-        /* windows */ (0x1c9bf4),       0x041f50,
-        /* mac     */ (M(0x100529c5c)), M(0x100349628)),
+ (0x1c9bf4),       0x041f50,
+ (M(0x100529c5c)), M(0x100349628)),
     [SITE_GAME_OVER_WAIT] = SITE("game_over_wait", 0,
-        /* windows */ (0x10d803),       0x23f240,
-        /* mac     */ (M(0x1004742c4)), M(0x100484ef8)),
+ (0x10d803),       0x23f240,
+ (M(0x1004742c4)), M(0x100484ef8)),
     [SITE_EVENT_LINE] = SITE("event_line", 0,
-        /* windows */ (0x1bb87c, 0x1cb896),                                             0x1c58b0,
-        /* mac     */ (M(0x10052a19c), M(0x10052a364), M(0x10052a4f4), M(0x100539f94)), M(0x10052a648)),
+ (0x1bb87c, 0x1cb896),                                             0x1c58b0,
+ (M(0x10052a19c), M(0x10052a364), M(0x10052a4f4), M(0x100539f94)), M(0x10052a648)),
     [SITE_ARMY_WAIT] = SITE("army_wait", 0,
-        /* windows */ (0x120d10),       0x23f240,
-        /* mac     */ (M(0x100384d40)), M(0x100484ef8)),
+ (0x120d10),       0x23f240,
+ (M(0x100384d40)), M(0x100484ef8)),
     [SITE_BATTLE_WAIT] = SITE("battle_wait", 0,
-        /* windows */ (0x1006c0),       0x23f240,
-        /* mac     */ (M(0x1005829e8)), M(0x100484ef8)),
+ (0x1006c0),       0x23f240,
+ (M(0x1005829e8)), M(0x100484ef8)),
     [SITE_MAP_EDITOR_WAIT] = SITE("map_editor_wait", 0,
-        /* windows */ (0x1b8e7f),       0x23f240,
-        /* mac     */ (M(0x10051564c)), M(0x100484ef8)),
+ (0x1b8e7f),       0x23f240,
+ (M(0x10051564c)), M(0x100484ef8)),
     [SITE_BATTLE_EDITOR_WAIT] = SITE("battle_editor_wait", 0,
-        /* windows */ (0x085c98),       0x23f240,
-        /* mac     */ (M(0x1005197d0)), M(0x100484ef8)),
+ (0x085c98),       0x23f240,
+ (M(0x1005197d0)), M(0x100484ef8)),
     [SITE_RECRUIT_WAIT] = SITE("recruit_wait", 0,
-        /* windows */ (0x1270d6),       0x23f240,
-        /* mac     */ (M(0x10047c4b4)), M(0x100484ef8)),
+ (0x1270d6),       0x23f240,
+ (M(0x10047c4b4)), M(0x100484ef8)),
     [SITE_VIEW_ARMY_WAIT] = SITE("view_army_wait", 0,
-        /* windows */ (0x122a12),       0x23f240,
-        /* mac     */ (M(0x10047de50)), M(0x100484ef8)),
+ (0x122a12),       0x23f240,
+ (M(0x10047de50)), M(0x100484ef8)),
     [SITE_UNIT_LIST_WAIT] = SITE("unit_list_wait", 0,
-        /* windows */ (0x03f0d6),       0x23f240,
-        /* mac     */ (M(0x1005844d0)), M(0x100484ef8)),
+ (0x03f0d6),       0x23f240,
+ (M(0x1005844d0)), M(0x100484ef8)),
     [SITE_KEYBOARD_SHORTCUTS_WAIT] = SITE("keyboard_shortcuts_wait", 0,
-        /* windows */ (0x12d190),       0x23f240,
-        /* mac     */ (M(0x100512480)), M(0x100484ef8)),
+ (0x12d190),       0x23f240,
+ (M(0x100512480)), M(0x100484ef8)),
     // @platform-split unit_list_sheet: no Mac call
     [SITE_UNIT_LIST_SHEET] = SITE("unit_list_sheet", 0,
-        /* windows */ (0x0facfd), 0x03e480,
-        /* mac     */ (0),        0),
+ (0x0facfd), 0x03e480,
+ (0),        0),
     // @platform-split poll_event: Windows' calls go through the import slot
     [SITE_POLL_EVENT] = SITE("poll_event", 0,
-        /* windows */ (0x04eafa, 0x04f295), 0x33a580,
-        /* mac     */ (M(0x1004852a8)),     M(0x10000f980)),
+ (0x04eafa, 0x04f295), 0x33a580,
+ (M(0x1004852a8)),     M(0x10000f980)),
     [SITE_KEY_TEXT_BAR] = SITE("key_text_bar", 0,
-        /* windows */ (0x09c7ac, 0x09d8c4, 0x09d928, 0x09d97c, 0x09d9d0, 0x09da40, 0x09dae4, 0x09db38, 0x09db9d,
+ (0x09c7ac, 0x09d8c4, 0x09d928, 0x09d97c, 0x09d9d0, 0x09da40, 0x09dae4, 0x09db38, 0x09db9d,
                        0x09dbcc, 0x099833, 0x0998e7, 0x099970, 0x0999fa, 0x09a0b5, 0x09a6b5, 0x09ab10, 0x09ad21),       0x038f60,
-        /* mac     */ (M(0x100377830), M(0x100379b40), M(0x100379e88), M(0x10037a0b4), M(0x10037a2e4), M(0x10037a52c),
+ (M(0x100377830), M(0x100379b40), M(0x100379e88), M(0x10037a0b4), M(0x10037a2e4), M(0x10037a52c),
                        M(0x10037a83c), M(0x10037aa68), M(0x10037aca0), M(0x10037adb8), M(0x10037d6b8), M(0x10037d7e8),
                        M(0x10037d964), M(0x10037da60), M(0x10037e01c), M(0x10037e8dc), M(0x10037ebe4), M(0x10037eeec)), M(0x10033da20)),
     [SITE_KEY_HELP_TEXT] = SITE("key_help_text", 0,
-        /* windows */ (0x1b78be, 0x1b78db, 0x1b78f8, 0x1b7937, 0x1b7987),                               0x039180,
-        /* mac     */ (M(0x100514a48), M(0x100514a64), M(0x100514a80), M(0x100514abc), M(0x100514b08)), M(0x10033d888)),
+ (0x1b78be, 0x1b78db, 0x1b78f8, 0x1b7937, 0x1b7987),                               0x039180,
+ (M(0x100514a48), M(0x100514a64), M(0x100514a80), M(0x100514abc), M(0x100514b08)), M(0x10033d888)),
     [SITE_KEY_TEXT_BUTTON] = SITE("key_text_button", 0,
-        /* windows */ (0x0a091c),       0x039ad0,
-        /* mac     */ (M(0x100376a38)), M(0x10033d2e4)),
+ (0x0a091c),       0x039ad0,
+ (M(0x100376a38)), M(0x10033d2e4)),
     [SITE_RUN_ONE_MOD] = SITE("run_one_mod", 0,
-        /* windows */ (0x1cbb12, 0x1cabea),                                                             0x1bb4c0,
-        /* mac     */ (M(0x10053a54c), M(0x10053a598), M(0x10053a5e4), M(0x10053a630), M(0x10053a67c), M(0x10053a6c8),
+ (0x1cbb12, 0x1cabea),                                                             0x1bb4c0,
+ (M(0x10053a54c), M(0x10053a598), M(0x10053a5e4), M(0x10053a630), M(0x10053a67c), M(0x10053a6c8),
                        M(0x10053a714), M(0x10053a760), M(0x10053a7ac), M(0x1004eb784), M(0x1004f21a8)), M(0x100529d40)),
     [SITE_RUN_ONE_MOD_PATH] = SITE("run_one_mod_path", 0,
-        /* windows */ (0x1bb5d2),       0x001430,
-        /* mac     */ (M(0x100529e74)), M(0x1005aeeb4)),
+ (0x1bb5d2),       0x001430,
+ (M(0x100529e74)), M(0x1005aeeb4)),
     [SITE_RUN_ONE_MOD_LINE_READ] = SITE("run_one_mod_line_read", 0,
-        /* windows */ (0x1bb78f),                                       0x00f950,
-        /* mac     */ (M(0x10052a060), M(0x10052a228), M(0x10052a3b8)), M(0x1005ae578)),
+ (0x1bb78f),                                       0x00f950,
+ (M(0x10052a060), M(0x10052a228), M(0x10052a3b8)), M(0x1005ae578)),
     [SITE_ELIMINATED_WARN] = SITE("eliminated_warn", 0,
-        /* windows */ (0x1112f2),       0x042f40,
-        /* mac     */ (M(0x100472b14)), M(0x1003482ac)),
+ (0x1112f2),       0x042f40,
+ (M(0x100472b14)), M(0x1003482ac)),
     [SITE_WARN_WAIT] = SITE("warn_wait", 0,
-        /* windows */ (0x043166, 0x043186),             0x23f240,
-        /* mac     */ (M(0x1003485c0), M(0x100348564)), M(0x100484ef8)),
+ (0x043166, 0x043186),             0x23f240,
+ (M(0x1003485c0), M(0x100348564)), M(0x100484ef8)),
     [SITE_GAME_MENU_SETTINGS_SECTION_END] = SITE("game_menu_settings_section_end", 0,
-        /* windows */ (0x124858),       0x035400,
-        /* mac     */ (M(0x1003805e8)), M(0x100340ac4)),
+ (0x124858),       0x035400,
+ (M(0x1003805e8)), M(0x100340ac4)),
     // @platform-split tooltip_line_draw: Mac's call is RVA_RENDER_TEXT, with another signature
     [SITE_TOOLTIP_LINE_DRAW] = SITE("tooltip_line_draw", 0,
-        /* windows */ (0x02a24b),       0x02f380,
-        /* mac     */ (M(0x10048bae4)), M(0x10034d8c4)),
+ (0x02a24b),       0x02f380,
+ (M(0x10048bae4)), M(0x10034d8c4)),
     [SITE_TURN_MESSAGES] = SITE("turn_messages", 0,
-        /* windows */ (0x094cd7),       0x1e2210,
-        /* mac     */ (M(0x10037b86c)), M(0x1004c2390)),
+ (0x094cd7),       0x1e2210,
+ (M(0x10037b86c)), M(0x1004c2390)),
     [SITE_MESSAGES_WAIT] = SITE("messages_wait", 0,
-        /* windows */ (0x1e29e9),       0x23f240,
-        /* mac     */ (M(0x1004c2be8)), M(0x100484ef8)),
+ (0x1e29e9),       0x23f240,
+ (M(0x1004c2be8)), M(0x100484ef8)),
     // @platform-split ai_steps_mac: no Mac call; hooks at each end of the copied step
     [SITE_AI_EXPLORE] = SITE("ai_explore", 0,
-        /* windows */ (0x070d8a), 0x074350,
-        /* mac     */ (0),        0),
+ (0x070d8a), 0x074350,
+ (0),        0),
     // @platform-split ai_steps_mac: rally, friendly move and conquest have no Mac call
     [SITE_AI_RALLY] = SITE("ai_rally", 0,
-        /* windows */ (0x070caa), 0x076730,
-        /* mac     */ (0),        0),
+ (0x070caa), 0x076730,
+ (0),        0),
     [SITE_AI_FRIENDLY_MOVE] = SITE("ai_friendly_move", 0,
-        /* windows */ (0x070cf3), 0x076320,
-        /* mac     */ (0),        0),
+ (0x070cf3), 0x076320,
+ (0),        0),
     [SITE_AI_CONQUER] = SITE("ai_conquer", 0,
-        /* windows */ (0x070d3c), 0x075400,
-        /* mac     */ (0),        0),
+ (0x070d3c), 0x075400,
+ (0),        0),
     [SITE_AI_FAR_EXPLORE] = SITE("ai_far_explore", 0,
-        /* windows */ (0x070dd8), 0x073e40,
-        /* mac     */ (M(0x1004da568)), M(0x1004d3888)),
+ (0x070dd8), 0x073e40,
+ (M(0x1004da568)), M(0x1004d3888)),
     [SITE_AI_RITUAL_CANDIDATE] = SITE("ai_ritual_candidate", 0,
-        /* windows */ (0x06bb37), 0x2cbe00,
-        /* mac     */ (M(0x1004de000)), M(0x10055c75c)),
+ (0x06bb37), 0x2cbe00,
+ (M(0x1004de000)), M(0x10055c75c)),
     // @platform-split ai_steps_mac: no Mac call; hooks at each end of the copied step
     [SITE_AI_RECRUIT] = SITE("ai_recruit", 0,
-        /* windows */ (0x06fb2b), 0x0773f0,
-        /* mac     */ (0),        0),
+ (0x06fb2b), 0x0773f0,
+ (0),        0),
     // @platform-split ai_steps_mac: the troop pick-up and the split have no Mac call
     [SITE_AI_GATHER_TROOPS] = SITE("ai_gather_troops", 0,
-        /* windows */ (0x070f03), 0x06edd0,
-        /* mac     */ (0),        0),
+ (0x070f03), 0x06edd0,
+ (0),        0),
     [SITE_AI_PICK_UP_LONER] = SITE("ai_pick_up_loner", 0,
-        /* windows */ (0x07c26d), 0x129ad0,
-        /* mac     */ (M(0x1004d16a8)), M(0x1004840fc)),
+ (0x07c26d), 0x129ad0,
+ (M(0x1004d16a8)), M(0x1004840fc)),
     [SITE_AI_SPLIT_ARMY] = SITE("ai_split_army", 0,
-        /* windows */ (0x07b55f), 0x07b700,
-        /* mac     */ (0),        0),
+ (0x07b55f), 0x07b700,
+ (0),        0),
     [SITE_AI_MOVE_COMSTR] = SITE("ai_move_comstr", 0,
-        /* windows */ (0x070f0d), 0x129320,
-        /* mac     */ (M(0x1004db4ec)), M(0x10047f724)),
+ (0x070f0d), 0x129320,
+ (M(0x1004db4ec)), M(0x10047f724)),
     [SITE_CEREMONY_PERFORM] = SITE("ceremony_perform", 0,
-        /* windows */ (0x2d56c9, 0x2d56b9, 0x09ead9, 0x07b3ed, 0x07b40f, 0x07b431, 0x07b450, 0x07b47b, 0x07b4a6,
+ (0x2d56c9, 0x2d56b9, 0x09ead9, 0x07b3ed, 0x07b40f, 0x07b431, 0x07b450, 0x07b47b, 0x07b4a6,
                        0x07b4c2, 0x07b53f, 0x07b54f), 0x2e2290,
-        /* mac     */ (M(0x10035f5d4), M(0x100386f08), M(0x1004d20c0), M(0x1004d20e4), M(0x1004d2108), M(0x1004d21a8),
+ (M(0x10035f5d4), M(0x100386f08), M(0x1004d20c0), M(0x1004d20e4), M(0x1004d2108), M(0x1004d21a8),
                        M(0x1004d2330), M(0x1004d23d4), M(0x1004d23f0), M(0x1004d24e0), M(0x1004d24f0)), M(0x1003522f0)),
     [SITE_CEREMONY_COSTS] = SITE("ceremony_costs", 0,
-        /* windows */ (0x2d3ea1, 0x07b3cb, 0x09eac6), 0x2e3310,
-        /* mac     */ (M(0x100386ef8), M(0x1004d209c)), M(0x100351bcc)),
+ (0x2d3ea1, 0x07b3cb, 0x09eac6), 0x2e3310,
+ (M(0x100386ef8), M(0x1004d209c)), M(0x100351bcc)),
     [SITE_SEAL_BREAK] = SITE("seal_break", 0,
-        /* windows */ (0x2e27f2, 0x1851a2), 0x1f23f0,
-        /* mac     */ (M(0x1003525c0), M(0x1004e829c)), M(0x10050ed2c)),
+ (0x2e27f2, 0x1851a2), 0x1f23f0,
+ (M(0x1003525c0), M(0x1004e829c)), M(0x10050ed2c)),
     [SITE_SEAL_EVENT] = SITE("seal_event", 0,
-        /* windows */ (0), 0,
-        /* mac     */ (0), 0),
+ (0), 0,
+ (0), 0),
     [SITE_MAP_EDITOR] = SITE("map_editor", 0,
-        /* windows */ (0x192876, 0x1ca974, 0x191526),                   0x1b74b0,
-        /* mac     */ (M(0x10032e6b8), M(0x10032ea24), M(0x10033389c)), M(0x100514604)),
+ (0x192876, 0x1ca974, 0x191526),                   0x1b74b0,
+ (M(0x10032e6b8), M(0x10032ea24), M(0x10033389c)), M(0x100514604)),
     [SITE_MAP_EDITOR_TOOLBOX_LINE] = SITE("map_editor_toolbox_line", 0,
-        /* windows */ (0x1b7909),       0x039ad0,
-        /* mac     */ (M(0x100514a90)), M(0x10033d2e4)),
+ (0x1b7909),       0x039ad0,
+ (M(0x100514a90)), M(0x10033d2e4)),
     [SITE_MAP_EDITOR_DRAW] = SITE("map_editor_draw", 0,
-        /* windows */ (0x24084f),       0x02cfc0,
-        /* mac     */ (M(0x10048aba8)), M(0x100345b20)),
+ (0x24084f),       0x02cfc0,
+ (M(0x10048aba8)), M(0x100345b20)),
     [SITE_MAP_DRAW] = SITE("map_draw", 0,
-        /* windows */ (0),              0x02cfc0,
-        /* mac     */ (0),              0),
+ (0),              0x02cfc0,
+ (0),              0),
     [SITE_TOP_BAR] = SITE("top_bar", 0,
-        /* windows */ (0x095030),       0x09c4a0,
-        /* mac     */ (0),              0),
+ (0x095030),       0x09c4a0,
+ (0),              0),
     [SITE_TOP_BAR_INCOME_DRAW] = SITE("top_bar_income_draw", 0,
-        /* windows */ (0x09c9f1, 0x09cad0, 0x09ce18, 0x09cef5, 0x09cfc9, 0x09d09d, 0x09d171, 0x09d260, 0x09d34a), 0x036120,
-        /* mac     */ (0),              0),
+ (0x09c9f1, 0x09cad0, 0x09ce18, 0x09cef5, 0x09cfc9, 0x09d09d, 0x09d171, 0x09d260, 0x09d34a), 0x036120,
+ (0),              0),
     [SITE_MESSAGE_BOX_WAIT] = SITE("message_box_wait", 0,
-        /* windows */ (0x0422ec),       0x23f240,
-        /* mac     */ (0),              0),
+ (0x0422ec),       0x23f240,
+ (0),              0),
     [SITE_TOP_BAR_INCOME] = SITE("top_bar_income", 0,
-        /* windows */ (0),              0,
-        /* mac     */ (0),              0),
+ (0),              0,
+ (0),              0),
+    [SITE_AFTER_GAME_TURN] = SITE("after_game_turn", 0,
+ (0x092182),       0x161e60,
+ (M(0x10038a390)), M(0x1003a08b8)),
+    [SITE_DO_ALL_FIGHTS] = SITE("do_all_fights", 0,
+ (0x092aae, 0x092ab8, 0x092abd, 0x166d35, 0x166d3f),                     0x0f5200,
+ (M(0x10038f0e0), M(0x10038f0e8), M(0x10038f0ec), M(0x1003b7354), M(0x1003b735c)), M(0x1003dc1a0)),
+    [SITE_MOVE_ALL_INDEPENDENTS] = SITE("move_all_independents", 0,
+ (0x0926ff, 0x178c81, 0x17a347, 0x17dbb6),                0x17af90,
+ (M(0x10038b080), M(0x10038b768), M(0x10038b954)), M(0x100547dfc)),
+    [SITE_CONQUER_SQUARE] = SITE("conquer_square", 0,
+ (0x16468f, 0x16481f, 0x1b01ca, 0x2c6fe8, 0x2da8d9),                     0x1aed10,
+ (M(0x1003a99d0), M(0x1003aa220), M(0x1004ab304), M(0x10055fdf8), M(0x1005606b0), M(0x10039e2fc)),
+                                                                                             M(0x1004aa648)),
 };
 #undef M
 #undef SITE
-#endif   // GAME_ADDRESSES_SITE_TABLE
+#endif
 
 // ---- Code CoE5SE copied ---------------------------------------------------------------------------

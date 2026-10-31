@@ -1,32 +1,24 @@
-// Mods' factions: their slots past the game's 32 and what the game keeps per square for them.
-
 #define FACTION_SQUARES (MAP_COLUMNS_MAX * MAP_COLUMN_SQUARES)
 
-// A square's record in the game's square table.
 static unsigned char *squareRecord(int x, int y) {
     return GAME_PTR(RVA_SQUARE_RECORDS) + ((size_t)x * MAP_COLUMN_SQUARES + (size_t)y) * SQUARE_SIZE;
 }
 
-// A slot's controller, from the moved table once moved.
 static short playerSlotController(int player) {
     short c;
     memcpy(&c, (playerTableMoved ? movedPlayerTables[PLAYER_GROUP_CONTROLLER] : GAME_PTR(RVA_SLOT_CONTROLLER)) + 2 * player, 2);
     return c;
 }
 
-// A faction slot's per-square arrays, allocated with the player table move.
 static unsigned char *factionSquareSeen, *factionSquareSeenMark, *factionSquareTrueSeen;
 static int *factionSquareAiStrength;
 
-// 1 for a faction's slot.
 static int factionSlot(int player) { return playerTableMoved && player >= PLAYER_SLOTS_GAME && player < PLAYER_SLOTS_MOVED; }
 
-// A faction slot's entry in one of the side arrays, for square (x, y).
 static size_t factionSquareIndex(int x, int y, int player) {
     return ((size_t)x * MAP_COLUMN_SQUARES + (size_t)y) * FACTION_SLOT_TARGET + (size_t)(player - PLAYER_SLOTS_GAME);
 }
 
-// Allocates the side arrays (zeroed, and AI memory -1, as RVA_RESET_SQUARES leaves the game's); 1 when done.
 static int allocFactionSquareArrays(void) {
     size_t entries = (size_t)FACTION_SQUARES * FACTION_SLOT_TARGET;
     factionSquareSeen = calloc(entries, 1);
@@ -45,7 +37,6 @@ static int allocFactionSquareArrays(void) {
 }
 
 // ---- RVA_AI_REVEAL_PORTAL_EXITS ------------------------------------------------------------------
-// The game's portal reveal, for a faction slot: each portal square in view reveals every square of its portal.
 typedef int (*RevealPortalExits)(int player);
 
 static int factionRevealPortalExits(int player) {
@@ -75,7 +66,6 @@ static int revealPortalExitsHook(int player) {
 }
 
 // ---- RVA_REBUILD_SQUARE_ARMY --------------------------------------------------------------------
-// The game's square army recount, for a game with factions: the same steps with a count per slot up to 48.
 int fanpatchHookCreate(void *target, void *detour, void **original);
 #ifndef __APPLE__
 static int installFactionSightHooks(void);
@@ -99,7 +89,6 @@ static unsigned char *monsterRecord(int monster);
 typedef void (*RebuildSquareArmyFn)(int x, int y);
 static RebuildSquareArmyFn gameRebuildSquareArmy;
 
-// RVA_UNIT_HOLDS_SQUARE: whether a unit counts toward its square's army.
 static int unitHoldsSquare(int unit) {
     if (unit < 0 || unit >= UNIT_TABLE_MAX) return 0;
     const unsigned char *monster = monsterRecord((short)G16(RVA_UNIT_MONSTER + (size_t)unit * UNIT_SIZE));
@@ -108,7 +97,6 @@ static int unitHoldsSquare(int unit) {
     return !(flags & MONSTER_FLAG_NOT_ARMY) && (short)G16(RVA_UNIT_PLAYER + (size_t)unit * UNIT_SIZE) != PLAYER_SLOTS_GAME - 1;
 }
 
-// RVA_SAME_TEAM with the moved slot count: both slots in range, and the same slot or the same team above 0.
 static int playerSameTeam(int a, int b) {
     if (a < 0 || a >= playerSlotCount() || b < 0 || b >= playerSlotCount()) return 0;
     if (a == b) return 1;
@@ -118,7 +106,6 @@ static int playerSameTeam(int a, int b) {
     return teamA > 0 && teamA == teamB;
 }
 
-// Whether a game uses a faction slot now: one's controller isn't removed.
 static int factionSlotsInUse(void) {
     if (!playerTableMoved) return 0;
     for (int p = PLAYER_SLOTS_GAME; p < PLAYER_SLOTS_MOVED; p++)
@@ -165,7 +152,6 @@ static void factionRebuildSquareArmy(int x, int y) {
 }
 
 // ---- RVA_SQUARE_STRONGEST_OWNER -----------------------------------------------------------------
-// The owner with the most max hp on a square, for a game with factions: the same sums per slot up to 48.
 typedef int (*SquareStrongestOwnerFn)(int x, int y);
 static SquareStrongestOwnerFn gameSquareStrongestOwner;
 
@@ -199,7 +185,6 @@ static void rebuildSquareArmyHook(int x, int y) {
 }
 
 // ---- Installing ----------------------------------------------------------------------------------
-// Points the game's per-square slot reads at the faction paths; 1 when every one is in.
 static int installFactionPaths(void) {
 #ifndef __APPLE__
     if (!allocFactionSquareArrays()) return 0;
@@ -233,7 +218,6 @@ static int installFactionPaths(void) {
 #endif
 }
 
-// Gets the game ready for factions once per launch: the player table move, then the faction paths.
 static int factionSlotsTried, factionSlotsReady;
 
 static int ensureFactionSlots(void) {

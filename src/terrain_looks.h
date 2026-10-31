@@ -1,4 +1,3 @@
-// Mods' terrains drawn on the world map like the game's own: a vanilla terrain's ground and decorations.
 #pragma once
 
 #define TERRAINLOOKS_WORD          "terrainlooks"
@@ -9,7 +8,6 @@
 #define TERRAIN_LOOKS_EARLIER_PASS 2
 #define SPRITE_MODE_MAP            4
 
-// A picture a terrain's looks draw: a ground picture, or a decoration sprite's.
 typedef struct {
     char path[MAX_PATH];
     int registered;
@@ -36,18 +34,15 @@ typedef struct {
 static TerrainLooks *terrainLooks;
 static int terrainLooksCount, terrainLooksCapacity;
 
-// What the hooks read, by terrain number, rebuilt from the declarations (rebuildTerrainLooks).
 static int terrainGroundAs[TERRAIN_TABLE_MAX];
 static short terrainLooksAt[TERRAIN_TABLE_MAX];
 static int terrainGroundHook, terrainDecorHook;
 
-// A test's stand-ins for the game's functions.
 typedef void (*MapDecorationsFn)(int plane, int x, int y, int terrain);
 static MapDecorationsFn terrainDecorationsForTests;
 static int (*terrainSpriteReplaceForTests)(int kind, int sprite, const char *path);
 
 // ---- Pictures ----------------------------------------------------------------------------------
-// A .tga's or .png's width and height from its header: 1, or 0 when the file isn't one of those.
 static int readImageSize(const char *path, int *w, int *h) {
     unsigned char head[24];
     FILE *f = fopen(path, "rb");
@@ -69,7 +64,6 @@ static int readImageSize(const char *path, int *w, int *h) {
 
 static int isPowerOfTwo(int n) { return n > 0 && !(n & (n - 1)); }
 
-// The index of picture `path` in the list, added when new; -1 when the list is full.
 static int addTerrainPicture(const char *path) {
     for (int i = 0; i < terrainPictureCount; i++)
         if (!strcmp(terrainPictures[i].path, path)) return i;
@@ -82,7 +76,6 @@ static int addTerrainPicture(const char *path) {
     return terrainPictureCount++;
 }
 
-// Finds picture `spec` in mod folder `folder` and adds it: NULL and its index in *picture, or the reason.
 static const char *findTerrainPicture(const char *folder, const char *spec, int ground, int *picture) {
     char path[MAX_PATH];
     const char *reason = strlen(spec) > PLANE_ICON_SPEC_MAX ? "bad_icon" : findModImage(folder, spec, path, sizeof path);
@@ -95,7 +88,6 @@ static const char *findTerrainPicture(const char *folder, const char *spec, int 
     return reason;
 }
 
-// The tree.trs number picture `pic` draws as; -1 when the game refused it.
 static int terrainPictureSprite(int pic) {
     TerrainPicture *t = &terrainPictures[pic];
     int sprite = TREE_TRS_SPRITES + pic;
@@ -139,14 +131,12 @@ static int installTerrainCompositeHook(void);
 static int installBattleBackgroundHook(void);
 static void rebuildTerrainLooks(void);
 
-// The declaration for terrain `terrain` that the running pass or a script made, or NULL.
 static TerrainLooks *findTerrainLooks(int terrain) {
     for (int i = 0; i < terrainLooksCount; i++)
         if (terrainLooks[i].terrain == terrain && terrainLooks[i].from != TERRAIN_LOOKS_EARLIER_PASS) return &terrainLooks[i];
     return NULL;
 }
 
-// Adds a terrain's looks from a mod's block or script; NULL, or the refusal's reason.
 static const char *declareTerrainLooks(const char *mod, const TerrainLooksFields *f, int script, const char *file, int line) {
     if (f->terrain <= TERRAIN_VANILLA_LAST || f->terrain >= TERRAIN_TABLE_MAX) return "not_a_mod_terrain";
     if (f->ground > TERRAIN_VANILLA_LAST || f->decor > TERRAIN_VANILLA_LAST) return "not_a_game_terrain";
@@ -177,7 +167,6 @@ static const char *declareTerrainLooks(const char *mod, const TerrainLooksFields
     return NULL;
 }
 
-// Rebuilds the tables the hooks read from the declarations.
 static void rebuildTerrainLooks(void) {
     for (int t = 0; t < TERRAIN_TABLE_MAX; t++) terrainGroundAs[t] = t;
     memset(terrainLooksAt, 0, sizeof terrainLooksAt);
@@ -205,7 +194,6 @@ static int isTerrainLooksWord(const char *line, size_t len) {
     return 0;
 }
 
-// Refuses a block word's line, logged with its line number.
 static void refuseLooksLine(const char *word, int mod, const char *reason, const char *what, const char *args) {
     refuseC5mLine(word, spellModName(mod), reason, "line=%d terrain=%d text=%.60s", G32(RVA_MOD_LINE), looksBlock.f.terrain, args);
     if (!strcmp(reason, "unknown_terrain")) addPlaneProblem(0, spellModName(mod), (const char *)GAME_PTR(RVA_EVENT_FILE), G32(RVA_MOD_LINE), "No terrain called %.60s", what);
@@ -213,7 +201,6 @@ static void refuseLooksLine(const char *word, int mod, const char *reason, const
         addPlaneProblem(0, spellModName(mod), (const char *)GAME_PTR(RVA_EVENT_FILE), G32(RVA_MOD_LINE), "No picture '%.60s'", what);
 }
 
-// Whether a block word's line applies: level 2, inside an open block that wasn't refused.
 static int looksBlockTakes(const char *word, int mod, int level, const char *args) {
     if (level != 2) return 0;
     if (!looksBlock.open || looksBlock.mod != mod) {
@@ -223,7 +210,6 @@ static int looksBlockTakes(const char *word, int mod, int level, const char *arg
     return !looksBlock.refused;
 }
 
-// Ends the open block: declares its looks, or refuses the block.
 static void finishLooksBlock(void) {
     if (!looksBlock.open) return;
     looksBlock.open = 0;
@@ -233,7 +219,6 @@ static void finishLooksBlock(void) {
     if (reason) refuseC5mLine(TERRAINLOOKS_WORD, mod, reason, "line=%d terrain=%d", looksBlock.line, looksBlock.f.terrain);
 }
 
-// terrainlooks <terrain>: opens a block for a mod's terrain, and ends the game's blocks and the one before.
 static void terrainlooksLine(const char *args, int mod, int level) {
     if (level != 2) return;
     finishSpellBlock();
@@ -257,7 +242,6 @@ static void terrainlooksLine(const char *args, int mod, int level) {
     }
 }
 
-// Reads a vanilla terrain for terrainground or terraindecor: its number, or -1 having refused the line.
 static int readLooksVanillaTerrain(const char *word, const char **p, int mod, const char *args) {
     const char *start = *p, *why = NULL;
     int terrain = readPlaneTerrain(p, &why);
@@ -270,7 +254,6 @@ static int readLooksVanillaTerrain(const char *word, const char **p, int mod, co
     return terrain;
 }
 
-// terrainground <vanilla terrain> ["./picture.tga"]
 static void terraingroundLine(const char *args, int mod, int level) {
     if (!looksBlockTakes("terrainground", mod, level, args)) return;
     const char *p = args;
@@ -290,7 +273,6 @@ static void terraingroundLine(const char *args, int mod, int level) {
     looksBlock.f.ground = ground, looksBlock.f.groundPicture = picture;
 }
 
-// terraindecor <vanilla terrain>
 static void terraindecorLine(const char *args, int mod, int level) {
     if (!looksBlockTakes("terraindecor", mod, level, args)) return;
     const char *p = args;
@@ -298,7 +280,6 @@ static void terraindecorLine(const char *args, int mod, int level) {
     if (decor >= 0) looksBlock.f.decor = decor;
 }
 
-// terrainsprite <tree.trs number> "./picture.tga"
 static void terrainspriteLine(const char *args, int mod, int level) {
     if (!looksBlockTakes("terrainsprite", mod, level, args)) return;
     const char *p = args;
@@ -318,7 +299,6 @@ static void terrainspriteLine(const char *args, int mod, int level) {
 }
 
 // ---- The line hook and the passes -----------------------------------------------------------------
-// Reads a terrainlooks block's lines; returns the line to go on with, or NULL when it took it.
 static const char *terrainLooksLineHook(const char *line, size_t len, int mod, int level) {
     if (level != 2 || !looksBlock.open) return line;
     if (looksBlock.mod != mod || looksBlock.fileId != modFileNow()) {
@@ -333,7 +313,6 @@ static const char *terrainLooksLineHook(const char *line, size_t len, int mod, i
     return line;
 }
 
-// The same when no plugin loaded; returns 1 to skip the line.
 static int declinedTerrainLooksLine(const char *line, size_t len, int mod, int level) {
     static int inBlock, blockMod, blockLevel;
     if (mod != blockMod || level != blockLevel) inBlock = 0;
@@ -346,7 +325,6 @@ static int declinedTerrainLooksLine(const char *line, size_t len, int mod, int l
     return 0;
 }
 
-// Before a level-2 mod pass: the pass reads every block again.
 static void terrainLooksBeforePass(int level) {
     if (level != 2) return;
     finishLooksBlock();
@@ -354,7 +332,6 @@ static void terrainLooksBeforePass(int level) {
         if (terrainLooks[i].from) terrainLooks[i].from = TERRAIN_LOOKS_EARLIER_PASS;
 }
 
-// After a level-2 mod pass: the last block ends, and the blocks the pass didn't name again go.
 static void terrainLooksAfterPass(int level) {
     if (level != 2) return;
     finishLooksBlock();
@@ -372,12 +349,10 @@ static void terrainLooksAfterPass(int level) {
 }
 
 // ---- The ground pass ---------------------------------------------------------------------------
-// The ground pass reads a terrain with terrainground as its vanilla terrain.
 #ifndef __APPLE__
 #define GROUND_TERRAIN_SIZE  12
 #define GROUND_TERRAIN_FIRST 9
 
-// Writes the Windows stub for the read at `at` into `stub`; returns its length.
 static size_t writeTerrainGroundStubWin(unsigned char *stub, const unsigned char *at) {
     unsigned char *p = stub;
     memcpy(p, at, GROUND_TERRAIN_FIRST);
@@ -428,7 +403,6 @@ static int patchTerrainGround(void) {
 #else
 #define TERRAIN_GROUND_STUB_WORDS 10
 
-// Fills the Mac stub for the read at `at`, placed at `stub`.
 static void writeTerrainGroundStubMac(uint32_t code[TERRAIN_GROUND_STUB_WORDS], const unsigned char *stub, const unsigned char *at, uint64_t table) {
     code[0] = 0x37f800abu;
     code[1] = 0x7100001fu | ((uint32_t)TERRAIN_TABLE_MAX << 10) | (11u << 5);
@@ -463,7 +437,6 @@ static int patchTerrainGround(void) {
 }
 #endif
 
-// Puts the ground pass's patch in, once, at the first terrainground.
 // @platform-split terrain_ground: Windows jumps to a stub in a near page, Mac branches to one in the header padding
 static int installTerrainGroundHook(void) {
     if (terrainGroundHook) return terrainGroundHook > 0;
@@ -474,7 +447,6 @@ static int installTerrainGroundHook(void) {
 }
 
 // ---- The decorations ---------------------------------------------------------------------------
-// Points the queue's entries first..last of tree.trs sprites that `t` replaces at their pictures.
 static void remapTerrainDecor(const TerrainLooks *t, int first, int last) {
     unsigned char *queue = GAME_PTR(RVA_DECOR_QUEUE);
     for (int i = first; i <= last; i++) {
@@ -502,7 +474,6 @@ static void remapTerrainDecor(const TerrainLooks *t, int first, int last) {
     }
 }
 
-// The map draw's decorations call for one square.
 static void terrainDecorationsHook(int plane, int x, int y, int terrain) {
     MapDecorationsFn game = terrainDecorationsForTests ? terrainDecorationsForTests : GAME_FN(MapDecorationsFn, RVA_MAP_DECORATIONS);
     int at = terrain >= 0 && terrain < TERRAIN_TABLE_MAX ? terrainLooksAt[terrain] : 0;
@@ -516,7 +487,6 @@ static void terrainDecorationsHook(int plane, int x, int y, int terrain) {
     if (t->spriteCount) remapTerrainDecor(t, first, G32(RVA_DECOR_QUEUE_LAST));
 }
 
-// Points the map draw's decorations call at terrainDecorationsHook, once, at the first terraindecor.
 static int installTerrainDecorHook(void) {
     if (terrainDecorHook) return terrainDecorHook > 0;
     rebuildTerrainLooks();
@@ -526,7 +496,6 @@ static int installTerrainDecorHook(void) {
 }
 
 // ---- The ground pictures -----------------------------------------------------------------------
-// The game's ground painting, with terrainground pictures sampled on their terrains' squares.
 
 static short terrainPaintTags[MAP_COLUMNS_MAX * MAP_COLUMN_SQUARES];
 static unsigned char terrainPaintNear[MAP_COLUMNS_MAX * MAP_COLUMN_SQUARES];
@@ -534,7 +503,6 @@ static volatile int terrainPaintPlaneArg = -1;
 static int terrainPaintAny;
 static int terrainCompositeHook;
 
-// Reads ground picture `pic` as the game holds its own; 1 when loaded.
 static int loadTerrainGroundPicture(TerrainPicture *t) {
     if (t->loaded > 0) return 1;
     if (t->loaded < 0) return 0;
@@ -574,7 +542,6 @@ static int loadTerrainGroundPicture(TerrainPicture *t) {
     return 1;
 }
 
-// Tags each square of plane `plane` that shows a terrainground picture.
 static void tagTerrainPaintSquares(int plane) {
     terrainPaintAny = 0;
     if (plane < 0 || plane >= planeTableRecords()) return;
@@ -607,7 +574,6 @@ static void tagTerrainPaintSquares(int plane) {
         }
 }
 
-// The picture ground k samples at a pixel of a square; -1 for the game's.
 static int terrainSourcePicture(int sx, int sy, int w, int h, int k, int lx, int ly) {
     const short *grounds = (const short *)GAME_PTR(RVA_MAP_BG_GROUNDS);
     size_t self = (size_t)sx * MAP_COLUMN_SQUARES + (size_t)sy;
@@ -626,7 +592,6 @@ static int terrainSourcePicture(int sx, int sy, int w, int h, int k, int lx, int
     return best;
 }
 
-// The weight rules of the game's composite on w[0..28], in its order; f is the square's flooded bit.
 static void groundWeightRules(int w[GROUND_COUNT], int f) {
     if (w[15] < 1 || w[16] < 1) {
         if (w[15] < 70) w[15] = 0;
@@ -680,7 +645,6 @@ static void groundWeightRules(int w[GROUND_COUNT], int f) {
     }
 }
 
-// The game's composite over pixel rows first..last of the image being painted.
 static void terrainCompositeRows(int first, int last) {
     int w = G32(RVA_MAP_BG_W_SQUARES), h = G32(RVA_MAP_BG_H_SQUARES), wpx = w * 64, hpx = h * 64;
     unsigned char *image = *(unsigned char **)GAME_PTR(RVA_MAP_BG_IMAGE);
@@ -751,7 +715,6 @@ static void terrainCompositeRows(int first, int last) {
     }
 }
 
-// The builder's call to the image: tags the plane's squares, paints, and forgets the plane.
 static void terrainBackgroundHook(void) {
     tagTerrainPaintSquares(terrainPaintPlaneArg);
     GAME_FN(void (*)(void), RVA_CREATE_BACKGROUND_IMAGE)();
@@ -759,7 +722,6 @@ static void terrainBackgroundHook(void) {
 }
 
 #ifndef __APPLE__
-// Points the composite's first instruction and the builder's call at CoE5SE, through a near page.
 static int patchTerrainComposite(void) {
     unsigned char *entry = GAME_PTR(RVA_GROUND_COMPOSITE_ROWS), *call = GAME_PTR(RVA_MAP_BG_BUILDER_IMAGE_CALL);
     int rel;
@@ -807,7 +769,6 @@ static int patchTerrainComposite(void) {
 #else
 #define TERRAIN_BACKGROUND_STUB_WORDS 8
 
-// Fills the Mac stub the builder's `bl` goes to, which stores the plane (w23) and branches to the hook.
 static void writeTerrainBackgroundStubMac(uint32_t code[TERRAIN_BACKGROUND_STUB_WORDS], uint64_t plane, uint64_t hook) {
     code[0] = 0x58000090u;
     code[1] = 0xb9000217u;
@@ -841,7 +802,6 @@ static int patchTerrainComposite(void) {
 }
 #endif
 
-// Puts CoE5SE's composite and the builder's hook in, once, at the first terrainground picture.
 // @platform-split terrain_composite: Windows jumps through a near page, Mac branches to a trampoline and a stub in the header padding
 static int installTerrainCompositeHook(void) {
     if (terrainCompositeHook) return terrainCompositeHook > 0;
@@ -851,7 +811,6 @@ static int installTerrainCompositeHook(void) {
 }
 
 // ---- coe5.setTerrainLooks ------------------------------------------------------------------------
-// The terrain a script names by number or name; -1 for none.
 static int luaTerrainArg(lua_State *L, int index) {
     if (lua_isnil(L, index)) return -1;
     if (lua_type(L, index) == LUA_TNUMBER) {
@@ -865,7 +824,6 @@ static int luaTerrainArg(lua_State *L, int index) {
     return -2;
 }
 
-// coe5.setTerrainLooks{terrain =, ground =, picture =, decor =, sprites =}: true, or false when refused.
 static int lSetTerrainLooks(lua_State *L) {
     luaL_checktype(L, 1, LUA_TTABLE);
     lua_settop(L, 1);
@@ -918,7 +876,6 @@ static int lSetTerrainLooks(lua_State *L) {
     return 1;
 }
 
-// Adds the words.
 static void terrainLooksWordsInit(void) {
     int words = apiAddModCommand("terrainlooks", terrainlooksLine) + apiAddModCommand("terrainground", terraingroundLine) +
                 apiAddModCommand("terraindecor", terraindecorLine) + apiAddModCommand("terrainsprite", terrainspriteLine);

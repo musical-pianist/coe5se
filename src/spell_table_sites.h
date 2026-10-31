@@ -1,9 +1,7 @@
-// Every instruction in CoE5.exe that builds an address in the game's spell table.
 #pragma once
 
 enum { SPELL_FIELD_REL32, SPELL_FIELD_DISP32 };
 
-// One rewrite: the 4-byte field at rva + fieldOffset, and its kind.
 typedef struct {
     unsigned int rva;
     unsigned char fieldOffset, kind;

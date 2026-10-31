@@ -1,9 +1,7 @@
-// The Lua host's named game data: the names coe5.get and coe5.set take, and where each value lives.
+#pragma once
 
 // ---- Named game data: coe5.get(name[, index]), coe5.set(name, [index,] value) ----------------
-// Scripts name the values they read and write, and only this table holds the addresses.
 
-// The slot* names take a player slot, 0-31, the game's own slot numbers.
 enum {
     T_U8, T_I16, T_I32,
     T_STR,
@@ -71,6 +69,10 @@ enum {
     T_SLOT_ABILITY,
     T_UNIT_STATE_FLAGS,
     T_UNIT_RETURNS,
+    T_SQUARE_WATERLIKE,
+    T_SQUARE_OPEN_LAND,
+    T_KEY_HELD,
+    T_SLOT_CITADELS,
 };
 typedef struct {
     const char *name;
@@ -79,12 +81,9 @@ typedef struct {
     CallSite site;
     int count2, stride2;
 } GameVar;
-// A square value coe5.set writes only while the world is built, inside the area being built.
 #define WRITABLE_WHILE_BUILDING 2
-// The variables that need more than two indexes, by name.
 enum { LIST_NONE, LIST_TO_EMPTY_NAME, LIST_TO_BELOW_ONE, LIST_TO_BELOW_ONE_I32, LIST_TO_BELOW_ZERO_I32, LIST_TO_BELOW_ZERO };
 typedef struct { const char *name; int count3, stride3, list, nameBack; uintptr_t lastAt; int everyPlayer; } GameVarShape;
-// Types that differ between the two builds.
 #ifdef __APPLE__
 #define LOADED_GAME_TYPE T_U8
 #define NETWORK_GAME_TYPE T_FLAG_U8
@@ -96,7 +95,6 @@ typedef struct { const char *name; int count3, stride3, list, nameBack; uintptr_
 #define INT_FLAG_TYPE T_FLAG_I32
 #define WILDER_DEFAULT_TYPE T_FLAG_TWO
 #endif
-// Values only the Windows build has an address for so far.
 #ifdef __APPLE__
 #define WINDOWS_ONLY_RVA(rva) 0
 #define WINDOWS_ONLY_F32 T_WINDOWS_ONLY
@@ -115,7 +113,6 @@ typedef struct { const char *name; int count3, stride3, list, nameBack; uintptr_
 #define MESSAGE_BOX_TEXT_SIZE 10000
 #define COUNT_AT_CALL 0
 #define SQUARE_COLUMN_SIZE (MAP_COLUMN_SQUARES * SQUARE_SIZE)
-// Each row: name, address, type, count, stride, size, writable, site, count2, stride2.
 static const GameVar GAME_VARS[] = {
     {"turn",           RVA_TURN,                          T_I32, 1, 0, 0, 0, 0, 0, 0},
     {"networkGame",    RVA_NET_CLIENT,                    NETWORK_GAME_TYPE, 1, 0, 0, 0, 0, 0, 0},
@@ -202,6 +199,14 @@ static const GameVar GAME_VARS[] = {
     {"messageBoxText", WINDOWS_ONLY_RVA(FRAME_MESSAGE_BOX_TEXT), WINDOWS_ONLY_FRAME_STR, 1, 0, MESSAGE_BOX_TEXT_SIZE, 0, SITE_MESSAGE_BOX_WAIT, 0, 0},
     {"mapPointerY",    RVA_SQUARE_INFO_Y,                 T_SITE_I32, 1, 0, 0, 0, SITE_MAP_SCREEN_WAIT, 0, 0},
     {"mouseButtons",   RVA_MOUSE_BUTTONS,                 T_I32, 1, 0, 0, 1, 0, 0, 0},
+    {"keyHeld",        0,                                 T_KEY_HELD, KEY_STATE_SIZE, 0, 0, 0, 0, 0, 0},
+    {"windowMode",     RVA_WINDOW_FULLSCREEN_MODE,        T_I32, 1, 0, 0, 0, 0, 0, 0},
+    {"fullscreen",     RVA_FULLSCREEN_SETTING,            T_I32, 1, 0, 0, 1, 0, 0, 0},
+    {"battleGrid",     RVA_BATTLE_GRID_ON,                T_I32, 1, 0, 0, 1, 0, 0, 0},
+    {"frameMs",        RVA_FRAME_MS,                      T_I32, 1, 0, 0, 0, 0, 0, 0},
+    {"frameCount",     RVA_FRAME_COUNT,                   T_I32, 1, 0, 0, 0, 0, 0, 0},
+    {"mapEditorOpen",  RVA_MAP_EDITOR_ACTIVE,             INT_FLAG_TYPE, 1, 0, 0, 0, 0, 0, 0},
+    // @platform-split ui_pointer: Windows reads RVA_UI_MOUSE_X/_Y; Mac's are known but untested, so nil there
     {"uiPointerX",     WINDOWS_ONLY_RVA(RVA_UI_MOUSE_X),  WINDOWS_ONLY_F32, 1, 0, 0, 0, 0, 0, 0},
     {"uiPointerY",     WINDOWS_ONLY_RVA(RVA_UI_MOUSE_Y),  WINDOWS_ONLY_F32, 1, 0, 0, 0, 0, 0, 0},
     {"squareSeen",     RVA_SQUARE_RECORDS + SQUARE_SEEN,  T_U8, PLAYER_SLOTS, 1, 0, 0, 0, MAP_COLUMNS_MAX, SQUARE_COLUMN_SIZE},
@@ -230,6 +235,11 @@ static const GameVar GAME_VARS[] = {
     {"commanderAiTargetX", RVA_COMMANDER_AI_TARGET_X,     T_I16, COMMANDER_TABLE_MAX, 2, 0, 0, 0, 0, 0},
     {"commanderAiTargetY", RVA_COMMANDER_AI_TARGET_Y,     T_I16, COMMANDER_TABLE_MAX, 2, 0, 0, 0, 0, 0},
     {"commanderAiMoveKind", RVA_COMMANDER_AI_MOVE_KIND,   T_I16, COMMANDER_TABLE_MAX, 2, 0, 0, 0, 0, 0},
+    {"commanderAiMoves", RVA_COMMANDER_AI_MOVES,          T_I16, COMMANDER_TABLE_MAX, 2, 0, 0, 0, 0, 0},
+    {"commanderAiFromX", RVA_COMMANDER_AI_FROM_X,         T_I16, COMMANDER_TABLE_MAX, 2, 0, 0, 0, 0, 0},
+    {"commanderAiFromY", RVA_COMMANDER_AI_FROM_Y,         T_I16, COMMANDER_TABLE_MAX, 2, 0, 0, 0, 0, 0},
+    {"commanderAiLastTargetX", RVA_COMMANDER_AI_LAST_TARGET_X, T_I16, COMMANDER_TABLE_MAX, 2, 0, 0, 0, 0, 0},
+    {"commanderAiLastTargetY", RVA_COMMANDER_AI_LAST_TARGET_Y, T_I16, COMMANDER_TABLE_MAX, 2, 0, 0, 0, 0, 0},
     {"commanderRitualPlan", RVA_COMMANDER_AI_PLAN,        T_I16, COMMANDER_TABLE_MAX, COMMANDER_SIZE, 0, 0, 0, 0, 0},
     {"commanderDone",  RVA_COMMANDER_DONE,                T_FLAG_U8, COMMANDER_TABLE_MAX, COMMANDER_SIZE, 0, 0, 0, 0, 0},
     {"slotLeader",     RVA_PLAYER_LEADER,                 T_I32, 32, PLAYER_BLOCK_SIZE, 0, 0, 0, 0, 0},
@@ -312,6 +322,8 @@ static const GameVar GAME_VARS[] = {
     {"terrainFlags",   RVA_TERRAIN_TABLE + TERRAIN_FLAGS, T_I64, TERRAIN_TABLE_MAX, TERRAIN_SIZE, 0, 0, 0, 0, 0},
     {"squareLibraryLevel", 0,                             T_SQUARE_LIBRARY_LEVEL, MAP_COLUMNS_MAX, 0, 0, 0, 0, MAP_COLUMN_SQUARES, 0},
     {"squareHasFort",  0,                                 T_SQUARE_HAS_FORT, MAP_COLUMNS_MAX, 0, 0, 0, 0, MAP_COLUMN_SQUARES, 0},
+    {"squareWaterlike", 0,                                T_SQUARE_WATERLIKE, MAP_COLUMNS_MAX, 0, 0, 0, 0, MAP_COLUMN_SQUARES, 0},
+    {"squareOpenLand", 0,                                 T_SQUARE_OPEN_LAND, MAP_COLUMNS_MAX, 0, 0, 0, 0, MAP_COLUMN_SQUARES, 0},
     {"seasonTurnsLeft", RVA_SEASON_TURNS_LEFT, T_I16, 1, 0, 0, 0, 0, 0, 0},
     {"aiAttackDivOther", RVA_AI_ATTACK_DIV_OTHER, T_I32, 1, 0, 0, 0, 0, 0, 0},
     {"aiAttackDivAi",  RVA_AI_ATTACK_DIV_AI, T_I32, 1, 0, 0, 0, 0, 0, 0},
@@ -372,13 +384,22 @@ static const GameVar GAME_VARS[] = {
     {"slotBlessingId", RVA_PLAYER_BLESSINGS,              T_I32, PLAYER_SLOTS, PLAYER_BLOCK_SIZE, 0, 0, 0, PLAYER_BLESSINGS_MAX, 8},
     {"slotBlessingValue", RVA_PLAYER_BLESSINGS + 4,       T_I32, PLAYER_SLOTS, PLAYER_BLOCK_SIZE, 0, 0, 0, PLAYER_BLESSINGS_MAX, 8},
     {"slotMostCitadels", RVA_PLAYER_SHORT,                T_I16, PLAYER_SLOTS, PLAYER_BLOCK_SIZE, 0, 0, 0, 0, 0},
+    {"slotCitadels",   0,                                 T_SLOT_CITADELS, PLAYER_SLOTS, 0, 0, 0, 0, 0, 0},
+    {"aiMoveDelay",    RVA_AI_MOVE_DELAY,                 T_I32, 1, 0, 0, 1, 0, 0, 0},
+    {"aiGathersHands", RVA_AI_WANTS_HANDS,                T_I32, 1, 0, 0, 0, 0, 0, 0},
+    {"aiGathersHerbs", RVA_AI_WANTS_HERBS,                T_I32, 1, 0, 0, 0, 0, 0, 0},
+    {"aiGathersFungus", RVA_AI_WANTS_FUNGUS,              T_I32, 1, 0, 0, 0, 0, 0, 0},
+    {"aiGathersSacrifices", RVA_AI_WANTS_SACRIFICES,      T_I32, 1, 0, 0, 0, 0, 0, 0},
+    {"aiGathersWeed",  RVA_AI_WANTS_WEED,                 T_I32, 1, 0, 0, 0, 0, 0, 0},
+    {"aiGathersGems",  RVA_AI_WANTS_GEMS,                 T_I32, 1, 0, 0, 0, 0, 0, 0},
+    {"aiGathersLifeforce", RVA_AI_WANTS_LIFEFORCE,        T_I32, 1, 0, 0, 0, 0, 0, 0},
+    {"aiWeighsIron",   RVA_AI_IRON_FLAG,                  INT_FLAG_TYPE, 1, 0, 0, 0, 0, 0, 0},
+    {"aiSaveResource", RVA_AI_SAVE_RESOURCE,              T_I16, 19, 2, 0, 0, 0, 0, 0},
     {"slotAbility",    0,                                 T_SLOT_ABILITY, PLAYER_SLOTS, 0, 0, 0, 0, RITUAL_EFFECT_ID_COUNT, 0},
     {"slotAbilitySum", 0,                                 T_SLOT_ABILITY, PLAYER_SLOTS, 0, 1, 0, 0, RITUAL_EFFECT_ID_COUNT, 0},
     {"unitStateFlags", RVA_UNITS,                         T_UNIT_STATE_FLAGS, UNIT_TABLE_MAX, UNIT_SIZE, 0, 0, 0, 0, 0},
     {"unitReturns",    RVA_UNITS,                         T_UNIT_RETURNS, UNIT_TABLE_MAX, UNIT_SIZE, 0, 0, 0, 0, 0},
-    // The terrain word for fort part bit n (walls, irongate, ...), as the game's terrain reader has it.
     {"fortPartWord",   0,                                 T_FORT_PART_WORD, FORT_PART_BITS, 0, 0, 0, 0, 0, 0},
-    // A content record by the .c5m words of its block: coe5.get("monster", m, "hp"), read-only.
     {"monster",        RVA_MONSTER_TABLE,                 T_RECORD_WORD, MONSTER_TABLE_MAX, MONSTER_SIZE, RECORD_MONSTER, 0, 0, 0, 0},
     {"weapon",         RVA_WEAPON_TABLE,                  T_RECORD_WORD, WEAPON_RECORDS_GAME, WEAPON_SIZE, RECORD_WEAPON, 0, 0, 0, 0},
     {"item",           RVA_ITEM_TABLE,                    T_RECORD_WORD, ITEM_TABLE_MAX, ITEM_SIZE, RECORD_ITEM, 0, 0, 0, 0},
@@ -413,7 +434,6 @@ static const GameVarShape GAME_VAR_SHAPES[] = {
     {"slotBlessingId", 0, 0, LIST_TO_BELOW_ONE_I32, 0, 0, 0},
     {"slotBlessingValue", 0, 0, LIST_TO_BELOW_ONE_I32, 4, 0, 0},
 };
-// Variable v's GameVarShape, or one with no third index and no list.
 static GameVarShape gameVarShape(const GameVar *v) {
     for (size_t i = 0; i < sizeof GAME_VAR_SHAPES / sizeof GAME_VAR_SHAPES[0]; i++)
         if (!strcmp(GAME_VAR_SHAPES[i].name, v->name)) return GAME_VAR_SHAPES[i];
@@ -421,7 +441,6 @@ static GameVarShape gameVarShape(const GameVar *v) {
 }
 static int luaSiteDepth[SITE_COUNT];
 
-// Returns a site of the same game function as `site` whose Lua wrap runs now, or SITE_COUNT.
 static CallSite runningFrameSite(CallSite site) {
     for (size_t i = 0; i < sizeof FRAME_SITES / sizeof FRAME_SITES[0]; i++) {
         int inGroup = 0;
@@ -433,8 +452,7 @@ static CallSite runningFrameSite(CallSite site) {
     return SITE_COUNT;
 }
 
-// The GAME_VARS row named `name` (case-sensitive), or NULL.
-#define GAME_VAR_SLOTS 512
+#define GAME_VAR_SLOTS 1024
 _Static_assert(sizeof GAME_VARS / sizeof GAME_VARS[0] * 2 <= GAME_VAR_SLOTS, "GAME_VAR_SLOTS is too small");
 static short gameVarSlots[GAME_VAR_SLOTS];
 
@@ -453,7 +471,6 @@ static const GameVar *findGameVar(const char *name) {
     return NULL;
 }
 
-// The ability id the .c5m word `word` sets, or -1 for a word that sets none.
 static int abilityIdOfWord(const char *word) {
     size_t len = strlen(word);
     for (size_t i = 0; i < sizeof RITUAL_EFFECT_NAMES / sizeof RITUAL_EFFECT_NAMES[0]; i++)
@@ -466,16 +483,13 @@ static int abilityIdOfWord(const char *word) {
     return -1;
 }
 
-// Whether a variable's second index is an ability id, which a script may also give as its .c5m word.
 static int takesAbilityWord(int type) { return type == T_UNIT_ABILITY || type == T_MONSTER_ABILITY || type == T_SLOT_ABILITY; }
 
-// Whether a variable's index `which` (1 or 2) is a player, which a script may also give as a faction's name.
 static int indexIsPlayer(const GameVar *v, int which) {
     if (which == 2) return v->type == T_UNIT_VISIBLE;
     return !strncmp(v->name, "slot", 4) || v->addr == RVA_SQUARE_RECORDS + SQUARE_SEEN;
 }
 
-// Finds the variable named by argument 1 of coe5.get or coe5.set, and returns its address.
 static unsigned char *gameVarAddress(lua_State *L, const GameVar **out, int *arg) {
     const char *name = luaL_checkstring(L, 1);
     const GameVar *v = findGameVar(name);
@@ -536,7 +550,6 @@ static unsigned char *gameVarAddress(lua_State *L, const GameVar **out, int *arg
     return entries + (size_t)index2 * v->stride2 + (size_t)index3 * shape.stride3;
 }
 
-// The player whose army stands on square (x, y), or -1.
 static int armyOwnerAt(int x, int y) {
     if (x < 0 || y < 0 || x >= G32(RVA_MAP_DEPTH) || y >= G32(RVA_MAP_H)) return -1;
     size_t square = (size_t)x * MAP_COLUMN_SQUARES + (size_t)y;
@@ -544,7 +557,6 @@ static int armyOwnerAt(int x, int y) {
     return G16(RVA_SQUARE_RECORDS + square * SQUARE_SIZE + SQUARE_ARMY_OWNER);
 }
 
-// A unit's action points left this turn.
 static int unitApLeft(int unit) {
     int max = 0;
     if (G16(RVA_UNIT_MONSTER + (size_t)unit * UNIT_SIZE) >= 0) {
@@ -554,13 +566,11 @@ static int unitApLeft(int unit) {
     return max - G16(RVA_UNITS + (size_t)unit * UNIT_SIZE + UNIT_AP_USED);
 }
 
-// 1 when the unit never moves on the world map.
 static int unitStationary(int unit) {
     if (G16(RVA_UNIT_MONSTER + (size_t)unit * UNIT_SIZE) < 0) return 0;
     return (GAME_FN(unsigned long long (*)(int), RVA_UNIT_FLAGS)(unit) >> MONSTER_FLAG_NO_COMMANDER) & 1;
 }
 
-// The corpses on square (x, y).
 static int corpsesAt(int x, int y, int humanoidOnly) {
     if (x < 0 || y < 0 || x >= G32(RVA_MAP_DEPTH) || y >= G32(RVA_MAP_H) || x >= MAP_COLUMNS_MAX || y >= MAP_COLUMN_SQUARES) return 0;
     size_t square = (size_t)x * MAP_COLUMN_SQUARES + (size_t)y;
@@ -570,7 +580,6 @@ static int corpsesAt(int x, int y, int humanoidOnly) {
     return count;
 }
 
-// What the owner of commander `commander`'s unit has of cost type `type` at the unit's square.
 static int commanderCostAvailable(int commander, int type, int *have) {
     int unit = G32(RVA_COMMANDERS + (size_t)commander * COMMANDER_SIZE);
     if (unit < 0 || unit >= UNIT_TABLE_MAX) return -1;
@@ -582,21 +591,18 @@ static int commanderCostAvailable(int commander, int type, int *have) {
     return 0;
 }
 
-// The .c5m word of ritual effect `id`, or NULL for an id the list lacks.
 static const char *ritualEffectWord(int id) {
     for (size_t i = 0; i < sizeof RITUAL_EFFECT_NAMES / sizeof RITUAL_EFFECT_NAMES[0]; i++)
         if (RITUAL_EFFECT_NAMES[i].id == id) return RITUAL_EFFECT_NAMES[i].name;
     return NULL;
 }
 
-// The game's name for a terrain code.
 static void pushGameTerrainName(lua_State *L, int code) {
     GAME_FN(void (*)(int), RVA_TERRAIN_NAME)(code);
     const char *text = (const char *)(gameBase + RVA_TERRAIN_NAME_TEXT);
     lua_pushlstring(L, text, strnlen(text, TERRAIN_NAME_TEXT_SIZE));
 }
 
-// Whether square (x, y) counts for a ritual's terrain `code`.
 static int ritualTerrainAt(int code, int x, int y) {
     if (code == -1) return 1;
     if (code >= 0 && code < TERRAIN_TABLE_MAX) {
@@ -610,7 +616,6 @@ static int ritualTerrainAt(int code, int x, int y) {
     return -1;
 }
 
-// The terrain code of ritual effect `fx` when it is a nearby or nonearby rule.
 static int ritualNearbyRule(const unsigned char *fx, int *code) {
     int rule = *(const int *)fx - RITUAL_FX_NONEARBY1REQ;
     if (rule < 0 || rule >= 10) return -1;
@@ -620,12 +625,10 @@ static int ritualNearbyRule(const unsigned char *fx, int *code) {
     return rule;
 }
 
-// The game's ability total of a unit.
 static int unitAbilityTotal(int unit, int ability, int add) {
     return GAME_FN(int (*)(int, int, int, char *, int, int *), RVA_UNIT_ABILITY_TOTAL)(unit, ability, add, NULL, 0, NULL);
 }
 
-// The game's strength of a commander's army.
 static int commanderStrength(int commander) {
 #ifdef __APPLE__
     return GAME_FN(int (*)(int), RVA_COMMANDER_STRENGTH)(commander);
@@ -634,13 +637,11 @@ static int commanderStrength(int commander) {
 #endif
 }
 
-// The strength of the units on square (x, y) of player `team` and its teammates.
 static int strengthQuery(int team, int x, int y);
 static int squareStrength(int team, int x, int y) { return strengthQuery(team, x, y); }
 
 static int unitAliveAt(int u, int x, int y);
 
-// 1 when the game never moves the army on square (x, y).
 static int armyStationaryAt(int x, int y) {
     int last = G32(RVA_UNIT_COUNT);
     for (int u = 0; u <= last && u < UNIT_TABLE_MAX; u++)
@@ -648,7 +649,6 @@ static int armyStationaryAt(int x, int y) {
     return 1;
 }
 
-// 1 when the independents' move never moves the army on square (x, y).
 static int holdFlagsHold(int squareFlags, int top, unsigned long long topFlags) {
     if (squareFlags & SQUARE_FLAG_HOLDIT) return 1;
     return top >= 0 && ((topFlags >> UNIT_FLAG2_HOLDIT) & 1);
@@ -671,19 +671,16 @@ static int armyHoldsAt(int x, int y) {
     return holdFlagsHold(squareFlags, top, *(const unsigned long long *)GAME_PTR(RVA_UNITS + (size_t)top * UNIT_SIZE + 8));
 }
 
-// 1 when unit u stands on square (x, y) alive.
 static int unitAliveAt(int u, int x, int y) {
     if (u < 0 || u >= UNIT_TABLE_MAX || x < 0) return 0;
     size_t at = (size_t)u * UNIT_SIZE;
     return (short)G16(RVA_UNIT_HP + at) > 0 && G32(RVA_UNIT_X + at) == x && G32(RVA_UNIT_X + 4 + at) == y;
 }
 
-// 1 when unit u is in the game's unit table with hp above 0.
 static int unitAliveInTable(int u) {
     return u >= 0 && u < UNIT_TABLE_MAX && u <= G32(RVA_UNIT_COUNT) && (short)G16(RVA_UNIT_HP + (size_t)u * UNIT_SIZE) > 0;
 }
 
-// A unit's strength as player `player` counts it.
 static int unitStrengthFor(int player, int unit) {
     if (!unitAliveInTable(unit)) return 0;
     size_t at = (size_t)unit * UNIT_SIZE;
@@ -700,33 +697,28 @@ static int unitStrengthFor(int player, int unit) {
     return core(-1, monster, hp >= most ? most : hp);
 }
 
-// A living unit's armor as the unit screen shows it, or -1.
 static int unitArmorNow(int unit) {
     if (!unitAliveInTable(unit)) return -1;
     return GAME_FN(int (*)(int), RVA_UNIT_ARMOR)(unit);
 }
 
-// A living unit's state bits, its items' with them, into *flags; 0 for a unit that isn't alive.
 static int unitStateFlagsNow(int unit, unsigned long long *flags) {
     if (!unitAliveInTable(unit)) return 0;
     *flags = GAME_FN(unsigned long long (*)(int), RVA_UNIT_STATE_FLAGS)(unit);
     return 1;
 }
 
-// Whether unit `unit` comes back from death, as the game decides it; -1 for an empty record.
 static int unitReturnsNow(int unit) {
     if (unit < 0 || unit >= UNIT_TABLE_MAX || unit > G32(RVA_UNIT_COUNT) || (short)G16(RVA_UNIT_MONSTER + (size_t)unit * UNIT_SIZE) < 0) return -1;
     return GAME_FN(int (*)(int), RVA_UNIT_RETURNS)(unit) != 0;
 }
 
-// Whether player `player` sees unit `unit`.
 static int unitVisibleToNow(int unit, int player) {
     if (!unitAliveInTable(unit)) return 0;
     size_t at = (size_t)unit * UNIT_SIZE;
     return GAME_FN(int (*)(int, int, int, int), RVA_UNIT_VISIBLE_TO)(player, unit, G32(RVA_UNIT_X + at), G32(RVA_UNIT_X + 4 + at)) != 0;
 }
 
-// The int at byte `field` of row `row` of a monster's attack list.
 static int monsterAttackField(const unsigned char *rows, int row, int field, int *value) {
     for (int k = 0; k <= row && k < MONSTER_ATTACK_MAX; k++) {
         const unsigned char *r = rows + (size_t)k * MONSTER_ATTACK_SIZE;
@@ -737,7 +729,6 @@ static int monsterAttackField(const unsigned char *rows, int row, int field, int
     return 0;
 }
 
-// 1 when square (x, y) is a citadel for `player`.
 static int squareCitadelFor(int player, int x, int y) {
     return GAME_FN(int (*)(int, int, int), RVA_SQUARE_IS_CITADEL_FOR)(player, x, y);
 }

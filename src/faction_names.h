@@ -1,4 +1,3 @@
-// Faction names where the game's words take a player number: a quoted faction name becomes its slot.
 #pragma once
 
 #define FACTION_REF_PLACEHOLDER 2000000
@@ -6,24 +5,20 @@
 
 enum { FACTION_REF_RITUAL, FACTION_REF_MONSTER };
 
-// The game's words outside events whose number is a player: a ritual's effect or a monster's ability.
 static const struct { const char *word; int kind, id; } FACTION_PLAYER_WORDS[] = {
     {"setplayer", FACTION_REF_RITUAL, RITUAL_FX_SETPLAYER},   {"failplayer", FACTION_REF_RITUAL, RITUAL_FX_FAILPLAYER},
     {"promplayer", FACTION_REF_RITUAL, RITUAL_FX_PROMPLAYER}, {"wanderattack", FACTION_REF_MONSTER, ABILITY_WANDERATTACK},
     {"revertowner", FACTION_REF_MONSTER, ABILITY_REVERTOWNER},
 };
 
-// The game's event conditions whose first number is a player, each taken with + and -.
 static const char *const FACTION_EVENT_CONDITIONS[] = {
     "squareowner", "armyowner", "player", "class", "humanplayer", "aiplayer", "hascom", "hascomhere", "ownsloc",
     "ownsloctarg", "hasunit", "hasunithere", "hasitem", "hasitemhere", "hasaffunithere", "minunits", "minunitshere",
 };
-// The game's event commands whose first number is a player.
 static const char *const FACTION_EVENT_COMMANDS[] = {
     "playercolor", "addresources", "message", "newunits", "promoteunits", "reveal", "changeowner",
 };
 
-// A faction name read on a pass, and where its place holder went: a ritual's effect or a monster's ability pair.
 typedef struct {
     int kind, record, id;
     int slot;
@@ -36,14 +31,12 @@ static int factionRefCount, factionRefCapacity;
 static char factionNameLine[FACTION_LINE_MAX];
 static char factionEventLine[FACTION_LINE_MAX];
 
-// The player number `name` names: a mod's faction declared in this pass, or a vanilla independent faction; else -1.
 static int playerNamed(const char *name) {
     const Faction *f = findFaction(name);
     if (f && f->fromPass != FACTION_EARLIER_PASS) return factionSlotOf(f);
     return factionPresetNamed(name);
 }
 
-// Writes `number` in place of the quoted name from `at` to `rest` in `line`, into out; 0, refused, when it doesn't fit.
 static int putPlayerNumber(const char *line, const char *at, const char *rest, long long number, char *out, const char *word, const char *mod) {
     int n = snprintf(out, FACTION_LINE_MAX, "%.*s%lld%s", (int)(at - line), line, number, rest);
     if (n >= 0 && n < FACTION_LINE_MAX) return 1;
@@ -51,7 +44,6 @@ static int putPlayerNumber(const char *line, const char *at, const char *rest, l
     return 0;
 }
 
-// A ritual's or monster's player word with a quoted name: the line with its number; NULL when refused.
 static const char *factionNumberWordLine(const char *line, size_t len, const char *args, int mod, int kind, int id) {
     char word[16], name[FACTION_NAME_SIZE + 2];
     snprintf(word, sizeof word, "%.*s", (int)(len < sizeof word ? len : sizeof word - 1), line);
@@ -76,7 +68,6 @@ static const char *factionNumberWordLine(const char *line, size_t len, const cha
     return putPlayerNumber(line, args, rest, number, factionNameLine, word, spellModName(mod)) ? factionNameLine : NULL;
 }
 
-// Every .c5m and .c5se line outside events comes here after factionWordLineHook (modCommandHook).
 static const char *factionNameLineHook(const char *line, size_t len, int mod, int level) {
     if (level != 2) return line;
     const char *args = line + len;
@@ -88,7 +79,6 @@ static const char *factionNameLineHook(const char *line, size_t len, int mod, in
     return line;
 }
 
-// The value at `slot` of the effect or ability pair a reference names, or NULL past its record's list.
 static unsigned char *factionRefValueAt(const FactionNameRef *r, int slot, int *id) {
     if (r->kind == FACTION_REF_RITUAL) {
         if (r->record >= ritualSlotCount() || slot >= RITUAL_FX_MAX) return NULL;
@@ -103,7 +93,6 @@ static unsigned char *factionRefValueAt(const FactionNameRef *r, int slot, int *
     return (unsigned char *)(pair + 1);
 }
 
-// After a level-2 pass, once the slots are settled: each reference's place holder becomes its faction's slot.
 static void resolveFactionNames(int level) {
     if (level != 2) return;
     int resolved = 0;
@@ -137,12 +126,10 @@ static void resolveFactionNames(int level) {
     factionRefCount = 0;
 }
 
-// Before a level-2 pass: the pass reads every name again.
 static void factionNamesBeforePass(int level) {
     if (level == 2) factionRefCount = 0;
 }
 
-// The event words that take a player first: 1 for a condition (+ or -), 2 for a command, 0 for neither.
 static int factionEventWordKind(const char *line, size_t len) {
     if (line[0] == '+' || line[0] == '-') {
         for (size_t i = 0; i < sizeof FACTION_EVENT_CONDITIONS / sizeof FACTION_EVENT_CONDITIONS[0]; i++)
@@ -154,7 +141,6 @@ static int factionEventWordKind(const char *line, size_t len) {
     return 0;
 }
 
-// An event line with a quoted faction name first: the line with its player number, or NULL when it is dropped.
 static const char *factionNameEventLine(const char *line, int level, const char *mod) {
     size_t len = strcspn(line, " \t");
     int kind = factionEventWordKind(line, len);
@@ -175,7 +161,6 @@ static const char *factionNameEventLine(const char *line, int level, const char 
     return putPlayerNumber(line, at, rest, player, factionEventLine, word, mod[0] ? mod : "-") ? factionEventLine : NULL;
 }
 
-// A line with a quoted faction name, for the hooks used when no plugin loaded: 1 to skip it.
 static int declinedFactionNameLine(const char *line, size_t len) {
     const char *args = line + len;
     while (*args == ' ' || *args == '\t') args++;
@@ -185,7 +170,6 @@ static int declinedFactionNameLine(const char *line, size_t len) {
     return factionEventWordKind(line, len) != 0;
 }
 
-// coe5.factionSlot(name): a faction's player number, or nil.
 static int playerOfFactionName(const char *name) {
     const Faction *f = findFaction(name);
     return f ? factionSlotOf(f) : factionPresetNamed(name);

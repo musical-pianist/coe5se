@@ -1,4 +1,3 @@
-// Mods' factions' sight: the game's sight steps for a faction slot, in its own per-square arrays.
 #pragma once
 
 #define FACTION_SIGHT_SKY_HOLE_A 0xfb
@@ -15,16 +14,13 @@ static SightBoxFn gameSightBox;
 static PlaneSeenFn gamePlaneSeen;
 static ResetSquaresFn gameResetSquares;
 
-// A faction slot's SQUARE_SEEN for square (x, y).
 static signed char *factionSeen(int x, int y, int faction) { return (signed char *)factionSquareSeen + factionSquareIndex(x, y, faction); }
 
-// Raises a faction slot's SQUARE_SEEN to `level`, never lowering it (the game's signed byte compare).
 static void raiseFactionSeen(int x, int y, int faction, int level) {
     signed char *seen = factionSeen(x, y, faction);
     if (*seen <= level) *seen = (signed char)level;
 }
 
-// The first plane (0 to RVA_LAST_PLANE) whose rectangle holds the square, or -1: the game's inline scan.
 static int planeHoldingSquare(int x, int y) {
     int last = G32(RVA_LAST_PLANE);
     for (int p = 0; p <= last && p < planeTableRecords(); p++) {
@@ -36,7 +32,6 @@ static int planeHoldingSquare(int x, int y) {
 
 static int squareInMap(int x, int y) { return x >= 0 && y >= 0 && x < G32(RVA_MAP_W) && y < G32(RVA_MAP_H); }
 
-// A square's record field, the terrain word at RVA_SQUARES and the flags at RVA_SQUARE_FLAGS.
 static unsigned char *sightSquare(int x, int y) { return GAME_PTR(RVA_SQUARE_RECORDS) + ((size_t)x * MAP_COLUMN_SQUARES + (size_t)y) * SQUARE_SIZE; }
 static short sightTerrain(int x, int y) { return (short)G16(RVA_SQUARES + ((size_t)x * MAP_COLUMN_SQUARES + (size_t)y) * SQUARE_SIZE); }
 static int sightSquareFlags(int x, int y) { return (int)G32(RVA_SQUARE_FLAGS + ((size_t)x * MAP_COLUMN_SQUARES + (size_t)y) * SQUARE_SIZE); }
@@ -54,10 +49,8 @@ static int sightTeamFarsight(int player, int x, int y) { return GAME_FN(int (*)(
 static int sightTeamFarsightSea(int player, int x, int y) { return GAME_FN(int (*)(int, int, int), RVA_SQUARE_TEAM_ABILITY_B)(player, x, y); }
 static int sightSourceNear(int player, int x, int y) { return GAME_FN(int (*)(int, int, int), RVA_SIGHT_SOURCE_NEAR)(player, x, y); }
 static int sightSquareOwnerAt(int x, int y) { return GAME_FN(int (*)(int, int), RVA_SQUARE_OWNER_AT)(x, y); }
-// The game's RVA_UPDATE_SIGHT, which the entry hook runs for every caller, CoE5SE's too.
 static void sightUpdate(int player, int x0, int y0, int x1, int y1) { GAME_FN(UpdateSightFn, RVA_UPDATE_SIGHT)(player, x0, y0, x1, y1); }
 #else
-// RVA_FIRST_TEAM_UNIT_AT: the first living unit on (x, y) of the player's team, -1 none (x below 0: none).
 static int sightFirstTeamUnitAt(int player, int x, int y) {
     if (x < 0) return -1;
     int last = G32(RVA_UNIT_COUNT);
@@ -69,7 +62,6 @@ static int sightFirstTeamUnitAt(int player, int x, int y) {
     return -1;
 }
 
-// The most of an ability over a team's living units on a square.
 static int sightTeamAbility(int player, int x, int y, int ability) {
     if (x < 0 || y < 0) return 0;
     int best = 0, last = G32(RVA_UNIT_COUNT);
@@ -85,7 +77,6 @@ static int sightTeamAbility(int player, int x, int y, int ability) {
 static int sightTeamFarsight(int player, int x, int y) { return sightTeamAbility(player, x, y, ABILITY_FARSIGHT); }
 static int sightTeamFarsightSea(int player, int x, int y) { return sightTeamAbility(player, x, y, ABILITY_FARSIGHTSEA); }
 
-// Whether a team's sight source is within 3 squares.
 static int sightSourceNear(int player, int x, int y) {
     int mapW = G32(RVA_MAP_W), mapH = G32(RVA_MAP_H);
     for (int tx = x - 3; tx <= x + 3; tx++)
@@ -102,15 +93,12 @@ static int sightSourceNear(int player, int x, int y) {
     return 0;
 }
 
-// RVA_SQUARE_OWNER_AT: SQUARE_OWNER, -1 off RVA_MAP_W x RVA_MAP_H.
 static int sightSquareOwnerAt(int x, int y) { return squareInMap(x, y) ? (signed char)sightSquare(x, y)[SQUARE_OWNER] : -1; }
 
 static void updateSightHook(int player, int x0, int y0, int x1, int y1);
-// RVA_UPDATE_SIGHT with the faction slots: the hook, as every redirected caller runs it.
 static void sightUpdate(int player, int x0, int y0, int x1, int y1) { updateSightHook(player, x0, y0, x1, y1); }
 #endif
 
-// RVA_SIGHT_RAYS for a faction slot: the square in view, then rays toward the edge of the box.
 static void factionSightRays(int x, int y, int faction, int range) {
     int plane = GAME_FN(int (*)(int, int), RVA_PLANE_AT)(x, y);
     if (plane < 0) return;
@@ -130,7 +118,6 @@ static void factionSightRays(int x, int y, int faction, int range) {
         }
 }
 
-// RVA_SIGHT_BOX for a faction slot: every square within `radius` on the square's plane at least `level`.
 static void factionSightBox(int x, int y, int faction, int radius, int level) {
     int plane = GAME_FN(int (*)(int, int), RVA_PLANE_AT)(x, y);
     if (plane < 0) return;
@@ -139,7 +126,6 @@ static void factionSightBox(int x, int y, int faction, int radius, int level) {
             if (planeHoldingSquare(tx, ty) == plane) raiseFactionSeen(tx, ty, faction, level);
 }
 
-// A faction slot's part of RVA_UPDATE_SIGHT over the box: sight from its team's squares and armies.
 static void factionSightPass(int faction, int x0, int y0, int x1, int y1) {
     int mapW = G32(RVA_MAP_W), mapH = G32(RVA_MAP_H);
     for (int x = x0; x <= x1; x++)
@@ -192,7 +178,6 @@ static void factionSightPass(int faction, int x0, int y0, int x1, int y1) {
         }
 }
 
-// RVA_UPDATE_SIGHT's second pass for a faction slot: the Sky's holes in view show the Elysium square below.
 static void factionSkyHoles(int faction, int x0, int x1) {
     int sx = planeField(PLANE_SKY, PLANE_X), sy = planeField(PLANE_SKY, PLANE_Y), sw = planeField(PLANE_SKY, PLANE_W), sh = planeField(PLANE_SKY, PLANE_H);
     if (x1 < sx || x0 >= sx + sw) return;
@@ -208,7 +193,6 @@ static void factionSkyHoles(int faction, int x0, int x1) {
         }
 }
 
-// RVA_UPDATE_SIGHT: the game's, then each faction slot the call covers.
 static void updateSightHook(int player, int x0, int y0, int x1, int y1) {
     (gameUpdateSight ? gameUpdateSight : GAME_FN(UpdateSightFn, RVA_UPDATE_SIGHT))(player, x0, y0, x1, y1);
     if (!factionSlotsInUse()) return;
@@ -236,7 +220,6 @@ static void sightBoxHook(int x, int y, int player, int radius, int level) {
 }
 
 #ifndef __APPLE__
-// RVA_PLANE_SEEN for a faction slot: any square of the plane seen, cached in RVA_PLAYER_PLANE_SEEN.
 static int planeSeenHook(int player, int plane) {
     if (!factionSlot(player)) return gamePlaneSeen(player, plane);
     if (plane < 0 || plane > PLANE_RECORDS_GAME - 1) return 0;
@@ -261,7 +244,6 @@ static ShareTeamSightFn gameShareTeamSight;
 #define SIGHT_UNIT_NEAR_FLAGS   0x20
 #define SIGHT_UNIT_NEAR_FLAGS_B 0x10020
 
-// Whether a unit of `player` stands on a square next to (x, y) or on it, RVA_PLAYER_UNIT_AT with `flags`.
 static int playerUnitNear(int player, int x, int y, int flags) {
     for (int ty = y - 1; ty <= y + 1; ty++)
         for (int tx = x - 1; tx <= x + 1; tx++)
@@ -269,7 +251,6 @@ static int playerUnitNear(int player, int x, int y, int flags) {
     return 0;
 }
 
-// RVA_ILLUSION_TERRAIN for a faction slot: whether an illusion shows the square as another terrain to it.
 static int factionIllusionTerrain(int player, int x, int y, int *shown) {
     int mapW = G32(RVA_MAP_W), mapH = G32(RVA_MAP_H);
     if (x >= 0 && y >= 0 && !(sightSquareFlags(x, y) & SQUARE_FLAG_ILLUSION)) return 0;
@@ -331,7 +312,6 @@ static int factionIllusionTerrain(int player, int x, int y, int *shown) {
 }
 
 #ifndef __APPLE__
-// RVA_UNIT_VISIBLE_TO for a faction slot: its own units and those without stealth always; else by its sight.
 static int factionUnitVisibleTo(int player, int unit, int x, int y) {
     if (unit < 0 || unit > G32(RVA_UNIT_COUNT) || x < 0 || y < 0) return 0;
     if ((short)G16(RVA_UNIT_PLAYER + (size_t)unit * UNIT_SIZE) == player) return 1;
@@ -344,7 +324,6 @@ static int factionUnitVisibleTo(int player, int unit, int x, int y) {
 }
 #endif
 
-// The team sight share for a faction slot, at its turn's start.
 static void factionShareTeamSight(int faction) {
     int depth = G32(RVA_MAP_DEPTH), mapW = G32(RVA_MAP_W), mapH = G32(RVA_MAP_H);
     for (int ally = 0; ally < PLAYER_SEATS; ally++) {
@@ -381,7 +360,6 @@ static void shareTeamSightHook(int player) {
 }
 
 #ifndef __APPLE__
-// RVA_RESET_SQUARES: the game's, then the faction slots' arrays as it leaves its own (seen 0, marks and AI memory -1).
 static void resetSquaresHook(void) {
     gameResetSquares();
     if (!factionSquareSeen) return;
@@ -393,7 +371,6 @@ static void resetSquaresHook(void) {
 }
 #endif
 
-// Hooks the sight functions; the number in.
 #ifndef __APPLE__
 static int installFactionSightHooks(void) {
     static const struct { unsigned int rva; void *hook; void **game; } HOOKS[] = {
@@ -430,7 +407,6 @@ static int installFactionSightHooks(void) {
 
 #ifndef __APPLE__
 // ---- Stubs at single instructions ----------------------------------------------------------------
-// Stubs that give the faction slots their own per-square bytes.
 typedef struct { unsigned int rva; unsigned char array; } FactionRedirectSite;
 static const FactionRedirectSite FACTION_REDIRECT_SITES[] = {
     {RVA_WAYTOGO_BACK_SEEN_READ, SQUARE_SEEN},             {RVA_SPREAD_PORTAL_SEEN_READ, SQUARE_SEEN},
@@ -454,7 +430,6 @@ _Static_assert(FACTION_REDIRECT_COUNT + FACTION_MIRROR_COUNT + 3 == FACTION_STUB
 _Static_assert(SQUARE_SIZE == 0x13c && (FACTION_STUB_DIV * SQUARE_SIZE >> 38) == 1 && FACTION_STUB_DIV * SQUARE_SIZE - (1ULL << 38) < SQUARE_SIZE, "the multiply divides by the record size");
 _Static_assert((unsigned long long)FACTION_SQUARES * SQUARE_SIZE < (1ULL << 38) / 276, "every square's offset divides exactly");
 
-// A stub being written: its bytes and the jumps still to point at its pass label.
 typedef struct { unsigned char *code; int n, passJumps[4], passCount; } StubCode;
 static void stubBytes(StubCode *c, const void *bytes, int size) { memcpy(c->code + c->n, bytes, (size_t)size); c->n += size; }
 #define STUB(c, ...) do { const unsigned char b_[] = {__VA_ARGS__}; stubBytes(c, b_, (int)sizeof b_); } while (0)
@@ -469,7 +444,6 @@ static void stubPassHere(StubCode *c) {
     }
     c->passCount = 0;
 }
-// `jmp target` or `j<cc> target` (cc 0 for jmp), rel32.
 static void stubJumpTo(StubCode *c, unsigned char cc, unsigned char *target) {
     if (cc) STUB(c, 0x0f, cc);
     else STUB(c, 0xe9);
@@ -477,7 +451,6 @@ static void stubJumpTo(StubCode *c, unsigned char cc, unsigned char *target) {
     stubBytes(c, &rel, 4);
 }
 
-// An instruction with one memory operand: where its parts are, and the registers it names.
 typedef struct { int length, rex, opcodeAt, opcodeLength, modrmAt, memLength, immLength, reg, regIsRegister, base, index; } SlotOp;
 static int decodeSlotOp(const unsigned char *at, SlotOp *op) {
     int i = 0;
@@ -516,14 +489,12 @@ static int decodeSlotOp(const unsigned char *at, SlotOp *op) {
     return 1;
 }
 
-// A scratch register r8..r11 the instruction doesn't name (their low bits are never 4 or 5).
 static int slotOpScratch(const SlotOp *op) {
     int s = 8;
     while (s == op->base || s == op->index || (op->regIsRegister && s == op->reg)) s++;
     return s;
 }
 
-// A stub's common start: the offset within the square's record, or a jump to pass.
 static void stubSquareOffset(StubCode *c, const unsigned char *at, const SlotOp *op, int s, unsigned char *first) {
     int lo = s & 7;
     STUB(c, 0x41, (unsigned char)(0x50 | lo), 0x9c);
@@ -546,7 +517,6 @@ static void stubSquareOffset(StubCode *c, const unsigned char *at, const SlotOp 
     STUB(c, 0x48, 0x29, 0xc8);
 }
 
-// rdx = side + square * 16 (rax kept, rcx used).
 static void stubSideRow(StubCode *c, unsigned char *side) {
     unsigned long long sideAt = (unsigned long long)(uintptr_t)side;
     STUB(c, 0x48, 0xc1, 0xe2, 4, 0x48, 0xb9);
@@ -554,10 +524,8 @@ static void stubSideRow(StubCode *c, unsigned char *side) {
     STUB(c, 0x48, 0x01, 0xca);
 }
 
-// `pop rdx, rcx, rax; popfq`.
 static void stubRestore(StubCode *c) { STUB(c, 0x5a, 0x59, 0x58, 0x9d); }
 
-// A redirect stub for the instruction at `at`; its length, or 0 when the instruction isn't one this takes.
 static int buildRedirectStub(unsigned char *at, unsigned char array, unsigned char *side, unsigned char *stub, int *length) {
     SlotOp op;
     if (!decodeSlotOp(at, &op)) return 0;
@@ -581,7 +549,6 @@ static int buildRedirectStub(unsigned char *at, unsigned char array, unsigned ch
     return c.n;
 }
 
-// A mirror stub that also sets the faction slots' bytes; its length, or 0.
 static int buildMirrorStub(unsigned char *at, unsigned char array, unsigned char value, unsigned char *side, unsigned char *stub, int *length) {
     SlotOp op;
     if (!decodeSlotOp(at, &op) || op.regIsRegister) return 0;
@@ -604,7 +571,6 @@ static int buildMirrorStub(unsigned char *at, unsigned char array, unsigned char
     return c.n;
 }
 
-// The clouds' stub at `cmp bl, 0x1f; ja done` (rdi the square's record offset): a faction owner's mark 0xff too.
 static int buildCloudStub(unsigned char *at, unsigned char *stub, int *length) {
     *length = 5;
     unsigned char *done = at + 5 + (signed char)at[4];
@@ -624,7 +590,6 @@ static int buildCloudStub(unsigned char *at, unsigned char *stub, int *length) {
     return c.n;
 }
 
-// RVA_AUTO_RECRUIT's stub at `lea rbp, [rax + SQUARE_SEEN_MARK]` (r14 the player): past 31, on to the loop's end.
 static int buildAgingStub(unsigned char *at, unsigned char *stub, int *length) {
     *length = 7;
     StubCode c = {stub, 0, {0}, 0};
@@ -637,7 +602,6 @@ static int buildAgingStub(unsigned char *at, unsigned char *stub, int *length) {
 
 static int squareSeenAtPort(int player, int x, int y);
 
-// A stub jumping to `port`, for a function's entry; its length (5, the jump written there), or 0.
 static int buildPortStub(void *port, unsigned char *stub, int *length) {
     *length = 5;
     StubCode c = {stub, 0, {0}, 0};
@@ -647,7 +611,6 @@ static int buildPortStub(void *port, unsigned char *stub, int *length) {
     return c.n;
 }
 
-// Sends each instruction through its stub; the number in.
 static int installFactionStubs(void) {
     if (!gameCodeMatches) {
         writeLog("faction_stubs_not_installed", "reason=game_code_differs");
@@ -697,7 +660,6 @@ static int installFactionStubs(void) {
 }
 
 // ---- Functions over every slot, and readers with no bound ----------------------------------------
-// RVA_SQUARE_SEEN_AT in full: SQUARE_SEEN, a faction slot's from its own array; -1 off the map or below 0.
 static int squareSeenAtPort(int player, int x, int y) {
     if (!squareInMap(x, y) || player < 0) return -1;
     if (factionSlot(player)) return *factionSeen(x, y, player);
@@ -705,7 +667,6 @@ static int squareSeenAtPort(int player, int x, int y) {
 }
 #endif
 
-// Sets a faction slot's SQUARE_SEEN to `level` over RVA_SET_SEEN_DISC's disc.
 static void factionSetSeenDisc(int faction, int x, int y, float radius, int level) {
     int plane = planeHoldingSquare(x, y);
     if (plane < 0) return;
@@ -718,7 +679,6 @@ static void factionSetSeenDisc(int faction, int x, int y, float radius, int leve
         }
 }
 
-// RVA_SET_SEEN_DISC: the game's, then the faction slots it covers (all with -1, a faction slot itself).
 typedef void (*SetSeenDiscFn)(int player, int x, int y, float radius, int level);
 static SetSeenDiscFn gameSetSeenDisc;
 static void setSeenDiscHook(int player, int x, int y, float radius, int level) {
@@ -727,7 +687,6 @@ static void setSeenDiscHook(int player, int x, int y, float radius, int level) {
         if (player == -1 || player == f) factionSetSeenDisc(f, x, y, radius, level);
 }
 
-// RVA_REVEAL_DISC for a faction slot: the game's steps, the faction's team in its own arrays.
 static void factionRevealDisc(int player, int x, int y, float radius, int value, int flag) {
     int plane = GAME_FN(int (*)(int, int), RVA_PLANE_AT)(x, y);
     if (plane < 0) return;
@@ -761,7 +720,6 @@ static void revealDiscHook(int player, int x, int y, float radius, int value, in
 }
 
 #ifndef __APPLE__
-// RVA_AUTO_RECRUIT: the game's (its aging stub skips a faction slot), then a faction slot's own seen marks aged.
 typedef void (*AutoRecruitFn)(int player);
 static AutoRecruitFn gameAutoRecruit;
 static void autoRecruitHook(int player) {
@@ -777,7 +735,6 @@ static void autoRecruitHook(int player) {
         }
 }
 
-// Hooks the functions above; the number in.
 static int installFactionSlotHooks(void) {
     static const struct { unsigned int rva; void *hook; void **game; } HOOKS[] = {
         {RVA_SET_SEEN_DISC, (void *)setSeenDiscHook, (void **)&gameSetSeenDisc},

@@ -1,4 +1,3 @@
-// RVA_SQUARE_STRENGTH answered from lists of each square's living units, while no unit can change.
 #pragma once
 
 #define STRENGTH_CHECK_EVERY 256
@@ -22,25 +21,23 @@ static struct {
     unsigned long long builds, indexed, game, checked;
 } strengthIndex;
 
-// The game's square strength, counted.
 static int strengthAskGame(int team, int x, int y) {
     strengthIndex.game++;
     return strengthGame(team, x, y);
 }
 
-// Builds the lists from the unit table; 0 when the table or the map is outside what they hold.
 static int strengthIndexBuild(void) {
     int columns = G32(RVA_MAP_DEPTH), last = G32(RVA_UNIT_COUNT);
-    if (columns <= 0 || columns > MAP_COLUMNS_MAX || last >= UNIT_TABLE_MAX) return 0;   // No log: the game answers
+    if (columns <= 0 || columns > MAP_COLUMNS_MAX || last >= UNIT_TABLE_MAX) return 0;
     size_t squares = (size_t)columns * MAP_COLUMN_SQUARES, units = (size_t)(last < 0 ? 0 : last + 1);
     if (squares > strengthIndex.headCount) {
         int *p = realloc(strengthIndex.head, squares * sizeof *p);
-        if (!p) return 0;   // No log: the game answers
+        if (!p) return 0;
         strengthIndex.head = p, strengthIndex.headCount = squares;
     }
     if (units > strengthIndex.nextCount) {
         int *p = realloc(strengthIndex.next, units * sizeof *p);
-        if (!p) return 0;   // No log: the game answers
+        if (!p) return 0;
         strengthIndex.next = p, strengthIndex.nextCount = units;
     }
     memset(strengthIndex.head, 0xff, squares * sizeof *strengthIndex.head);
@@ -57,7 +54,6 @@ static int strengthIndexBuild(void) {
     return 1;
 }
 
-// RVA_SQUARE_STRENGTH(team, x, y) from the square's list.
 static int strengthFromLists(int team, int x, int y) {
     long long sum = 0;
     int count = 0, ranged = 0;
@@ -71,7 +67,6 @@ static int strengthFromLists(int team, int x, int y) {
     return sum < INT_MAX ? (int)sum : INT_MAX;
 }
 
-// A square strength query: from the lists when they hold this epoch, else the game's.
 static int strengthQuery(int team, int x, int y) {
     if (!strengthGame) return GAME_FN(SquareStrengthFn, RVA_SQUARE_STRENGTH)(team, x, y);
     if (strengthIndex.off || isNetworkGame() || x < 0 || y < 0 || x >= G32(RVA_MAP_DEPTH) || y >= G32(RVA_MAP_H) ||
@@ -100,7 +95,6 @@ static int strengthQuery(int team, int x, int y) {
     return value;
 }
 
-// The window calls' square strength: from the lists inside a window, else the game's.
 static int strengthWindowQuery(int team, int x, int y) {
     return strengthIndex.depth > 0 ? strengthQuery(team, x, y) : strengthAskGame(team, x, y);
 }
@@ -114,7 +108,6 @@ static void strengthWindowClose(void) {
     strengthIndex.depth--;
 }
 
-// RVA_AI_MOVE's call of RVA_AI_UPDATE_STRENGTH_MEMORY(player), as a window.
 static void strengthMemoryWindow(int player) {
     static int loggedTurn = -1000, loggedPlayer = -1;
     if (G32(RVA_TURN) != loggedTurn || player != loggedPlayer) {
@@ -127,7 +120,6 @@ static void strengthMemoryWindow(int player) {
     strengthWindowClose();
 }
 
-// RVA_AI_UPDATE_STRENGTH_MEMORY's progress text: a frame it draws ends the lists' epoch.
 static uint64_t strengthMemoryProgress(uint64_t mode, uint64_t text) {
     int drawn = G32(RVA_PROGRESS_LAST_DRAW);
     uint64_t result = GAME_FN(StrengthProgressFn, RVA_PROGRESS_TEXT)(mode, text);
@@ -135,7 +127,6 @@ static uint64_t strengthMemoryProgress(uint64_t mode, uint64_t text) {
     return result;
 }
 
-// RVA_WAYTOGO2's calls of RVA_WAYTOGO, as a window: every argument passed on as it came.
 static uint64_t strengthWaytogoWindow(uint64_t a, uint64_t b, uint64_t c, uint64_t d, uint64_t e, uint64_t f, uint64_t g, uint64_t h,
                                       uint64_t i, uint64_t j, uint64_t k, uint64_t l) {
     strengthWindowOpen();
@@ -144,14 +135,12 @@ static uint64_t strengthWaytogoWindow(uint64_t a, uint64_t b, uint64_t c, uint64
     return result;
 }
 
-// The calls strengthIndexInit points: the queries and the progress text first, the windows last.
 typedef struct {
     unsigned int siteRva, targetRva;
     void *hook;
     const char *name;
 } StrengthCall;
 
-// Points one call at its hook; 1 when it did.
 static int strengthPoint(const StrengthCall *c, int slot) {
 #ifdef __APPLE__
     static void *trampolines[4], *hooks[4];
@@ -181,7 +170,6 @@ static int strengthPoint(const StrengthCall *c, int slot) {
 #endif
 }
 
-// Points the square strength queries and their windows at the code above, and logs strength_index_installed.
 static void strengthIndexInit(void) {
     static const StrengthCall MEMORY_QUERIES[] = {
         {RVA_AI_STRENGTH_MEMORY_SQUARE_CALL, RVA_SQUARE_STRENGTH, (void *)strengthWindowQuery, "strength_memory_square"},

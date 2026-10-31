@@ -1,4 +1,3 @@
-// Every ADRP in coe5_mac that builds an address in the game's plane table or its camera arrays.
 #pragma once
 
 enum { PLANE_GROUP_TABLE, PLANE_GROUP_CAMERA_X, PLANE_GROUP_CAMERA_Y, PLANE_GROUP_BG_BUILT, PLANE_GROUP_BG_PIXELS, PLANE_GROUP_BG_DIRTY, PLANE_GROUP_BG_SIZE };

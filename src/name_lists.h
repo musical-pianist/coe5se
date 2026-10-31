@@ -1,4 +1,3 @@
-// Mods' own commander name lists, and fixed names.
 #pragma once
 
 #define NEWNAMETYPE_WORD   "newnametype"
@@ -39,14 +38,12 @@ static void closeNameList(void) {
     nameLists.open = -1;
 }
 
-// The list called `list`, ignoring case, as the game compares names; -1 when there is none.
 static int nameListByName(const char *list) {
     for (int i = 0; i < nameLists.count; i++)
         if (nameLists.lists[i].list[0] && !_stricmp(nameLists.lists[i].list, list)) return i;
     return -1;
 }
 
-// A new empty list; -1 when out of memory (logged).
 static int addNameList(const char *list) {
     if (!growList((void **)&nameLists.lists, &nameLists.capacity, nameLists.count + 1, sizeof nameLists.lists[0])) {
         writeLog("name_list_skipped", "list=%s reason=out_of_memory", list);
@@ -70,7 +67,6 @@ static int addNameToList(int index, const char *name) {
     return 1;
 }
 
-// Reads a word's quoted text into `out`; returns its length, or -1 when refused.
 static int readNameText(const char *word, const char *args, char *out, size_t size, size_t max, int mod) {
     const char *p = args;
     int len = readSpellQuoted(&p, out, size);
@@ -85,7 +81,6 @@ static int readNameText(const char *word, const char *args, char *out, size_t si
     return len;
 }
 
-// newnametype "<list>": opens a name list.
 static void newnametypeLine(const char *args, int mod, int level) {
     if (level != 2) return;
     closeNameList();
@@ -97,7 +92,6 @@ static void newnametypeLine(const char *args, int mod, int level) {
     nameLists.open = index;
 }
 
-// addname "<name>": adds a name to the open list.
 static void addnameLine(const char *args, int mod, int level) {
     if (level != 2) return;
     char name[COMMANDER_NAME_SIZE + 1];
@@ -109,10 +103,8 @@ static void addnameLine(const char *args, int mod, int level) {
     addNameToList(nameLists.open, name);
 }
 
-// A list's type number: what nametype stores for it.
 static int nameListType(int index) { return AUTO_NAME_TYPES + index; }
 
-// `nametype <type>` in nameListLine for the game to read; NULL when it doesn't fit (logged).
 static const char *nametypeLineFor(const char *word, int type, int mod, const char *text) {
     int n = snprintf(nameListLine, sizeof nameListLine, NAMETYPE_WORD " %d", type);
     if (n < 0 || (size_t)n >= sizeof nameListLine) {
@@ -122,7 +114,6 @@ static const char *nametypeLineFor(const char *word, int type, int mod, const ch
     return nameListLine;
 }
 
-// Every .c5m and .c5se line outside events comes here after offsetNameLineHook.
 static const char *nameListLineHook(const char *line, size_t len, int mod, int level) {
     if (level == 2 && nameLists.lastLevel != 2) {
         clearNameLists();
@@ -164,7 +155,6 @@ static const char *nameListLineHook(const char *line, size_t len, int mod, int l
     return nametypeLineFor(word, nameListType(index), mod, text);
 }
 
-// The same when no plugin loaded; returns 1 to skip the line.
 static int declinedNameListLine(const char *line, size_t len, int level) {
     if (level != 2 || !spellWordIs(line, len, NAMETYPE_WORD)) return 0;
     const char *args = line + len;
@@ -173,7 +163,6 @@ static int declinedNameListLine(const char *line, size_t len, int level) {
 }
 
 // ---- The game's auto_name --------------------------------------------------------------------------
-// auto_name(type, out) for a mod's list.
 typedef void (*AutoNameFn)(int type, char *out);
 static int (*nameListRandom)(int n);
 static AutoNameFn gameAutoName;
@@ -192,7 +181,6 @@ static void autoNameHook(int type, char *out) {
 #ifndef __aarch64__
 #define NAME_LIST_HOOKS     6
 #define NAME_LIST_STUB_SIZE 0x20
-// Points the tail jump at `siteRva` to `hook`.
 static int redirectTailJump(unsigned int siteRva, unsigned int targetRva, unsigned char *stub, void *hook, const char *label) {
     unsigned char *site = gameBase + siteRva;
     int rel;
@@ -233,14 +221,6 @@ static int installNameListHooks(void) {
 }
 #else
 #define NAME_LIST_HOOKS 7
-// Where the `b` at `at` goes, or NULL if the instruction isn't a `b`.
-static unsigned char *bTarget(const unsigned char *at) {
-    uint32_t insn;
-    memcpy(&insn, at, 4);
-    if ((insn & 0xfc000000u) != 0x14000000u) return NULL;
-    int32_t imm = (int32_t)(insn << 6) >> 6;
-    return (unsigned char *)at + (intptr_t)imm * 4;
-}
 
 static int installNameListHooks(void) {
     static const struct { unsigned int callRva; const char *name; int tail; } CALLS[NAME_LIST_HOOKS] = {
@@ -270,18 +250,15 @@ static int installNameListHooks(void) {
 }
 #endif
 
-// fixedname at a level the game reads no content: nothing to do.
 static void fixednameLine(const char *args, int mod, int level) {
     (void)args; (void)mod; (void)level;
 }
 
-// Adds the words; returns how many were added.
 static int nameListWordsInit(void) {
     return apiAddModCommand("newnametype", newnametypeLine) + apiAddModCommand("addname", addnameLine) +
            apiAddModCommand("fixedname", fixednameLine);
 }
 
-// Adds the words and hooks every call of auto_name.
 static void nameListsInit(void) {
     nameListRandom = GAME_FN(int (*)(int), RVA_RANDOM);
     gameAutoName = GAME_FN(AutoNameFn, RVA_AUTO_NAME);

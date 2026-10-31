@@ -1,4 +1,3 @@
-// coe5mod.log's rotation: coe5mod.log and coe5mod.1.log to coe5mod.4.log.
 #pragma once
 #include <errno.h>
 #include <stdio.h>
@@ -17,7 +16,6 @@
 #define LOG_STUB_OLD_FILE "coe5mod.old.log"
 #define LOG_HEADER_END_EVENT "log_header_end"
 
-// Writes the path of kept log `n` beside `path` to `out`.
 static __attribute__((unused)) int logFilePath(const char *path, int n, char *out, size_t size) {
     size_t length = strlen(path);
     if (length < 4 || strcmp(path + length - 4, ".log")) return 0;
@@ -27,7 +25,6 @@ static __attribute__((unused)) int logFilePath(const char *path, int n, char *ou
     return wrote > 0 && (size_t)wrote < size;
 }
 
-// Moves every kept log one older and `from` into coe5mod.1.log.
 static __attribute__((unused)) int shiftLogFiles(const char *path, const char *from) {
     char older[1024], newer[1024];
     if (!logFilePath(path, LOG_FILES - 1, older, sizeof older)) return 0;
@@ -42,7 +39,6 @@ static __attribute__((unused)) int shiftLogFiles(const char *path, const char *f
 }
 
 // @platform-split log_truncate: Windows cuts with _chsize_s, a Mac with ftruncate
-// Cuts the file at `path` to its first `bytes` bytes.
 static __attribute__((unused)) int truncateLogFile(const char *path, long bytes) {
     FILE *f = fopen(path, "r+b");
     if (!f) return 0;
@@ -54,7 +50,6 @@ static __attribute__((unused)) int truncateLogFile(const char *path, long bytes)
     return fclose(f) == 0 && ok;
 }
 
-// Returns the offset of this launch's first line in log text `text`.
 static __attribute__((unused)) long launchStartIn(const char *text, long length, unsigned long pid) {
     char tail[32];
     snprintf(tail, sizeof tail, " pid=%lu", pid);
@@ -79,7 +74,6 @@ static __attribute__((unused)) long launchStartIn(const char *text, long length,
     return found;
 }
 
-// What rotateLogAtLaunch did, for the loader's log line.
 typedef struct {
     int found;
     long earlier;
@@ -87,7 +81,6 @@ typedef struct {
     int error;
 } LogRotation;
 
-// At a launch's start: moves the earlier launches' lines out of coe5mod.log.
 static __attribute__((unused)) LogRotation rotateLogAtLaunch(const char *path, unsigned long pid) {
     LogRotation r = {0, 0, 0, 0};
     char old[1024];

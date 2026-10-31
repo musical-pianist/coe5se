@@ -1,6 +1,5 @@
-// Checks that the game's own code is still what CoE5SE's copies and patches of it were made for.
+#pragma once
 
-// Logs `event` for game code CoE5SE copies or changes, with its fields after `head` ("" or "function=<name> ").
 static int checkGameFunction(const char *event, const char *head) {
     if (!gameBuild) {
         writeLog(event, "%schecked=0 reason=unknown_game_build", head);
@@ -14,12 +13,13 @@ static int checkGameFunction(const char *event, const char *head) {
     return 1;
 }
 
-// The startup check of name_box, logged as name_box_check.
 static void checkNameBoxCode(void) { checkGameFunction("name_box_check", ""); }
 
-// The startup check of the event triggers' two finders, one event_finders_check line each.
 static int checkEventFinderCode(void) {
     int unit = checkGameFunction("event_finders_check", "function=find_unit_at ");
     int item = checkGameFunction("event_finders_check", "function=find_item_holder_at ");
-    return unit && item;
+    int afflicted = checkGameFunction("event_finders_check", "function=find_afflicted_unit_at ");
+    int countAt = checkGameFunction("event_finders_check", "function=count_units_at ");
+    int count = checkGameFunction("event_finders_check", "function=count_units ");
+    return unit && item && afflicted && countAt && count;
 }

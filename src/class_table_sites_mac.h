@@ -1,4 +1,3 @@
-// Every ADRP in coe5_mac that builds an address in the game's class table, and its bounds.
 #pragma once
 
 #define CLASS_MAC_SITE_COUNT 64
@@ -69,7 +68,6 @@ static const TableMacSite CLASS_MAC_SITES[CLASS_MAC_SITE_COUNT] = {
     {0x589abc},
 };
 
-// The compares of a record number against the game's 200, or the mov that holds it: each becomes the moved size.
 #define CLASS_MAC_BOUND_COUNT 4
 static const TableMacBound CLASS_MAC_BOUNDS[CLASS_MAC_BOUND_COUNT] = {
     {0x3312a4, CLASS_RECORDS_MOVED - 1},
@@ -78,7 +76,6 @@ static const TableMacBound CLASS_MAC_BOUNDS[CLASS_MAC_BOUND_COUNT] = {
     {0x530c70, CLASS_RECORDS_MOVED - 2},
 };
 
-// The table's size in bytes, 200 records, built by a movz and a movk (the copies' and clears' sizes): each becomes the moved size.
 #define CLASS_MAC_SIZE_COUNT 6
 static const TableMacSize CLASS_MAC_SIZES[CLASS_MAC_SIZE_COUNT] = {
     {0x3312e4},

@@ -1,4 +1,3 @@
-// Every instruction in CoE5.exe that builds an address in the game's army_list_counts table.
 #pragma once
 
 #define ARMY_LIST_COUNTS_TABLE_SITE_COUNT 18

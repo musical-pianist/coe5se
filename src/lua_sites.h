@@ -1,7 +1,6 @@
-// coe5.wrap and coe5.observe: the sites scripts may wrap or observe, and how a call reaches a script.
+#pragma once
 
 // ---- Sites: coe5.wrap(siteName, function(next, ...) ... end[, priority]) and coe5.observe ------
-// Every site a plugin or script may wrap, and every observe-only site a script may observe.
 enum {
     K_CALL,
     K_TEXT,
@@ -16,7 +15,6 @@ enum {
 };
 #define LUA_CALL_ARGS 17
 #define LUA_TEXT_ARGS 6
-// How many arguments Mac passes in registers.
 #define LUA_REGISTER_ARGS 8
 #ifdef __APPLE__
 #define LUA_CALL_ARGS_EXACT LUA_REGISTER_ARGS
@@ -39,7 +37,6 @@ typedef struct {
     int kind;
     const char *signature;
 } LuaSite;
-// What scripts added to a site, at the index of its row in luaSites.
 typedef struct {
     LuaWrap **wraps;
     int count, capacity;
@@ -47,7 +44,6 @@ typedef struct {
     int observerCount, observerCapacity, observed;
 } LuaSiteState;
 
-// A wrapped call's arguments.
 typedef struct {
     u64 a[LUA_CALL_ARGS];
     float f[8];
@@ -55,7 +51,6 @@ typedef struct {
     const char *changed;
 } LuaArgs;
 
-// One running call of a Lua wrap.
 typedef struct LuaFrame {
     struct LuaFrame *up;
     LuaWrap *wrap;
@@ -70,7 +65,6 @@ static lua_Integer luaFrameSerial;
 static int lNextCall(lua_State *L);
 
 // ---- coe5.changedBy: which scripts' wraps changed a site's answer ----------------------------------
-// One script wrap that changed what its next() gave it: the answer it returned, the arguments it passed on, or both.
 #define LUA_CHANGES_MAX 64
 typedef struct { CallSite site; const char *mod; int priority, answer, arguments; } LuaChange;
 static LuaChange luaChanges[LUA_CHANGES_MAX];
@@ -80,12 +74,11 @@ static void noteLuaChange(CallSite site, const LuaWrap *w, int answer, int argum
     if (!answer && !arguments) return;
     if (luaChangeCount >= LUA_CHANGES_MAX) {
         luaChangesDropped++;
-        return;   // No log: coe5.changedBy reports the cut (dropped=).
+        return;
     }
     luaChanges[luaChangeCount++] = (LuaChange){site, w->s ? w->s->mod : "?", w->priority, answer, arguments};
 }
 
-// The sites a script can wrap or observe, by the name coe5.wrap and coe5.observe take.
 static const LuaSite luaSites[] = {
     {"MAIN_MENU_WAIT",                SITE_MAIN_MENU_WAIT,                K_CALL,    "i:ii"},
     {"MAIN_MENU_PLAY_GAME",           SITE_MAIN_MENU_PLAY_GAME,           K_CALL,    "i:i"},
@@ -153,18 +146,20 @@ static const LuaSite luaSites[] = {
     {"GAME_OVER",                     SITE_GAME_OVER,                     K_OBSERVE, "v:i"},
     {"GAME_SAVE",                     SITE_GAME_SAVE,                     K_OBSERVE, "i:ss"},
     {"GAME_LOAD",                     SITE_GAME_LOAD,                     K_OBSERVE, "i:si"},
+    {"AFTER_GAME_TURN",               SITE_AFTER_GAME_TURN,               K_OBSERVE, "v:"},
+    {"DO_ALL_FIGHTS",                 SITE_DO_ALL_FIGHTS,                 K_OBSERVE, "v:"},
+    {"MOVE_ALL_INDEPENDENTS",         SITE_MOVE_ALL_INDEPENDENTS,         K_OBSERVE, "v:i"},
+    {"CONQUER_SQUARE",                SITE_CONQUER_SQUARE,                K_OBSERVE, "x:iii"},
 };
 #define LUA_SITE_COUNT ((int)(sizeof luaSites / sizeof luaSites[0]))
 static LuaSiteState luaSiteState[LUA_SITE_COUNT];
 
-// The site's result letter and its argument letters.
 static char siteResult(const LuaSite *ls) {
     if (ls->signature) return ls->signature[0];
     return 'v';
 }
 static const char *siteArgs(const LuaSite *ls) { return ls->signature ? strchr(ls->signature, ':') + 1 : ""; }
 
-// Pushes one argument by its signature letter.
 static void pushLuaValue(lua_State *L, char type, u64 value) {
     if (type == 'i') lua_pushinteger(L, (int)value);
     else if (type == 'h') lua_pushinteger(L, (short)value);
@@ -175,7 +170,6 @@ static void pushLuaValue(lua_State *L, char type, u64 value) {
     else lua_pushinteger(L, (lua_Integer)value);
 }
 
-// Pushes the call's arguments for the Lua wrap, and returns how many it pushed.
 static int pushLuaArgs(lua_State *L, const LuaSite *ls, const LuaArgs *a) {
     switch (ls->kind) {
     case K_TEXT:
@@ -207,7 +201,6 @@ static int pushLuaArgs(lua_State *L, const LuaSite *ls, const LuaArgs *a) {
     }
 }
 
-// The printf buffer of the game function a text site's call draws with.
 static size_t luaTextSiteSize(CallSite site) {
     switch (site) {
     case SITE_MAP_MENU_BUTTON_TEXT: return TEXT_LINE_TEXT_SIZE;
@@ -217,7 +210,6 @@ static size_t luaTextSiteSize(CallSite site) {
     }
 }
 
-// Reads next()'s arguments into `a`.
 static void readNextArgs(lua_State *L, const LuaSite *ls, LuaArgs *a) {
     switch (ls->kind) {
     case K_TEXT:
@@ -252,7 +244,6 @@ static void readNextArgs(lua_State *L, const LuaSite *ls, LuaArgs *a) {
     }
 }
 
-// Keeps the arguments a wrap changed inside the game's own bounds.
 typedef struct { int index; const char *name; lua_Integer min, max; } NextArgCheck;
 static void checkNextArgs(const LuaSite *ls, LuaArgs *a, const LuaArgs *orig, const char *mod) {
     if (ls->kind == K_BANNER) {
@@ -343,27 +334,21 @@ static void checkNextArgs(const LuaSite *ls, LuaArgs *a, const LuaArgs *orig, co
     }
 }
 
-// Calls `next`, the wrapper after a wrap in the chain, with the site's own signature.
 typedef u64 (*LuaCallFn)(u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64);
 #ifdef __APPLE__
-// RITUAL_ROW_SIGNATURE as C types, for Mac's packed stack arguments (LUA_REGISTER_ARGS).
 typedef u64 (*LuaRitualRowFn)(int, int, int, const char *, int, int, int, int, int, int, int, int, const char *, int, int, int,
                               const char *);
-// Calls `next` with the arguments in `v` at the exact C types of RITUAL_ROW_SIGNATURE.
 static u64 callRitualRowTyped(void *next, const u64 *v) {
     return ((LuaRitualRowFn)next)((int)v[0], (int)v[1], (int)v[2], (const char *)(uintptr_t)v[3], (int)v[4], (int)v[5], (int)v[6],
                                   (int)v[7], (int)v[8], (int)v[9], (int)v[10], (int)v[11], (const char *)(uintptr_t)v[12],
                                   (int)v[13], (int)v[14], (int)v[15], (const char *)(uintptr_t)v[16]);
 }
-// Whether K_CALL site `ls` is called with its exact C types.
 static int luaCallIsTyped(const LuaSite *ls) { return ls->signature && !strcmp(ls->signature, RITUAL_ROW_SIGNATURE); }
 #else
 static int luaCallIsTyped(const LuaSite *ls) { (void)ls; return 0; }
 #endif
-// The AI split's minimum.
 #define SPLIT_MIN_UNITS_TRACE_IMM 4
 #define SPLIT_MIN_UNITS_TEST_IMM 2
-// Whether the split's two instructions at `trace` and `test` hold one minimum.
 static __attribute__((unused)) int splitMinUnitsCodeOk(const unsigned char *trace, const unsigned char *test) {
     return !memcmp(trace + SPLIT_MIN_UNITS_TRACE_IMM, test + SPLIT_MIN_UNITS_TEST_IMM, 4);
 }
@@ -372,7 +357,6 @@ static int splitMinUnits(void) { return G32(0); }
 static void setSplitMinUnits(int value) { G32(0) = value; }
 #else
 static int splitMinUnits(void) { return *(const int *)(GAME_PTR(RVA_AI_SPLIT_MIN_UNITS_TEST) + SPLIT_MIN_UNITS_TEST_IMM); }
-// Writes both instructions' imm32.
 static void setSplitMinUnits(int value) {
     unsigned char *trace = GAME_PTR(RVA_AI_SPLIT_MIN_UNITS_TRACE), *test = GAME_PTR(RVA_AI_SPLIT_MIN_UNITS_TEST);
     int before;
@@ -384,7 +368,6 @@ static void setSplitMinUnits(int value) {
         if (!logged++) writeLog("ai_split_min_units_written", "ok=0 reason=code_unwritable address=%p", (void *)(trace < test ? trace : test));
     }
 }
-// prepareSiteCode's step for AI_SPLIT_ARMY.
 static int checkSplitMinUnitsCode(void) {
     const unsigned char *trace = GAME_PTR(RVA_AI_SPLIT_MIN_UNITS_TRACE), *test = GAME_PTR(RVA_AI_SPLIT_MIN_UNITS_TEST);
     if (gameCodeMatches && splitMinUnitsCodeOk(trace, test)) return 1;
@@ -393,7 +376,6 @@ static int checkSplitMinUnitsCode(void) {
     return 0;
 }
 #endif
-// AI_SPLIT_ARMY's next.
 static u64 callSplitArmyNext(void *next, const u64 *v) {
     int own = splitMinUnits();
     if ((int)v[1] != own) setSplitMinUnits((int)v[1]);
@@ -402,9 +384,7 @@ static u64 callSplitArmyNext(void *next, const u64 *v) {
     if (splitMinUnits() != own) setSplitMinUnits(own);
     return r;
 }
-// The Seven Seals broken (RVA_SEALS_BROKEN).
 #define SEALS_BROKEN_RVA RVA_SEALS_BROKEN
-// SEAL_BREAK's next.
 static u64 sealBreakNext(void *next, const u64 *v) {
     G32(SEALS_BROKEN_RVA) = (int)v[2];
     return ((LuaCallFn)next)(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10], v[11], v[12], v[13], v[14], v[15], v[16]);
@@ -454,7 +434,6 @@ static u64 callLuaNext(const LuaSite *ls, void *next, const LuaArgs *a) {
     }
 }
 
-// Pushes what next() returns to the script.
 static int pushLuaResult(lua_State *L, const LuaSite *ls, const LuaArgs *a, u64 result) {
     if (ls->kind == K_VETO) {
         lua_pushboolean(L, (int)result == 0);
@@ -470,7 +449,6 @@ static int pushLuaResult(lua_State *L, const LuaSite *ls, const LuaArgs *a, u64 
     return 3;
 }
 
-// Why the square and score a K_TARGET_SQUARE wrap returned can't go to the game, or NULL.
 static const char *targetSquareRefusal(lua_Integer score, lua_Integer x, lua_Integer y, int mapDepth, int mapH, int plane) {
     if (score < INT_MIN || score > INT_MAX) return "out_of_range";
     if (x == AI_NO_SQUARE && y == AI_NO_SQUARE) return score > 0 ? "no_square" : NULL;
@@ -479,7 +457,6 @@ static const char *targetSquareRefusal(lua_Integer score, lua_Integer x, lua_Int
     return NULL;
 }
 
-// Reads the value at `index` as a whole number.
 static int luaWholeNumber(lua_State *L, int index, lua_Integer *out) {
     int isNumber = 0;
     lua_Integer value = lua_type(L, index) == LUA_TNUMBER ? lua_tointegerx(L, index, &isNumber) : 0;
@@ -487,7 +464,6 @@ static int luaWholeNumber(lua_State *L, int index, lua_Integer *out) {
     return isNumber;
 }
 
-// After a K_TARGET_SQUARE wrap returned: puts its square through the call's pointers and returns its score.
 static u64 takeTargetSquare(lua_State *L, const LuaSite *ls, const LuaArgs *a, const LuaFrame *f, const char *mod) {
     int *outX = (int *)(uintptr_t)a->a[2], *outY = (int *)(uintptr_t)a->a[3];
     if (!f->nextCalled) *outX = *outY = AI_NO_SQUARE;
@@ -513,7 +489,6 @@ static u64 takeTargetSquare(lua_State *L, const LuaSite *ls, const LuaArgs *a, c
     return (u64)score;
 }
 
-// After a K_VETO wrap returned, with its result on L's stack: false vetoes, and the game gets 1 (drop).
 static u64 takeVeto(lua_State *L, const LuaSite *ls, const LuaArgs *a, const LuaFrame *f, const char *mod, int *callNext) {
     *callNext = 0;
     if (lua_isboolean(L, -1) && !lua_toboolean(L, -1)) return 1;
@@ -526,7 +501,6 @@ static u64 takeVeto(lua_State *L, const LuaSite *ls, const LuaArgs *a, const Lua
 }
 
 #define ROUTE_COMSTR_MAX 21474836
-// After an AI_MOVE_COMSTR wrap returned: the comstr the step's route takes.
 static u64 takeComstr(lua_State *L, const LuaSite *ls, const LuaArgs *a, const LuaFrame *f, const char *mod, int *callNext) {
     *callNext = 0;
     if (lua_isnil(L, -1)) return f->result;
@@ -542,7 +516,6 @@ static u64 takeComstr(lua_State *L, const LuaSite *ls, const LuaArgs *a, const L
     return 0;
 }
 
-// callLuaProtected's push for a wrap: its function, its next(), and the call's arguments.
 static int pushLuaWrapCall(lua_State *L, void *frame) {
     LuaFrame *f = frame;
     luaL_checkstack(L, 2 + LUA_CALL_ARGS, "a wrap's arguments");
@@ -553,7 +526,6 @@ static int pushLuaWrapCall(lua_State *L, void *frame) {
     return 1 + pushLuaArgs(L, &luaSites[f->wrap->site], f->args);
 }
 
-// Runs one wrap.
 static u64 runLuaWrap(LuaWrap *w, const LuaArgs *a) {
     const LuaSite *ls = &luaSites[w->site];
     LuaScript *s = w->s;
@@ -596,7 +568,6 @@ static u64 runLuaWrap(LuaWrap *w, const LuaArgs *a) {
     return result;
 }
 
-// next(...) inside a wrap.
 static int lNextCall(lua_State *L) {
     LuaFrame *f = lua_touserdata(L, lua_upvalueindex(1));
     lua_Integer serial = lua_tointeger(L, lua_upvalueindex(2));
@@ -628,7 +599,6 @@ static int lNextCall(lua_State *L) {
     return pushLuaResult(L, ls, &a, f->result);
 }
 
-// Every script wrap by its gate.
 static struct { void **gates; LuaWrap **wraps; size_t capacity, count; } luaWrapIndex;
 static size_t luaGateSlot(const void *gate, size_t capacity) {
     return (size_t)(((uintptr_t)gate >> 4) * (uintptr_t)0x9E3779B97F4A7C15ull) & (capacity - 1);
@@ -640,7 +610,6 @@ static void putLuaWrapIndex(void *gate, LuaWrap *w) {
     luaWrapIndex.wraps[i] = w;
     luaWrapIndex.count++;
 }
-// Returns 0 when there was no memory to grow the index.
 static int indexLuaWrap(LuaWrap *w) {
     if (2 * (luaWrapIndex.count + 1) > luaWrapIndex.capacity) {
         size_t capacity = luaWrapIndex.capacity ? 2 * luaWrapIndex.capacity : 64;
@@ -673,7 +642,6 @@ static LuaWrap *luaWrapOfGate(void *gate) {
     return NULL;
 }
 
-// Runs the wrap whose gate is `gate`.
 static u64 enterLuaWrap(void *gate, const LuaArgs *a) {
     LuaWrap *w = luaWrapOfGate(gate);
     if (!w) {
@@ -694,7 +662,6 @@ static u64 enterLuaWrap(void *gate, const LuaArgs *a) {
     return r;
 }
 
-// The C functions each kind's wraps are entered through.
 static u64 wCall(u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u64 a6, u64 a7, u64 a8, u64 a9, u64 a10, u64 a11, u64 a12,
                  u64 a13, u64 a14, u64 a15, u64 a16, u64 a17) {
     void *gate = enteredGate();
@@ -702,7 +669,6 @@ static u64 wCall(u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u64 a6, u64 a7, u64 a8,
     return enterLuaWrap(gate, &a);
 }
 #ifdef __APPLE__
-// RITUAL_SCREEN_ROW's entry on Mac, with RITUAL_ROW_SIGNATURE's exact types.
 static u64 wCallRitualRow(int a1, int a2, int a3, const char *a4, int a5, int a6, int a7, int a8, int a9, int a10, int a11,
                           int a12, const char *a13, int a14, int a15, int a16, const char *a17) {
     void *gate = enteredGate();
@@ -713,7 +679,6 @@ static u64 wCallRitualRow(int a1, int a2, int a3, const char *a4, int a5, int a6
 }
 #endif
 
-// Formats a text site's text as the game would draw it.
 static void formatLuaText(LuaArgs *a, int first, const char *fmt, va_list ap, char *shown, size_t size) {
     static char translated[TRANSLATED_SIZE];
     va_list raw;
@@ -757,7 +722,6 @@ static void wBanner(const char *path, int i1, int i2, float x, float y, float w,
 }
 #endif
 
-// A tooltip line's index in the box.
 static int tooltipLineIndex(const char *text) {
     const char *lines = (const char *)(gameBase + RVA_TOOLTIP_LINES);
     if (!text || text < lines) return -1;
@@ -796,7 +760,6 @@ static void *luaWrapperFor(const LuaSite *ls) {
     }
 }
 
-// Finds the row for argument 1 of coe5.wrap or coe5.observe.
 static const LuaSite *luaSiteNamed(lua_State *L) {
     const char *name = luaL_checkstring(L, 1);
     for (int i = 0; i < LUA_SITE_COUNT; i++)
@@ -805,7 +768,7 @@ static const LuaSite *luaSiteNamed(lua_State *L) {
     return NULL;
 }
 
-// coe5.changedBy(): inside a wrap, after its next(), the script wraps inside that next() that changed the site's answer.
+// @platform-split changed_by_split: Mac's AI steps whose wraps run split at next() (lua_split_chain.h) note no changes
 static int lChangedBy(lua_State *L) {
     LuaScript *s = luaScriptOf(L);
     const LuaFrame *f = luaFrames;
@@ -838,7 +801,6 @@ static int lChangedBy(lua_State *L) {
     return 1;
 }
 
-// coe5.wrap(siteName, fn[, priority]).
 static int lWrap(lua_State *L) {
     const LuaSite *ls = luaSiteNamed(L);
     LuaSiteState *st = &luaSiteState[ls - luaSites];
@@ -894,9 +856,7 @@ static int lWrap(lua_State *L) {
 }
 
 // ---- Observers: coe5.observe(siteName, before, after) -----------------------------------------
-// coe5.observe: CoE5SE's one observer per observe-only site calls every script's functions.
 typedef struct { int ref; const LuaSite *ls; const CallInfo *call; int after; } LuaObserverCall;
-// callLuaProtected's push for an observer: its function, the result for `after`, and the arguments.
 static int pushLuaObserverCall(lua_State *L, void *ctx) {
     const LuaObserverCall *c = ctx;
     luaL_checkstack(L, 8, "an observer's arguments");
@@ -910,7 +870,6 @@ static int pushLuaObserverCall(lua_State *L, void *ctx) {
     for (int k = 0; types[k] && k < 6; k++, n++) pushLuaValue(L, types[k], c->call->args[k]);
     return n;
 }
-// The call each observe-only site's script observers are running for now.
 static const CallInfo *luaObserving[SITE_COUNT];
 static int luaObservingAfter[SITE_COUNT];
 static void runLuaObservers(CallSite site, const CallInfo *call, int after) {
@@ -932,14 +891,12 @@ static void runLuaObservers(CallSite site, const CallInfo *call, int after) {
     luaObserving[site] = outerCall, luaObservingAfter[site] = outerAfter;
 }
 
-// One `before` and one `after` function for each observe-only site.
 #define LUA_OBSERVER_FNS(s) \
     static void luaBefore_##s(const CallInfo *call) { runLuaObservers(s, call, 0); } \
     static void luaAfter_##s(const CallInfo *call) { runLuaObservers(s, call, 1); }
 OBSERVE_ONLY_SITES(LUA_OBSERVER_FNS)
 #undef LUA_OBSERVER_FNS
 
-// Returns 1 when `fn` is one of the functions above.
 static int isScriptObserver(const void *fn) {
 #define LUA_OBSERVER_IS(s) if (fn == (const void *)luaBefore_##s || fn == (const void *)luaAfter_##s) return 1;
     OBSERVE_ONLY_SITES(LUA_OBSERVER_IS)
@@ -947,7 +904,6 @@ static int isScriptObserver(const void *fn) {
     return 0;
 }
 
-// Puts CoE5SE's observer on the site.
 static int observeForLua(CallSite site) {
 #define LUA_OBSERVER_CASE(s) case s: return luaApi->observe(s, luaBefore_##s, luaAfter_##s);
     switch (site) {
@@ -958,7 +914,6 @@ static int observeForLua(CallSite site) {
 #undef LUA_OBSERVER_CASE
 }
 
-// coe5.observe(siteName, before, after): either function may be nil, not both.
 static int lObserve(lua_State *L) {
     const LuaSite *ls = luaSiteNamed(L);
     LuaSiteState *st = &luaSiteState[ls - luaSites];
@@ -1000,7 +955,6 @@ static int lObserve(lua_State *L) {
     return 1;
 }
 
-// coe5.setSetupAutomated(on).
 static int lSetSetupAutomated(lua_State *L) {
     int on = lua_toboolean(L, 1);
     luaApi->setSetupAutomated(on);

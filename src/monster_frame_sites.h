@@ -1,4 +1,3 @@
-// The patches growing the per-monster arrays: each field CoE5SE changes, and its new value.
 #pragma once
 
 #define MONSTER_FRAME_SITE_COUNT 121

@@ -1,5 +1,4 @@
 // ---- The commander panel: scripts' lines --------------------------------------------------------
-// Scripts' lines at the end of the selected commander's order column on the map.
 #define COMMANDER_LINE_FIRST_ID  2000
 #define COMMANDER_LINE_LAST_ID   9997
 #define COMMANDER_PREVIOUS_ID    9998
@@ -27,19 +26,16 @@ static CommanderLine *commanderLines;
 static int commanderLineCount, commanderLineCapacity;
 static int commanderLineSite;
 
-// The id of commander line `index`, or -1 past the map's free ids.
 static int commanderLineId(int index) {
     if (index < 0 || index > COMMANDER_LINE_LAST_ID - COMMANDER_LINE_FIRST_ID) return -1;
     return COMMANDER_LINE_FIRST_ID + index;
 }
 
-// The index of the commander line with this id, or -1 for an id that is none of them.
 static int commanderLineIndex(int id) {
     if (id < COMMANDER_LINE_FIRST_ID || id - COMMANDER_LINE_FIRST_ID >= commanderLineCount) return -1;
     return id - COMMANDER_LINE_FIRST_ID;
 }
 
-// One line of the column at (x, y), drawn as the game draws its own.
 static void drawCommanderLine(const CommanderLine *line, int id, float x, float y, float scale) {
     float size = COMMANDER_TEXT_SIZE * scale, iconX = x + COMMANDER_ICON_INSET;
     if (line->icon != COMMANDER_LINE_NO_ICON) {
@@ -61,13 +57,11 @@ static void drawCommanderLine(const CommanderLine *line, int id, float x, float 
     if (line->tip[0]) GAME_FN(GameTextFn, RVA_TEXT)("%s", line->tip);
 }
 
-// Which shown lines a page draws.
 typedef struct {
     int first, count;
     int page, pages;
 } CommanderPage;
 
-// The page `page` of `shown` lines when `fit` lines fit under the column (none below 0).
 static CommanderPage commanderPageLayout(int shown, int fit, int page) {
     CommanderPage p = {0, shown, 0, 1};
     int size = fit < COMMANDER_PAGE_LINES ? fit : COMMANDER_PAGE_LINES;
@@ -85,22 +79,20 @@ static CommanderPage commanderPageLayout(int shown, int fit, int page) {
 static int *shownLines, shownLineCapacity;
 static int commanderPage, commanderPageFor = -1, commanderPagesShown = 1;
 
-// The shown lines' count, each one's index in shownLines.
 static int shownCommanderLines(void) {
-    if (!growList((void **)&shownLines, &shownLineCapacity, commanderLineCount, sizeof shownLines[0])) return 0;   // No log: out of memory draws no line this frame
+    if (!growList((void **)&shownLines, &shownLineCapacity, commanderLineCount, sizeof shownLines[0])) return 0;
     int n = 0;
     for (int i = 0; i < commanderLineCount; i++)
         if (runLuaVisible(commanderLines[i].lua)) shownLines[n++] = i;
     return n;
 }
 
-// One line of the page box: a label at the column's labels' x.
 static void drawCommanderBoxLine(int id, const char *label, float x, float y, float scale) {
     GAME_FN(void (*)(int, float, float, float, const char *, ...), RVA_DRAW_BUTTON_PLAIN)(
         id, x + COMMANDER_ICON_INSET + COMMANDER_LABEL_INSET * scale, y, COMMANDER_TEXT_SIZE * scale, "%s", label);
 }
 
-// The panel's frame one line lower and taller for each shown line, then the lines in that room.
+// @platform-split commander_panel_frame: Mac's frame helper has its path format built in
 #ifndef __APPLE__
 typedef int (*PanelFrameFn)(int, float, float, float, float, float, float, float, float, float, float, float, const char *, ...);
 static int commanderPanelFrameHook(int id, float x, float y, float w, float h, float a5, float a6, float a7, float a8, float a9,
@@ -150,7 +142,6 @@ static int commanderPanelFrameHook(int id, float x, float y, float w, float h, f
     return result;
 }
 
-// Runs a clicked commander line's onClick; 1 when `id` was a shown line's.
 static int dispatchCommanderLineClick(int id) {
     if ((id == COMMANDER_PREVIOUS_ID || id == COMMANDER_NEXT_ID) && commanderPagesShown > 1 && G32(RVA_SELECTED_COMMANDER) >= 0) {
         commanderPage += id == COMMANDER_NEXT_ID ? 1 : -1;
@@ -158,13 +149,12 @@ static int dispatchCommanderLineClick(int id) {
         return 1;
     }
     int i = commanderLineIndex(id);
-    if (i < 0 || G32(RVA_SELECTED_COMMANDER) < 0 || !runLuaVisible(commanderLines[i].lua)) return 0;   // No log: the game's own id, or a hidden line's
+    if (i < 0 || G32(RVA_SELECTED_COMMANDER) < 0 || !runLuaVisible(commanderLines[i].lua)) return 0;
     writeLog("commander_line_clicked", "label=%s id=%d commander=%d", commanderLines[i].label, id, G32(RVA_SELECTED_COMMANDER));
     runLuaCallback(commanderLines[i].lua, 0, 0);
     return 1;
 }
 
-// Adds a commander line for the script whose callback is `lua`.
 static int addCommanderLineFor(void *caller, const char *label, const char *tip, int icon, const float *colour, int lua) {
     if (!label || !label[0]) {
         refuseApiCall(caller, "addCommanderLine", "no_label", "tooltip=%s", tip ? tip : "");
@@ -207,7 +197,6 @@ static int addCommanderLineFor(void *caller, const char *label, const char *tip,
     return id;
 }
 
-// At startup: the panel's frame call points at CoE5SE.
 static void installCommanderLineHooks(void) {
     commanderLineSite = pointCustomPlaneCall(RVA_COMMANDER_PANEL_FRAME_CALL, RVA_DRAW_FRAME_IMAGE, (void *)commanderPanelFrameHook,
                                              "commander_panel_frame");

@@ -1,8 +1,7 @@
-// coe5.showSight and coe5.restoreSight: a human seat sees what another player sees, then its own sight again.
+// @platform-split seat_sight: Windows only; the Mac build refuses both calls
 
 #define PLANE_SEEN_ROW 11
 
-// The seat's own sight, kept while another player's is shown.
 typedef struct {
     unsigned char *own;
     int columns, rows, shown;
@@ -14,7 +13,6 @@ static unsigned char *squareSeenByte(int x, int y, int player) {
     return gameBase + RVA_SQUARE_RECORDS + ((size_t)x * MAP_COLUMN_SQUARES + (size_t)y) * SQUARE_SIZE + SQUARE_SEEN + (size_t)player;
 }
 
-// Why showSight refuses, or NULL.
 static const char *seatSightRefusal(int network, int activePlayer, lua_Integer seat, lua_Integer player, int seatController) {
     if (network) return "network_game";
     if (activePlayer < 0) return "no_game";
@@ -24,7 +22,6 @@ static const char *seatSightRefusal(int network, int activePlayer, lua_Integer s
     return NULL;
 }
 
-// Drops the seat's kept sight when it belongs to another game or map size.
 static void dropStaleSeatSight(int seat, unsigned game, int columns, int rows) {
     SeatSight *k = &seatSights[seat];
     if (!k->own || (k->game == game && k->columns == columns && k->rows == rows)) return;
@@ -32,7 +29,6 @@ static void dropStaleSeatSight(int seat, unsigned game, int columns, int rows) {
     *k = (SeatSight){.shown = -1};
 }
 
-// Shows `player`'s sight on the seat: keeps the seat's own first. Returns the squares written, -1 out of memory.
 static int showSeatSight(int seat, int player, unsigned game, int columns, int rows) {
     dropStaleSeatSight(seat, game, columns, rows);
     SeatSight *k = &seatSights[seat];
@@ -50,7 +46,6 @@ static int showSeatSight(int seat, int player, unsigned game, int columns, int r
     return columns * rows;
 }
 
-// Puts the seat's kept sight back. Returns the squares written, 0 when none was kept for this game.
 static int restoreSeatSight(int seat, unsigned game, int columns, int rows) {
     dropStaleSeatSight(seat, game, columns, rows);
     SeatSight *k = &seatSights[seat];
@@ -63,7 +58,6 @@ static int restoreSeatSight(int seat, unsigned game, int columns, int rows) {
     return written;
 }
 
-// After a sight write: the seat's plane buttons, drawn squares and fog worked out again.
 static void redrawSeatSight(int seat) {
 #ifndef __APPLE__
     memset(gameBase + RVA_PLAYER_PLANE_SEEN + (size_t)seat * PLANE_SEEN_ROW, 0xff, PLANE_SEEN_ROW);
@@ -76,7 +70,6 @@ static void redrawSeatSight(int seat) {
 #endif
 }
 
-// coe5.showSight(seat, player): the human seat sees what the player sees. Returns true, or false refused.
 static int lShowSight(lua_State *L) {
     lua_Integer seat = luaL_checkinteger(L, 1), player = luaL_checkinteger(L, 2);
     int inRange = seat >= 0 && seat < PLAYER_SLOTS;
@@ -102,7 +95,6 @@ static int lShowSight(lua_State *L) {
     return 1;
 }
 
-// coe5.restoreSight(seat): the seat's own sight back. Returns true, or false refused.
 static int lRestoreSight(lua_State *L) {
     lua_Integer seat = luaL_checkinteger(L, 1);
     const char *reason = seat < 0 || seat >= PLAYER_SLOTS ? "bad_player" : G32(RVA_ACTIVE_PLAYER) < 0 ? "no_game" : NULL;

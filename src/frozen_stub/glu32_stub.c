@@ -1,27 +1,24 @@
-// glu32.dll, the Windows stub: the file the player copies into the game folder once. CoE5 imports
 #include <windows.h>
 #include <sys/stat.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #define LOG_TAG "stub"
-#define STARTUP_LOG_PID   // every line ends with pid=
+#define STARTUP_LOG_PID
 #include "startup_log.h"
 #include "approve_dll.h"
 #include "auto_enable.h"
 #include "coe5config.h"
 #include "loader_start.h"
 #include "stub.h"
-#include "stub_version.h"   // GLU32_VERSION
+#include "stub_version.h"
 
-// For each export: a pointer, filled in from the real glu32.dll, and the export itself, a thunk
 #define GLU_EXPORT(name, ordinal) \
     void *real_##name; \
     __asm__(".text\n.globl " #name "\n" #name ":\n    jmp *real_" #name "(%rip)\n");
 #include "glu32_exports.h"
 #undef GLU_EXPORT
 
-// Loads System32's glu32.dll and points every thunk at its export. Returns 0 if it won't load.
 static int resolveRealGlu32(void) {
     char path[MAX_PATH];
     GetSystemDirectoryA(path, sizeof path);
@@ -41,7 +38,6 @@ static int resolveRealGlu32(void) {
     return 1;
 }
 
-// CoE5.exe's WinMain calls SDL_SetMainReady once, on the main thread, right before SDL_main: before
 static void (*realSetMainReady)(void);
 
 static void startAtMainReady(void) {
@@ -50,7 +46,6 @@ static void startAtMainReady(void) {
     realSetMainReady();
 }
 
-// Points the exe's import slot for SDL_SetMainReady, from a DLL whose name starts with SDL (any
 static int deferToMainReady(void) {
     unsigned char *base = (unsigned char *)GetModuleHandleA(NULL);
     IMAGE_NT_HEADERS64 *nt = (IMAGE_NT_HEADERS64 *)(base + ((IMAGE_DOS_HEADER *)base)->e_lfanew);

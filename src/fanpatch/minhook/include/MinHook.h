@@ -1,4 +1,3 @@
-// The part of MinHook's interface the fan patch uses, given by CoE5SE's entry hooks.
 #pragma once
 
 #include "../../fanpatch_bridge.h"

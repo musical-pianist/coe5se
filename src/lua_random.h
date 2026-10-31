@@ -1,4 +1,3 @@
-// The randomness behind every script's Lua state, from the system's random source.
 #pragma once
 #include <stdint.h>
 #include <string.h>
@@ -8,7 +7,6 @@
 #include <stdlib.h>
 #endif
 
-// The 64-bit finalizer of MurmurHash3: every input bit changes about half of the output bits.
 static uint64_t mixLuaHash(uint64_t x) {
     x ^= x >> 33;
     x *= 0xff51afd7ed558ccdull;
@@ -17,7 +15,6 @@ static uint64_t mixLuaHash(uint64_t x) {
     return x ^ (x >> 33);
 }
 
-// A private build of CoE5SE may give the random bytes itself.
 static void fillLuaRandom(void *buf, size_t n) {
 #ifdef COE5SE_LUA_RANDOM_HOOK
     if (COE5SE_LUA_RANDOM_HOOK(buf, n)) return;
@@ -38,14 +35,12 @@ static void fillLuaRandom(void *buf, size_t n) {
 #endif
 }
 
-// luai_makeseed.
 unsigned coe5seMakeLuaSeed(void) {
     unsigned seed;
     fillLuaRandom(&seed, sizeof seed);
     return seed;
 }
 
-// l_hashfloat.
 unsigned coe5seHashLuaFloat(LUA_NUMBER n) {
     static uint64_t keys[2];
     static int haveKeys;

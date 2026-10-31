@@ -1,7 +1,6 @@
-// A script's data files: coe5.dataFolder, readIni, writeIni, listIni, deleteIni.
+#pragma once
 
 // ---- Data files: coe5.dataFolder, readIni, writeIni, listIni, deleteIni ------------------------
-// A script's INI-shaped data files.
 
 static LuaScript *checkLuaScript(lua_State *L) {
     LuaScript *s = luaScriptOf(L);
@@ -9,7 +8,6 @@ static LuaScript *checkLuaScript(lua_State *L) {
     return s;
 }
 
-// Writes the path of script s's area to `out`.
 static int dataAreaPath(LuaScript *s, const char *call, char *out, size_t size) {
     const char *problem = storageAreaProblem(s->mod);
     if (problem) {
@@ -28,7 +26,6 @@ static int dataAreaPath(LuaScript *s, const char *call, char *out, size_t size) 
     return 1;
 }
 
-// Writes the path of the script's data folder, or of file `name`.ini in it.
 static int dataPath(LuaScript *s, const char *call, const char *name, char *out, size_t size) {
     char area[MAX_PATH];
     if (!dataAreaPath(s, call, area, sizeof area)) return 0;
@@ -44,7 +41,6 @@ static int dataPath(LuaScript *s, const char *call, const char *name, char *out,
     return ok;
 }
 
-// The bytes of every file in folder `dir` and its subfolders.
 static long long dataFolderBytes(const char *dir, int depth) {
     char pattern[MAX_PATH], path[MAX_PATH];
     if (!buildPath(pattern, sizeof pattern, __func__, "%s" USER_DIR_SEP "*", dir)) return 0;
@@ -64,7 +60,6 @@ static long long dataFolderBytes(const char *dir, int depth) {
     FindClose(h);
     return total;
 }
-// What script s's area holds now.
 static long long dataAreaBytes(LuaScript *s, const char *call) {
     if (s->dataBytesKnown) return s->dataBytes;
     char area[MAX_PATH];
@@ -74,7 +69,6 @@ static long long dataAreaBytes(LuaScript *s, const char *call) {
     writeLog("lua_data_area_size", "mod=%s bytes=%lld max=%lld", s->mod, s->dataBytes, storageAreaMax(s->mod));
     return s->dataBytes;
 }
-// Makes the folders down to the script's data folder: coe5se_data, the area, and the subfolder.
 static void makeDataFolders(LuaScript *s, const char *area) {
     char path[MAX_PATH];
     if (buildPath(path, sizeof path, __func__, "%s" USER_DIR_SEP STORAGE_DATA_DIR, userDir())) CreateDirectoryA(path, NULL);
@@ -83,16 +77,13 @@ static void makeDataFolders(LuaScript *s, const char *area) {
         CreateDirectoryA(path, NULL);
 }
 
-// The folders an older CoE5SE kept scripts' files in.
 static int luaScriptsLoaded;
 #define OLD_DATA_FILES_MAX 4096
 
-// Writes the folder an older CoE5SE kept script s's files in, by its name in the user folder.
 static void oldDataFolderName(const LuaScript *s, char *out, size_t size) {
     snprintf(out, size, "%.63s", s->dataFolder[0] ? s->dataFolder : s->mod);
 }
 
-// Returns NULL when script s may take folder `old` of the user folder, or why not.
 static const char *oldDataFolderProblem(const LuaScript *s, const char *old) {
     for (int m = 0; m <= G32(RVA_MOD_LAST_INDEX); m++)
         if (_stricmp(modName(m), s->mod) && !_stricmp(modName(m), old)) return "another_mods_name";
@@ -105,7 +96,6 @@ static const char *oldDataFolderProblem(const LuaScript *s, const char *old) {
     return NULL;
 }
 
-// Moves script s's .ini files from the folder an older CoE5SE kept them in to its data folder now.
 static void moveOldDataFolder(LuaScript *s) {
     char old[STORAGE_NAME_MAX + 1], from[MAX_PATH], real[MAX_PATH];
     oldDataFolderName(s, old, sizeof old);
@@ -168,14 +158,12 @@ static void moveOldDataFolder(LuaScript *s) {
                  s->dataFolder[0] ? s->dataFolder : "-", moved, left, removed);
 }
 
-// Moves every script's older data folder, once all have loaded.
 static void moveOldDataFolders(void) {
     luaScriptsLoaded = 1;
     for (int i = 0; i < luaScriptCount; i++)
         if (!luaScripts[i]->dead) moveOldDataFolder(luaScripts[i]);
 }
 
-// Argument `arg` as a data file or folder name.
 static const char *luaStorageName(lua_State *L, int arg, const char *call, const char *field) {
     size_t length;
     const char *name = luaL_checklstring(L, arg, &length);
@@ -185,7 +173,6 @@ static const char *luaStorageName(lua_State *L, int arg, const char *call, const
     return NULL;
 }
 
-// coe5.dataFolder(name): names the subfolder of the mod's area that the script's data files go in.
 static int lDataFolder(lua_State *L) {
     const char *name = luaStorageName(L, 1, "coe5.dataFolder", "folder");
     if (!name) {
@@ -206,7 +193,6 @@ static int lDataFolder(lua_State *L) {
     return 1;
 }
 
-// iniParse's callback for coe5.readIni: puts one value in the result table on top of the stack.
 static void readIniPair(void *ctx, const char *section, const char *key, const char *value) {
     lua_State *L = ctx;
     if (lua_getfield(L, -1, section) != LUA_TTABLE) {
@@ -220,7 +206,6 @@ static void readIniPair(void *ctx, const char *section, const char *key, const c
     lua_pop(L, 1);
 }
 
-// coe5.readIni(name): the file's table, or nil when there is no such file.
 static int lReadIni(lua_State *L) {
     const char *name = luaStorageName(L, 1, "coe5.readIni", "name");
     if (!name) {
@@ -258,7 +243,6 @@ static int lReadIni(lua_State *L) {
 
 static int compareNames(const void *a, const void *b) { return strcmp(*(const char *const *)a, *(const char *const *)b); }
 
-// Pushes the sorted string keys of the table at `t`.
 static const char **sortedKeys(lua_State *L, int t, int *count) {
     t = lua_absindex(L, t);
     int n = 0;
@@ -291,7 +275,6 @@ static const char **sortedKeys(lua_State *L, int t, int *count) {
     return keys;
 }
 
-// Goes over coe5.writeIni's table (argument 2) in sorted order.
 static const char *iniTableText(lua_State *L, FILE *out, size_t *total, char *detail, size_t detailSize) {
     int sectionCount, keyCount;
     const char **sections = sortedKeys(L, 2, &sectionCount);
@@ -341,7 +324,6 @@ static const char *iniTableText(lua_State *L, FILE *out, size_t *total, char *de
     return reason;
 }
 
-// One coe5.writeIni call.
 typedef struct {
     LuaScript *s;
     const char *area, *path;
@@ -353,7 +335,6 @@ typedef struct {
     int written;
 } IniWrite;
 
-// lWriteIni's two passes, under lua_pcall: argument 1 the IniWrite, 2 the table.
 static int writeIniPasses(lua_State *L) {
     IniWrite *w = lua_touserdata(L, 1);
     w->reason = iniTableText(L, NULL, &w->total, w->detail, sizeof w->detail);
@@ -383,7 +364,6 @@ static int writeIniPasses(lua_State *L) {
     return 0;
 }
 
-// coe5.writeIni(name, t): writes t[section][key] = value as <name>.ini.
 static int lWriteIni(lua_State *L) {
     const char *name = luaStorageName(L, 1, "coe5.writeIni", "name");
     luaL_checktype(L, 2, LUA_TTABLE);
@@ -436,7 +416,6 @@ static int lWriteIni(lua_State *L) {
     return 1;
 }
 
-// coe5.listIni(): the names of the script's data files, without .ini, sorted.
 static int lListIni(lua_State *L) {
     LuaScript *s = checkLuaScript(L);
     char folder[MAX_PATH], pattern[MAX_PATH];
@@ -474,7 +453,6 @@ static int lListIni(lua_State *L) {
     return 1;
 }
 
-// coe5.deleteIni(name): deletes <name>.ini.
 static int lDeleteIni(lua_State *L) {
     const char *name = luaStorageName(L, 1, "coe5.deleteIni", "name");
     if (!name) {

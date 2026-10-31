@@ -1,4 +1,4 @@
-// The offer of a newer stub, on the main menu.
+#pragma once
 #include <errno.h>
 #include "approve_dll.h"
 #include "stub_version.h"
@@ -13,7 +13,6 @@
 #define SHIPPED_STUB_VERSION GLU32_VERSION
 #define SHIPPED_STUB_SHA256  SHIPPED_GLU32_SHA256
 #endif
-// The oldest stub a player needs: only an older one is offered the shipped stub. A stub newer than
 #define STUB_NEEDED_VERSION 8
 #define STUB_NEW_FILE     STUB_FILE ".new"
 #define STUB_OLD_FILE     STUB_FILE ".old"
@@ -25,7 +24,6 @@
 #define LAST_ERROR() ((unsigned long)errno)
 #endif
 
-// The four files, each as a full path.
 static int stubUpdatePaths(char shipped[MAX_PATH], char installed[MAX_PATH], char fresh[MAX_PATH], char old[MAX_PATH]) {
     char game[MAX_PATH], coe5se[MAX_PATH];
     HMODULE loader = GetModuleHandleA(LOADER_DLL_NAME);
@@ -40,7 +38,6 @@ static int stubUpdatePaths(char shipped[MAX_PATH], char installed[MAX_PATH], cha
            buildPath(old, MAX_PATH, __func__, "%s" PATH_SEP STUB_OLD_FILE, game);
 }
 
-// Writes the file's SHA-256 to `hex`.
 static int stubFileSha256(const char *path, char hex[SHA256_HEX_LEN + 1]) {
     HANDLE file = lockDllFile(path);
     int ok = hashFileSha256(file, hex);
@@ -48,7 +45,6 @@ static int stubFileSha256(const char *path, char hex[SHA256_HEX_LEN + 1]) {
     return ok;
 }
 
-// Copies `from` to `to`, replacing it, with `from`'s permissions on Mac.
 static int copyFileBytes(const char *from, const char *to) {
     static unsigned char buf[65536];
     FILE *in = fopen(from, "rb"), *out = in ? fopen(to, "wb") : NULL;
@@ -70,7 +66,6 @@ static int copyFileBytes(const char *from, const char *to) {
     return ok;
 }
 
-// Puts the shipped stub in the game folder.
 static const char *installStub(const char *shipped, const char *installed, const char *fresh, const char *old,
                                unsigned long *error) {
     char hash[SHA256_HEX_LEN + 1] = "";
@@ -107,7 +102,6 @@ static const char *installStub(const char *shipped, const char *installed, const
     return NULL;
 }
 
-// 1 if the player was asked about the shipped stub before.
 static int stubOfferedBefore(void) {
     char path[MAX_PATH], line[SHA256_HEX_LEN + 2] = "";
     if (!userFileToRead(COE5SE_USER_DIR, STUB_OFFERED_FILE, path, sizeof path)) return 0;
@@ -118,7 +112,6 @@ static int stubOfferedBefore(void) {
     return offered;
 }
 
-// Records that the player was asked about the shipped stub, so it isn't offered again.
 static void rememberStubOffered(void) {
     char path[MAX_PATH];
     if (!coe5seUserFile(STUB_OFFERED_FILE, path, sizeof path)) return;
@@ -128,15 +121,12 @@ static void rememberStubOffered(void) {
     if (!ok) writeLog("stub_update_not_remembered", "path=%s", path);
 }
 
-// The offer's text.
 #define STUB_OFFER_TEXT \
     STUB_FILE " out of date (not copied over manually).\n" \
     "Update now? The game restarts."
 
-// Restarts the game after an update; the unit tests put a fake here.
 static void (*stubUpdateRelaunch)(const char *reason) = relaunchGame;
 
-// Yes: puts the shipped stub in the game folder, then restarts the game, which runs the new stub.
 static const char *updateStubAndRestart(const char *shipped, const char *installed, const char *fresh, const char *old) {
     unsigned long error;
     const char *reason = installStub(shipped, installed, fresh, old, &error);
@@ -149,12 +139,10 @@ static const char *updateStubAndRestart(const char *shipped, const char *install
     return NULL;
 }
 
-// 1 if a player whose stub is version `running` is offered the shipped stub.
 static int stubOfferWanted(uint32_t running) {
     return running && running < STUB_NEEDED_VERSION && running < SHIPPED_STUB_VERSION;
 }
 
-// Once per launch: offers the player a newer stub when CoE5SE's release has one they need.
 static void offerStubUpdate(void) {
     char shipped[MAX_PATH], installed[MAX_PATH], fresh[MAX_PATH], old[MAX_PATH], hash[SHA256_HEX_LEN + 1] = "";
     if (!stubUpdatePaths(shipped, installed, fresh, old)) return;

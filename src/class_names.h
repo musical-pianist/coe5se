@@ -1,11 +1,9 @@
-// selectclass "<name>": a class picked by its name, the game's or a mod's.
 #pragma once
 
 #define SELECTCLASS_WORD "selectclass"
 
 static char classNameLine[sizeof SELECTCLASS_WORD + 16];
 
-// The class named `name`, by the game's rule; -1 for none.
 static int classByName(const char *name) {
     int last = G32(RVA_CLASS_COUNT), cap = tableRecords(TABLE_CLASS) - 1;
     if (last > cap) last = cap;
@@ -14,7 +12,6 @@ static int classByName(const char *name) {
     return -1;
 }
 
-// Turns `selectclass "<name>"` into `selectclass <number>`; returns the line to go on with.
 static const char *classNameLineHook(const char *line, size_t len, int mod, int level) {
     if (level != 2 || !spellWordIs(line, len, SELECTCLASS_WORD)) return line;
     const char *args = line + len;

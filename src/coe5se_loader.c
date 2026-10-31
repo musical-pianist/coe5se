@@ -1,4 +1,3 @@
-// The CoE5SE loader, coe5se_loader.dll (coe5se_loader.dylib on Mac).
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -30,10 +29,8 @@ static char gameDir[MAX_PATH];
 #define PLUGIN_SUFFIX ".c5plugin.dylib"
 #endif
 
-// The CoE5SE mod's own plugin: without it, nothing loads.
 #define COE5SE_FILE "coe5se" PLUGIN_SUFFIX
 
-// Every plugin found at this launch in an enabled mod's folder.
 typedef struct {
     char name[MAX_PATH], source[16], mod[MAX_PATH], dir[MAX_PATH], path[MAX_PATH], hash[SHA256_HEX_LEN + 1];
     PluginState state;
@@ -44,20 +41,16 @@ typedef struct {
 static FoundPlugin *found;
 static int foundCount, foundCapacity, loadedCount, foundOverflow;
 
-// Why no plugin past CoE5SE's own loads, or NULL while CoE5SE's DLL is found and loading.
 static const char *inactiveReason;
 
-// The mods enabled on the game's own Mods screen, by name (the .c5m file name without ".c5m").
 #define MAX_ENABLED 500
 static char enabledMods[MAX_ENABLED][MOD_NAME_MAX];
 static int enabledCount;
 
-// coe5config's bytes when its version is newer than the layout file lists.
 static unsigned char configBytes[CONFIG_MAX];
 static size_t configByteCount;
 static int searchConfigByName;
 
-// Reads the enabled mods from coe5config the way the game reads it.
 static void readEnabledMods(const char *userDir, const char *layoutPath) {
     char path[MAX_PATH], name[MOD_NAME_MAX];
     if (!buildPath(path, sizeof path, __func__, "%s" USER_DIR_SEP CONFIG_FILE, userDir)) {
@@ -100,7 +93,6 @@ static void readEnabledMods(const char *userDir, const char *layoutPath) {
     writeLog("loader_enabled_mods", "count=%d", enabledCount);
 }
 
-// 1 if the game's enabled list has `mod`, matched exactly, as the game matches it.
 static int isModEnabled(const char *mod) {
     if (searchConfigByName) return configDataHasModName(configBytes, configByteCount, mod);
     for (int i = 0; i < enabledCount; i++)
@@ -108,7 +100,6 @@ static int isModEnabled(const char *mod) {
     return 0;
 }
 
-// Checks the folder's .c5m files against the enabled list.
 static int folderModState(const char *dir, char *mod, size_t modSize) {
     char pattern[MAX_PATH];
     if (!buildPath(pattern, sizeof pattern, __func__, "%s" USER_DIR_SEP "*.c5m", dir)) return 0;
@@ -132,7 +123,6 @@ static int folderModState(const char *dir, char *mod, size_t modSize) {
     return state;
 }
 
-// 1 if COE5SE_FILE may load from this folder: the CoE5SE mod, not on the Workshop.
 static int isCoe5seFolder(const char *dir, const char *source, const char *mod) {
     (void)dir;
     if (strcmp(mod, COE5SE_MOD)) return 0;
@@ -140,7 +130,6 @@ static int isCoe5seFolder(const char *dir, const char *source, const char *mod) 
     return 0;
 }
 
-// 1 if `dir` is a Workshop item that isn't CoE5SE's but has a CoE5SE.c5m.
 static int isOtherCoe5seItem(const char *dir, const char *source) {
     char c5m[MAX_PATH];
     if (strcmp(source, "workshop")) return 0;
@@ -148,7 +137,6 @@ static int isOtherCoe5seItem(const char *dir, const char *source) {
     return GetFileAttributesA(c5m) != INVALID_FILE_ATTRIBUTES;
 }
 
-// Adds each *.c5plugin.dll in `dir` to the found list.
 static void findPluginsIn(const char *dir, const char *source) {
     char pattern[MAX_PATH], mod[MAX_PATH] = "";
     if (!buildPath(pattern, sizeof pattern, __func__, "%s" USER_DIR_SEP "*" PLUGIN_SUFFIX, dir)) return;
@@ -190,7 +178,6 @@ static void findPluginsIn(const char *dir, const char *source) {
     FindClose(h);
 }
 
-// 1 if the two folders have a .c5m with the same name, which the game enables mods by.
 static int foldersShareModName(const char *a, const char *b) {
     char pattern[MAX_PATH], other[MAX_PATH];
     if (!buildPath(pattern, sizeof pattern, __func__, "%s" USER_DIR_SEP "*.c5m", a)) return 1;
@@ -206,11 +193,9 @@ static int foldersShareModName(const char *a, const char *b) {
     return shared;
 }
 
-// The folders that hold mod folders: local mods, then Workshop items.
 static char modRoots[2][MAX_PATH];
 static const char *const MOD_ROOT_SOURCES[2] = {"local", "workshop"};
 
-// Looks for another mod folder, under either root, that has p's enabled .c5m in it.
 static const char *otherFolderClaimingMod(const FoundPlugin *p, char *other, size_t otherSize) {
     for (int r = 0; r < 2; r++) {
         if (!modRoots[r][0]) continue;
@@ -234,7 +219,6 @@ static const char *otherFolderClaimingMod(const FoundPlugin *p, char *other, siz
     return NULL;
 }
 
-// Drops `p` for a clash with the folder at `other`, unless p is the local copy and the other isn't.
 static int dropUnlessLocalWins(FoundPlugin *p, const char *otherSource, const char *other) {
     int local = !strcmp(p->source, "local"), otherLocal = !strcmp(otherSource, "local");
     if (local && !otherLocal) return 0;
@@ -244,7 +228,6 @@ static int dropUnlessLocalWins(FoundPlugin *p, const char *otherSource, const ch
     return 1;
 }
 
-// Marks plugins PLUGIN_CONFLICT when two folders claim the same mod name or the same DLL file name.
 static void dropClashingPlugins(void) {
     for (int i = 0; i < foundCount; i++)
         for (int j = 0; j < foundCount; j++) {
@@ -261,7 +244,6 @@ static void dropClashingPlugins(void) {
         if (found[i].drop) found[i].state = PLUGIN_CONFLICT;
 }
 
-// Writes plugins_found.txt.
 static void writeFoundList(void) {
     char path[MAX_PATH];
     if (!coe5seUserFile(PLUGINS_FOUND_FILE, path, sizeof path)) return;
@@ -274,11 +256,9 @@ static void writeFoundList(void) {
 }
 
 #ifdef __APPLE__
-// The real paths of the local mods folder's subfolders.
 static TextList localModFolders;
 #endif
 
-// Collects plugins from `dir` and from each of its subfolders.
 static void findPluginsUnder(const char *dir, const char *source) {
     findPluginsIn(dir, source);
     char pattern[MAX_PATH], sub[MAX_PATH];
@@ -302,7 +282,6 @@ static void findPluginsUnder(const char *dir, const char *source) {
 }
 
 #ifdef __APPLE__
-// The player's Mac-only setting mac_workshop_list, read before the game starts.
 #define MAC_WORKSHOP_LIST_NAME    "mac_workshop_list"
 #define MAC_WORKSHOP_LIST_DEFAULT 1
 static int readMacWorkshopList(void) {
@@ -310,7 +289,6 @@ static int readMacWorkshopList(void) {
 }
 #endif
 
-// Sets both mod roots and collects the plugins under them.
 static void findAllPlugins(const char *userDir) {
     if (buildPath(modRoots[0], sizeof modRoots[0], __func__, "%s" USER_DIR_SEP "mods", userDir))
         findPluginsUnder(modRoots[0], "local");
@@ -325,7 +303,6 @@ static void findAllPlugins(const char *userDir) {
     if (workshop) findPluginsUnder(modRoots[1], "workshop");
 }
 
-// Adds each enabled mod under `root` to *mods, once per name; the first copy found counts.
 static void findEnabledModsUnder(const char *root, ModInfo **mods, int *count, int *capacity) {
     char pattern[MAX_PATH], sub[MAX_PATH], c5m[MAX_PATH];
     if (!root[0] || !buildPath(pattern, sizeof pattern, __func__, "%s" USER_DIR_SEP "*", root)) return;
@@ -359,7 +336,6 @@ static void findEnabledModsUnder(const char *root, ModInfo **mods, int *count, i
     FindClose(h);
 }
 
-// Puts the plugins in their mods' load order, and a mod's DLLs in name order.
 static void orderPluginsByMod(void) {
     ModInfo *mods = NULL;
     int count = 0, capacity = 0;
@@ -392,7 +368,6 @@ static void orderPluginsByMod(void) {
     free(mods);
 }
 
-// Moves CoE5SE's own DLL to the front of the list, so it loads first.
 static int moveCoe5seFirst(void) {
     for (int i = 0; i < foundCount; i++)
         if (!_stricmp(found[i].name, COE5SE_FILE) && found[i].state == PLUGIN_FOUND) {
@@ -404,7 +379,6 @@ static int moveCoe5seFirst(void) {
     return 0;
 }
 
-// Plugin DLLs from mods are set aside: only CoE5SE's own loads.
 #ifdef LOADER_EXTRA_HEADER
 #include LOADER_EXTRA_HEADER
 #else
@@ -415,7 +389,6 @@ static int isExtraPlugin(const FoundPlugin *p) {
 }
 #endif
 
-// Refuses every found plugin but CoE5SE's own and isExtraPlugin's.
 static int setAsideModPlugins(void) {
     int count = 0;
     for (int i = 0; i < foundCount; i++) {
@@ -428,11 +401,8 @@ static int setAsideModPlugins(void) {
     return count;
 }
 
-// CoE5SE's three exports. coe5seLoadsPlugins: called right after CoE5SE loads; 0 means load no other plugin.
 static int (*coe5seLoadsPlugins)(void);
-// coe5sePluginLoading: called with each plugin's path before its DllMain runs, and with NULL after.
 static void (*coe5sePluginLoading)(const char *path);
-// coe5seCheckPlugin, called with each plugin's path and mod before hashing or loading it.
 static const char *(*coe5seCheckPlugin)(const char *path, const char *mod);
 
 static void *coe5seExport(void *module, const char *name) {
@@ -443,7 +413,6 @@ static void *coe5seExport(void *module, const char *name) {
 #endif
 }
 
-// Starts CoE5SE and reads its exports once its DLL has loaded.
 static void connectCoe5se(void *module) {
     void (*start)(void) = (void (*)(void))coe5seExport(module, "coe5seStart");
     writeLog("loader_coe5se_start", "export=%d", start != NULL);
@@ -455,7 +424,6 @@ static void connectCoe5se(void *module) {
     else if (!coe5seLoadsPlugins()) inactiveReason = "declined_on_unknown_game";
 }
 
-// Checks, approves, and loads one plugin.
 static void loadPlugin(FoundPlugin *p, int isCoe5se, int autoApprove) {
     const char *refusal = isCoe5se ? NULL : coe5seCheckPlugin(p->path, p->mod);
     if (refusal) {
@@ -496,9 +464,6 @@ static void loadPlugin(FoundPlugin *p, int isCoe5se, int autoApprove) {
     if (isCoe5se) connectCoe5se(module);
 }
 
-// Commented out: no Workshop copy of CoE5SE loads, so none can be shadowed.
-
-// Finds, checks, approves, and loads every plugin, CoE5SE's first, then writes plugins_found.txt.
 static void loadAllPlugins(const char *modDir, const char *source, const char *layoutPath) {
     findExtraPlugins();
     readEnabledMods(userDir(), layoutPath);
@@ -522,7 +487,6 @@ static void loadAllPlugins(const char *modDir, const char *source, const char *l
     writeLog("loader_done", "found=%d loaded=%d set_aside=%d", foundCount, loadedCount, setAside);
 }
 
-// Sets gameDir to the game's folder and the log's path to coe5mod.log in it.
 static void setLogPath(void) {
     GetModuleFileNameA(NULL, gameDir, sizeof gameDir);
     char *slash = strrchr(gameDir, USER_DIR_SEP[0]);
@@ -532,29 +496,23 @@ static void setLogPath(void) {
         memcpy(logPath, path, sizeof logPath);
 }
 
-// 1 if the caller's LoaderStart has `field`: its `size` reaches past the field's end.
 #define START_HAS(start, field) ((start)->size >= offsetof(LoaderStart, field) + sizeof (start)->field)
 
-// The calling stub's version, or 0 when its LoaderStart has none.
 static uint32_t stubVersion;
 
-// Returns the version of the stub that started this launch.
 __declspec(dllexport) uint32_t coe5seStubVersion(void) {
     return stubVersion;
 }
 
-// Returns the user folder this launch uses.
 __declspec(dllexport) const char *coe5seUserDir(void) {
     return userDirPath;
 }
 
-// 1 if the stub gave the user folder (stub version 8 and up).
 static int userDirFromStub;
 __declspec(dllexport) int coe5seUserDirFollowsGame(void) {
     return userDirFromStub;
 }
 
-// The entry the stub calls, once, after it loaded this DLL.
 __declspec(dllexport) int coe5seLoaderStart(const LoaderStart *start) {
     setLogPath();
     if (logPath[0]) {

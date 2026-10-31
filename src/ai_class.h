@@ -1,4 +1,3 @@
-// aiclass 2: a class no player gets, neither by the random roll nor by Choose Class.
 #pragma once
 
 #define AICLASS_WORD          "aiclass"
@@ -12,20 +11,17 @@ static int aiClassesKept;
 static int (*aiClassRandom)(int n);
 static void (*nextAiClassCreatingWorld)(int kind, const char *text);
 
-// Starts a level-2 pass: no aiclass line read yet.
 static void aiClassBeforePass(int level) {
     if (level != 2) return;
     memset(aiClassLineMods, 0, sizeof aiClassLineMods);
 }
 
-// Notes the mod of an aiclass line, for the refusals after the pass; the game reads the line.
 static void aiClassLineHook(const char *line, size_t len, int mod, int level) {
     if (level != 2 || !spellWordIs(line, len, AICLASS_WORD)) return;
     int c = G32(RVA_CLASS_CURRENT);
     if (c >= 0 && c <= LAST_MOD_CLASS_SLOT) aiClassLineMods[c] = (short)(mod + 1);
 }
 
-// Class `c`'s pair for `ability`, or NULL when it has none: the first match, as the game's lookup.
 static int *aiClassPair(int c, int ability) {
     for (int slot = 0; slot < CLASS_ABILITY_PAIRS; slot++) {
         int *pair = classAbilityPairAt(c, slot);
@@ -35,7 +31,6 @@ static int *aiClassPair(int c, int ability) {
     return NULL;
 }
 
-// Sets class `c`'s `ability` to `value`, in its pair or the first free one; 0 when all are taken.
 static int setAiClassPair(int c, int ability, int value) {
     int *pair = aiClassPair(c, ability);
     for (int slot = 0; !pair && slot < CLASS_ABILITY_PAIRS; slot++)
@@ -45,13 +40,11 @@ static int setAiClassPair(int c, int ability, int value) {
     return 1;
 }
 
-// Class `c`'s aiclass, 0 when it has none.
 static int aiClassValue(int c) {
     const int *pair = aiClassPair(c, CLASS_ABILITY_AI_CLASS);
     return pair ? pair[1] : AI_CLASS_ANY;
 }
 
-// After a level-2 mod pass: keeps each aiclass 2 class from every player, or from no side left without a class.
 static void aiClassAfterPass(int level) {
     if (level != 2) return;
     int last = G32(RVA_CLASS_COUNT), cap = tableRecords(TABLE_CLASS) - 1;
@@ -86,18 +79,15 @@ static void aiClassAfterPass(int level) {
 }
 
 // ---- The roll -----------------------------------------------------------------------------------------
-// Slot `slot`'s int16 at `rva` (a per-slot array, `stride` 2, or a per-player-block field).
 static short *aiClassSlotField(unsigned int rva, int slot, unsigned int stride) {
     return (short *)playerTableAddress(rva + (unsigned int)slot * stride);
 }
 
-// Class `c`'s value of `ability`, 0 when it has none.
 static int aiClassAbility(int c, int ability) {
     const int *pair = aiClassPair(c, ability);
     return pair ? pair[1] : 0;
 }
 
-// Whether class `c` passes slot `slot`'s roll by the game's rules but the skip draw; `letNeither` lets aiclass 2 through.
 static int aiClassFits(int c, int slot, int unique, int letNeither) {
     int value = aiClassValue(c), controller = *aiClassSlotField(RVA_SLOT_CONTROLLER, slot, 2);
     int min = aiClassAbility(c, CLASS_ABILITY_AI_LEVEL_MIN), max = aiClassAbility(c, CLASS_ABILITY_AI_LEVEL_MAX);
@@ -115,14 +105,12 @@ static int aiClassFits(int c, int slot, int unique, int letNeither) {
     return 1;
 }
 
-// Whether any class can come out of slot `slot`'s roll: one that fits and doesn't skip every draw.
 static int aiClassAnyFits(int slot, int unique, int letNeither, int last) {
     for (int c = 1; c <= last; c++)
         if (aiClassAbility(c, CLASS_ABILITY_RANDOM_SKIP) < AI_CLASS_SKIP_NEVER && aiClassFits(c, slot, unique, letNeither)) return 1;
     return 0;
 }
 
-// Slot `slot`'s class as the game's roll gives it, letting aiclass 2 through only when no other class can come; 0 when none can.
 static int rollAiClass(int slot, int unique, int *letNeither) {
     int last = G32(RVA_CLASS_COUNT), cap = tableRecords(TABLE_CLASS) - 1;
     if (last > cap) last = cap;
@@ -140,7 +128,6 @@ static int rollAiClass(int slot, int unique, int *letNeither) {
     }
 }
 
-// Rolls each Random slot's class after the Creating World text, as the game would next, while any class has aiclass 2.
 static void aiClassCreatingWorldHook(int kind, const char *text) {
     nextAiClassCreatingWorld(kind, text);
     if (!aiClassesKept) return;
@@ -160,7 +147,6 @@ static void aiClassCreatingWorldHook(int kind, const char *text) {
     }
 }
 
-// Wraps the Creating World text, for the roll.
 static void aiClassInit(void) {
     aiClassRandom = GAME_FN(int (*)(int), RVA_RANDOM);
     writeLog("aiclass_installed", "ok=%d", wrapSite(SITE_NEW_WORLD_CREATING_WORLD, (void *)aiClassCreatingWorldHook, (void **)&nextAiClassCreatingWorld));

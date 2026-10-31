@@ -1,4 +1,3 @@
-// Every ADRP in coe5_mac that builds an address in the game's spell table.
 #pragma once
 
 typedef struct { unsigned int rva; } SpellMacSite;

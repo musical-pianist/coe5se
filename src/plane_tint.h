@@ -1,5 +1,3 @@
-// Planes' tints: the Sky's Blood Sun tint on a mod's `like "Sky"` plane, and tints set from Lua.
-
 #define PLANE_TINT_CHANNELS 4
 #define PLANE_TINT_MAX      1.0f
 
@@ -9,14 +7,12 @@ static struct {
 } luaPlaneTints[PLANE_RECORDS_MOVED];
 static int planeTintHooks;
 
-// Writes plane `plane`'s tint byte and colour in its record.
 static void writePlaneTint(int plane, int on, const float rgba[PLANE_TINT_CHANNELS]) {
     unsigned char *record = planeRecord(plane);
     record[PLANE_TINT_ON] = (unsigned char)on;
     memcpy(record + PLANE_TINT, rgba, sizeof(float) * PLANE_TINT_CHANNELS);
 }
 
-// After each Blood Sun update: the Sky's tint onto `like "Sky"` planes, then scripts' tints.
 static void applyPlaneTints(void) {
     int last = G32(RVA_LAST_PLANE);
     if (last >= planeTableRecords()) last = planeTableRecords() - 1;
@@ -40,14 +36,12 @@ static void applyPlaneTints(void) {
         writeLog("plane_tints_applied", "sky_copies=%d script_tints=%d sky_on=%d", copies, scripts, sky[PLANE_TINT_ON]);
 }
 
-// Forgets every script's tint, at each level-2 mod pass (a load, a game's end, startup, the Mods screen).
 static void clearLuaPlaneTints(int level) {
     if (level != 2) return;
     memset(luaPlaneTints, 0, sizeof luaPlaneTints);
 }
 
 #ifndef __APPLE__
-// The game's Blood Sun update, then the planes' tints.
 static int planeTintUpdateHook(void) {
     int result = GAME_FN(int (*)(void), RVA_BLOOD_SUN_UPDATE)();
     applyPlaneTints();
@@ -61,7 +55,6 @@ static int patchPlaneTintUpdates(void) {
 #else
 __attribute__((used)) void coe5sePlaneTintAfterUpdate(void) { applyPlaneTints(); }
 
-// Calls coe5sePlaneTintAfterUpdate with every register the call could change kept.
 __asm__(
     ".text\n.p2align 2\n.globl _coe5sePlaneTintCall\n_coe5sePlaneTintCall:\n"
     "  sub sp, sp, #0x2c0\n"
@@ -92,7 +85,6 @@ extern const unsigned char coe5sePlaneTintCall[];
 #define PLANE_TINT_STUB_WORDS 12
 #define PLANE_TINT_RED_ZONE   0x90
 
-// Fills the Mac stub for the join at `at`, placed at `stub`, whose instruction there is `moved`.
 static void writePlaneTintStubMac(uint32_t code[PLANE_TINT_STUB_WORDS], const unsigned char *stub, const unsigned char *at, uint32_t moved,
                                   uint64_t routine) {
     code[0] = 0xd10243ffu;
@@ -107,7 +99,6 @@ static void writePlaneTintStubMac(uint32_t code[PLANE_TINT_STUB_WORDS], const un
     memcpy(&code[10], &routine, 8);
 }
 
-// Points the join at `rva` at the stub, which runs the game's instruction there after the routine.
 static int patchPlaneTintJoin(unsigned int rva, const char *name) {
     unsigned char *at = GAME_PTR(rva);
     uint32_t insn;
@@ -137,7 +128,7 @@ static int patchPlaneTintUpdates(void) {
 }
 #endif
 
-// Puts the hooks after both Blood Sun updates in, once.
+// @platform-split plane_tint: Windows points the update's two calls at a hook, Mac branches to a stub in the header padding at each inlined copy's end
 static int installPlaneTintHooks(void) {
     if (planeTintHooks) return planeTintHooks > 0;
     int ok = patchPlaneTintUpdates();
@@ -146,7 +137,6 @@ static int installPlaneTintHooks(void) {
     return planeTintHooks > 0;
 }
 
-// The index of the plane a script names for its tint; -1 for none.
 static int planeTintNamed(const char *name) {
     int plane = vanillaPlaneNamed(name);
     if (plane < 0 && !strcmp(name, VANILLA_PLANE_NAMES[PLANE_ELYSIUM2])) plane = PLANE_ELYSIUM2;
@@ -154,14 +144,12 @@ static int planeTintNamed(const char *name) {
     return plane;
 }
 
-// The highest plane index a script may tint now.
 static int planeTintLast(void) {
     int last = G32(RVA_LAST_PLANE);
     if (last >= planeTableRecords()) last = planeTableRecords() - 1;
     return last > PLANE_ELYSIUM2 ? last : PLANE_ELYSIUM2;
 }
 
-// A script's tint on plane `plane` (0 to planeTintLast()), written at once and again after each update.
 static const char *setLuaPlaneTint(int plane, const double rgba[PLANE_TINT_CHANNELS]) {
     if (plane < 0 || plane > planeTintLast()) return "no_such_plane";
     for (int c = 0; c < PLANE_TINT_CHANNELS; c++)
@@ -173,7 +161,6 @@ static const char *setLuaPlaneTint(int plane, const double rgba[PLANE_TINT_CHANN
     return NULL;
 }
 
-// Drops a script's tint on plane `plane`: the next update gives it the game's own. NULL, or the reason.
 static const char *clearLuaPlaneTint(int plane) {
     if (plane < 0 || plane > planeTintLast()) return "no_such_plane";
     luaPlaneTints[plane].set = 0;

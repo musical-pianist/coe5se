@@ -1,4 +1,4 @@
-// Monster shapes on mods' planes: coe5.setPlaneShape, and the game's plane shape step for planes 11 and up.
+// @platform-split plane_shape: Windows patches the ability id and wraps RVA_MONSTER_ABILITY; Mac wraps RVA_UNIT_ABILITY_TOTAL
 
 #define PLANE_SHAPE_NAME_SIZE  (MONSTER_NAME_SIZE + 3)
 #define PLANE_SHAPE_ABILITY_MOD 0x10000
@@ -18,7 +18,6 @@ static short planeShapeOffsets[CUSTOM_PLANE_TARGET][MONSTER_RECORDS_MOVED];
 
 static PRINTF_FORMAT(4, 5) void refuseLuaCall(const char *mod, const char *call, const char *reason, const char *fmt, ...);
 
-// Adds a declaration: a monster by name (monsterIndex -1) or a monster block's record; NULL or the reason word.
 static const char *addPlaneShape(const char *mod, const char *monster, int monsterIndex, const char *plane, const char *shape, int line) {
     if (!shape) shape = "";
     if ((monsterIndex < 0 && !monster[0]) || strlen(monster) >= PLANE_SHAPE_NAME_SIZE || strlen(shape) >= PLANE_SHAPE_NAME_SIZE) return "bad_name";
@@ -41,12 +40,10 @@ static const char *addPlaneShape(const char *mod, const char *monster, int monst
     return NULL;
 }
 
-// Declares a monster's shape on a mod's plane (coe5.setPlaneShape); NULL when it is taken, or else the reason word.
 static const char *declarePlaneShape(const char *mod, const char *monster, const char *plane, const char *shape, int line) {
     return addPlaneShape(mod, monster, -1, plane, shape, line);
 }
 
-// Drops the declarations planeshape lines made, at a mod pass's start: the pass reads them again.
 static void dropPlaneShapeWords(void) {
     int kept = 0;
     for (int i = 0; i < planeShapeDeclarationCount; i++)
@@ -54,7 +51,6 @@ static void dropPlaneShapeWords(void) {
     planeShapeDeclarationCount = kept;
 }
 
-// Refuses declaration d at the world build: lua_refused for coe5.setPlaneShape's, c5m_refused for a planeshape line's.
 static PRINTF_FORMAT(3, 4) void refusePlaneShape(const PlaneShapeDeclaration *d, const char *reason, const char *fmt, ...) {
     char details[256];
     va_list ap;
@@ -65,7 +61,6 @@ static PRINTF_FORMAT(3, 4) void refusePlaneShape(const PlaneShapeDeclaration *d,
     else refuseC5mLine("planeshape", d->mod, reason, "line=%d %s", d->line, details);
 }
 
-// Fills the table from the declarations, for the planes' indices in this world.
 static void resolvePlaneShapes(void) {
     memset(planeShapeOffsets, 0, sizeof planeShapeOffsets);
     if (!planeShapeDeclarationCount) return;
@@ -94,7 +89,6 @@ static void resolvePlaneShapes(void) {
     writeLog("plane_shapes_resolved", "declared=%d set=%d", planeShapeDeclarationCount, set);
 }
 
-// The offset from `monster` to its shape on plane `plane`, 0 for none or a plane not a mod's.
 static int modPlaneShapeOffset(int monster, int plane) {
     if (plane <= PLANE_ELYSIUM2 || plane > PLANE_INDEX_LAST_MOVED || !monsterRecord(monster)) return 0;
     return planeShapeOffsets[plane - PLANE_ELYSIUM2 - 1][monster];
@@ -103,14 +97,12 @@ static int modPlaneShapeOffset(int monster, int plane) {
 #ifndef __APPLE__
 static int planeShapeAbilityIds[PLANE_RECORDS_MOVED];
 
-// The step's monster read: a mod's plane's id from the table, the rest from the game.
 typedef int (*MonsterAbilityFn)(int monster, int ability);
 static int monsterPlaneShapeHook(int monster, int ability) {
     if (ability >= PLANE_SHAPE_ABILITY_MOD) return modPlaneShapeOffset(monster, ability - PLANE_SHAPE_ABILITY_MOD);
     return GAME_FN(MonsterAbilityFn, RVA_MONSTER_ABILITY)(monster, ability);
 }
 
-// A stub that calls monsterPlaneShapeHook with r10 kept; NULL when it can't be made.
 #define PLANE_SHAPE_KEEP_FUNCTION 0x40
 #define PLANE_SHAPE_KEEP_UNWIND   0x50
 static void *planeShapeKeepR10Stub(void) {
@@ -136,7 +128,6 @@ static void *planeShapeKeepR10Stub(void) {
     return page;
 }
 
-// Points the step's ability id at planeShapeAbilityIds.
 static int patchPlaneShapeId(void) {
     unsigned char *at = GAME_PTR(RVA_UNIT_PLANE_SHAPE_ID);
     if (!gameCodeMatches) {
@@ -169,7 +160,6 @@ static int patchPlaneShapeId(void) {
     return 1;
 }
 
-// Installs the shape step's patch and wrap, with the planes' other hooks; 1 when both are in.
 static int installPlaneShapeHooks(void) {
     int ok = patchPlaneShapeId();
     void *keep = planeShapeKeepR10Stub();
@@ -179,7 +169,6 @@ static int installPlaneShapeHooks(void) {
     return ok == 2;
 }
 #else
-// The step's ability total: a mod's plane's shape from the table, the rest from the game.
 typedef int (*UnitAbilityTotalFn)(int unit, int ability, int add, char *out, int outFlag, int *outAt);
 static int unitPlaneShapeHook(int unit, int ability, int add, char *out, int outFlag, int *outAt) {
     int plane = ability - MONSTER_ABILITY_ELYSIUMSHAPE;
@@ -188,7 +177,6 @@ static int unitPlaneShapeHook(int unit, int ability, int add, char *out, int out
     return modPlaneShapeOffset((short)G16(RVA_UNIT_MONSTER + (size_t)unit * UNIT_SIZE), plane);
 }
 
-// Installs the shape step's wrap, with the planes' other hooks; 1 when it is in.
 static int installPlaneShapeHooks(void) {
     int ok = pointCustomPlaneCall(RVA_UNIT_PLANE_SHAPE_CALL, RVA_UNIT_ABILITY_TOTAL, (void *)unitPlaneShapeHook, "plane_shape");
     writeLog("plane_shape_hooks_installed", "ok=%d of 1", ok);

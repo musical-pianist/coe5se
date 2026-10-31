@@ -1,14 +1,5 @@
 #!/bin/bash
-# Checks that every DLL and dylib in this mod was built from the code in its src folder:
-# glu32.dll, coe5se_loader.dll, coe5se.c5plugin.dll, coe5se.dylib, coe5se_loader.dylib, coe5se.c5plugin.dylib.
-# It downloads the two compilers they were built with (llvm-mingw for the DLLs, zig for the dylibs,
-# each one pinned archive checked by its SHA-256), builds src into a temporary folder, and compares
-# each rebuilt file with the one in this folder: OK means byte-identical. Nothing is installed, and
-# the temporary folder is deleted at the end. windows-verify.cmd does the same on Windows, with the
-# same compilers' Windows builds, which give the same bytes. Needs an Apple Silicon Mac; it uses only
-# curl, shasum, and tar, which every Mac has, and never Xcode or its Command Line Tools.
-# Run it by double-clicking (macOS opens it in Terminal), or from a terminal: ./mac-verify.command [nopause]
-# shellcheck disable=SC2086,SC2034,SC2043  # flag lists split on purpose; the build lines fill in the template
+# Rebuilds every DLL and dylib in this mod from src/ and checks each matches byte for byte (SECURITY.md).
 
 MOD=$(cd "$(dirname "$0")" && pwd)
 TC_URL="https://github.com/mstorsjo/llvm-mingw/releases/download/20260922/llvm-mingw-20260922-ucrt-macos-universal.tar.xz"
@@ -25,19 +16,13 @@ OUT="$WORK/out"
 BUILD_FAILED=""
 FAILED=""
 PAUSE_AT_END=""
-# A double-click opens a Terminal window: pause at the end then (whenever input is a terminal), so
-# the result stays readable.
 [ "${1:-}" != nopause ] && [ -t 0 ] && PAUSE_AT_END=1
-# The temporary folder goes even when the run is stopped with Ctrl-C.
 trap 'cd /; rm -rf "$WORK"' EXIT
 
-# Prints the SHA-256 of the file $1 in lowercase, or nothing if it's missing.
 hashOf() {
   [ -f "$1" ] && shasum -a 256 "$1" | cut -d' ' -f1
 }
 
-# Downloads the URL $2 into the file $3 and checks it against the SHA-256 $4; $1 names the compiler.
-# Fails when the download fails or gives another file.
 fetch() {
   local got
   echo "    from:      $2"
@@ -51,8 +36,6 @@ fetch() {
   echo "    got:       $got  OK"
 }
 
-# Compares the shipped file $1 with its rebuild and with its line in SHA256.txt: OK only when all
-# three name the same SHA-256.
 compare() {
   local shipped rebuilt listed=no
   shipped=$(hashOf "$MOD/$1")
@@ -81,7 +64,6 @@ verify() {
   CC="$WORK/$TC_DIR/bin/x86_64-w64-mingw32-clang"
   WINDRES="$WORK/$TC_DIR/bin/x86_64-w64-mingw32-windres"
   ZIG="$WORK/$ZIG_DIR/zig"
-  # zig keeps its cache in the temporary folder too, so nothing stays behind.
   export ZIG_GLOBAL_CACHE_DIR="$WORK/zig-cache" ZIG_LOCAL_CACHE_DIR="$WORK/zig-cache"
 
   echo

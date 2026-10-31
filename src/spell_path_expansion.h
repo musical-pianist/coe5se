@@ -1,4 +1,3 @@
-// Spell paths 100 to 127, always on.
 #include "spell_path_takeover.h"
 
 #define SPELL_PATH_COUNT       128
@@ -8,7 +7,6 @@
 static int spellPathsExpanded;
 static const char **spellPathCopy;
 
-// The plugin that took the paths over, once it has.
 static struct {
     const char **names;
     int count;
@@ -19,7 +17,6 @@ static struct {
     int lastOn;
 } pathTakeover = {.modIndex = -1, .lastOn = -1};
 
-// Whether the plugin's mod is on in the game now.
 static int pathTakeoverModOn(void) {
     int last = G32(RVA_MOD_LAST_INDEX);
     int m = pathTakeover.modIndex;
@@ -35,18 +32,15 @@ static int pathTakeoverModOn(void) {
     return on;
 }
 
-// The entries of the name table the game reads.
 static int spellPathTableSize(void) {
     return pathTakeover.names ? pathTakeover.count : spellPathsExpanded ? SPELL_PATH_COUNT : GAME_SPELL_PATH_COUNT;
 }
 
-// The paths mods may use now.
 static int spellPathCount(void) {
     if (pathTakeover.names && !pathTakeoverModOn() && pathTakeover.count > SPELL_PATH_COUNT) return SPELL_PATH_COUNT;
     return spellPathTableSize();
 }
 
-// Fills `copy` with the game's names and makes it the table CoE5SE names paths in.
 static void startSpellPathCopy(const char **copy) {
     memcpy(copy, gameBase + RVA_SPELL_PATH_NAMES, GAME_SPELL_PATH_COUNT * sizeof *copy);
     for (int p = GAME_SPELL_PATH_COUNT; p < SPELL_PATH_COUNT; p++) copy[p] = NULL;
@@ -54,18 +48,15 @@ static void startSpellPathCopy(const char **copy) {
 }
 
 // ---- Transforms ----------------------------------------------------------------------------------
-// The game's functions the transform hooks call.
 static int (*unitSpellWeaponLevel)(int unit, int path);
 static void (*learnPromotionSpells)(int unit, int path, int level);
 static void (*chooseMemorized)(int unit);
 
-// A unit's levels in paths 100 to 127 before its transform.
 static struct {
     int unit;
     int levels[EXPANDED_PATH_COUNT];
 } transformLevels = {.unit = -1};
 
-// The transform's level snapshot of paths 0 to 99.
 static int transformSnapshotHook(int unit, int path) {
     if (path == 0) {
         transformLevels.unit = unit;
@@ -74,7 +65,6 @@ static int transformSnapshotHook(int unit, int path) {
     return unitSpellWeaponLevel(unit, path);
 }
 
-// The transform calls choose_memorized(unit) after teaching the spells gained in paths 0 to 99.
 static void transformMemorizeHook(int unit) {
     if (transformLevels.unit == unit) {
         for (int i = 0; i < EXPANDED_PATH_COUNT; i++) {
@@ -89,7 +79,6 @@ static void transformMemorizeHook(int unit) {
 
 #ifndef __APPLE__
 // ---- Windows: the patch --------------------------------------------------------------------------
-// A compare whose imm8 changes, and for a loop the conditional jump after it.
 typedef struct {
     unsigned int rva;
     unsigned char immAt, imm, jumpAt, jump;
@@ -113,7 +102,6 @@ static const PathBytePatch PATH_BYTE_PATCHES[] = {
 #define PATH_BYTE_PATCH_COUNT ((int)(sizeof PATH_BYTE_PATCHES / sizeof PATH_BYTE_PATCHES[0]))
 #define PATH_BUG_CHECK_SKIP_SIZE 6
 
-// A reader of the name table.
 typedef struct {
     unsigned int rva;
     int fieldOffset;
@@ -130,7 +118,6 @@ static const PathReaderSite PATH_READER_SITES[] = {
 };
 #define PATH_READER_COUNT ((int)(sizeof PATH_READER_SITES / sizeof PATH_READER_SITES[0]))
 
-// A redirected call: the call instruction, the function it calls, and CoE5SE's hook.
 typedef struct { unsigned int callRva, targetRva; int snapshot; const char *name; } PathTransformCall;
 
 static const PathTransformCall PATH_TRANSFORM_CALLS[] = {
@@ -142,7 +129,6 @@ static const PathTransformCall PATH_TRANSFORM_CALLS[] = {
 #define PATH_TRANSFORM_CALL_COUNT ((int)(sizeof PATH_TRANSFORM_CALLS / sizeof PATH_TRANSFORM_CALLS[0]))
 #define PATH_SITE_COUNT (PATH_BYTE_PATCH_COUNT + 1 + PATH_READER_COUNT + PATH_TRANSFORM_CALL_COUNT)
 
-// The changes, queued while checking and written only once every site matched.
 static struct { unsigned char *at; int size; unsigned char bytes[8], old[8]; } pathWrites[PATH_SITE_COUNT];
 static int pathWriteCount;
 static unsigned char *pathStubs;
@@ -154,7 +140,6 @@ static void queuePathWrite(unsigned char *at, const void *bytes, int size) {
     memcpy(pathWrites[pathWriteCount++].bytes, bytes, (size_t)size);
 }
 
-// Queues every site's change, for the copy at `copy` and the hooks' two stubs at `stubs`.
 static int queueSpellPathWrites(const char **copy, unsigned char *stubs) {
     int matched = 0;
     pathWriteCount = 0;
@@ -214,7 +199,6 @@ static int queueSpellPathWrites(const char **copy, unsigned char *stubs) {
     return matched;
 }
 
-// Raises the game's paths to 128, or changes nothing.
 static int installSpellPathExpansion(void) {
     if (!gameCodeMatches) {
         writeLog("spell_paths_not_expanded", "reason=game_code_differs sites=0 of %d", PATH_SITE_COUNT);
@@ -262,7 +246,6 @@ static int installSpellPathExpansion(void) {
     return 1;
 }
 
-// Puts back every instruction installSpellPathExpansion changed, or none.
 static int uninstallSpellPathExpansion(void) {
     for (int i = 0; i < pathWriteCount; i++)
         if (memcmp(pathWrites[i].at, pathWrites[i].bytes, (size_t)pathWrites[i].size)) {
@@ -293,7 +276,6 @@ static int uninstallSpellPathExpansion(void) {
 }
 #else
 // ---- Mac: the patch ------------------------------------------------------------------------------
-// A compare (cmp, 32- or 64-bit) whose 12-bit immediate becomes `value`.
 typedef struct { unsigned int rva, value; const char *name; } PathCompareSite;
 
 static const PathCompareSite PATH_COMPARE_SITES[] = {
@@ -315,7 +297,6 @@ static const PathCompareSite PATH_COMPARE_SITES[] = {
 };
 #define PATH_COMPARE_COUNT ((int)(sizeof PATH_COMPARE_SITES / sizeof PATH_COMPARE_SITES[0]))
 
-// A reader of the name table: an ADRP of its page, then the ADD of its low 12 bits.
 typedef struct { unsigned int rva; const char *name; } PathReaderPair;
 
 static const PathReaderPair PATH_READER_PAIRS[] = {
@@ -330,7 +311,6 @@ static const PathReaderPair PATH_READER_PAIRS[] = {
 };
 #define PATH_READER_COUNT ((int)(sizeof PATH_READER_PAIRS / sizeof PATH_READER_PAIRS[0]))
 
-// A redirected call.
 typedef struct { unsigned int callRva, targetRva; int snapshot; const char *name; } PathTransformCall;
 
 static const PathTransformCall PATH_TRANSFORM_CALLS[] = {
@@ -342,10 +322,8 @@ static const PathTransformCall PATH_TRANSFORM_CALLS[] = {
 #define PATH_TRANSFORM_CALL_COUNT ((int)(sizeof PATH_TRANSFORM_CALLS / sizeof PATH_TRANSFORM_CALLS[0]))
 #define PATH_SITE_COUNT (PATH_COMPARE_COUNT + 1 + PATH_READER_COUNT + PATH_TRANSFORM_CALL_COUNT)
 
-// A cmp's word with its 12-bit immediate set to `value` (below 0x1000).
 static uint32_t compareWithImmediate(uint32_t word, unsigned int value) { return (word & ~(0xfffu << 10)) | (value & 0xfffu) << 10; }
 
-// An ADRP's word moved by `pages` 4 KB pages, into *out.
 static int adrpMovedBy(uint32_t word, long long pages, uint32_t *out) {
     long long imm = (long long)((word >> 5) & 0x7ffff) << 2 | (word >> 29 & 3);
     if (imm & 0x100000) imm -= 0x200000;
@@ -355,7 +333,6 @@ static int adrpMovedBy(uint32_t word, long long pages, uint32_t *out) {
     return 1;
 }
 
-// The changes, queued while checking and written only once every site matched.
 static struct { unsigned char *at; uint32_t word, old; } pathWrites[PATH_SITE_COUNT];
 static int pathWriteCount;
 static unsigned char *pathMemory;
@@ -373,7 +350,6 @@ static uint32_t pathGameWord(unsigned int rva) {
     return word;
 }
 
-// Queues every site's change, for the copy at `copy`.
 static int queueSpellPathWrites(const char **copy) {
     int matched = 0;
     pathWriteCount = 0;
@@ -415,7 +391,6 @@ static int queueSpellPathWrites(const char **copy) {
     return matched;
 }
 
-// Raises the game's paths to 128, or changes nothing.
 static int installSpellPathExpansion(void) {
     if (!gameCodeMatches) {
         writeLog("spell_paths_not_expanded", "reason=game_code_differs sites=0 of %d", PATH_SITE_COUNT);
@@ -454,7 +429,6 @@ static int installSpellPathExpansion(void) {
     return 1;
 }
 
-// Puts back every word installSpellPathExpansion changed, or none.
 static int uninstallSpellPathExpansion(void) {
     for (int i = 0; i < pathWriteCount; i++)
         if (pathGameWord((unsigned int)(pathWrites[i].at - gameBase)) != pathWrites[i].word) {
@@ -477,13 +451,11 @@ static int uninstallSpellPathExpansion(void) {
 }
 #endif
 
-// Raises the paths.
 static void spellPathExpansionInit(void) {
     installSpellPathExpansion();
 }
 
 // ---- Handing the paths to a plugin ---------------------------------------------------------------
-// coe5seTakeOverSpellPaths, which a plugin calls from its coe5sePluginLoad.
 static int spellPathsInUse(void);
 
 static int takeOverSpellPaths(void *caller, SpellPathInstallFn install) {
@@ -532,12 +504,10 @@ __declspec(dllexport) int coe5seTakeOverSpellPaths(SpellPathInstallFn install) {
     return takeOverSpellPaths(__builtin_return_address(0), install);
 }
 
-// The paths mods may use now, for DevTools and other readers outside CoE5SE.
 __declspec(dllexport) int coe5seSpellPathCount(void) {
     return spellPathCount();
 }
 
-// Whether code at `address` runs in network games.
 static int runsInNetworkGames(const void *address) {
     if (isCoe5seCode(address)) return 1;
     HMODULE m = pathTakeover.module ? moduleOf(address) : NULL;

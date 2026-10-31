@@ -1,4 +1,3 @@
-// Every instruction in CoE5.exe that builds an address in the game's class_recruits table.
 #pragma once
 
 #define CLASS_RECRUITS_TABLE_SITE_COUNT 32

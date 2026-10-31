@@ -1,4 +1,3 @@
-// What the fan patch's fix files expect from their header, given by CoE5SE.
 #pragma once
 
 #include <stddef.h>
@@ -12,25 +11,23 @@ typedef uintptr_t ULONG_PTR;
 typedef long LONG;
 #define InterlockedIncrement(p) __atomic_add_fetch((p), 1, __ATOMIC_SEQ_CST)
 #endif
-#ifndef _MSC_VER   /* clang on both builds; the fan patch was built with MSVC */
+#ifndef _MSC_VER
 #define _ReturnAddress() __builtin_return_address(0)
 #endif
 
 #include "game_addresses.h"
 #include "fanpatch_bridge.h"
 
-/* The game's addresses: offsets from the game's base, as CoE5SE keeps them. */
 #define GAME_PTR(type, va)      ((type)(fanpatchGameBase() + (va)))
 #define GAME_VERSION_TEXT       "5.41"
 
 #ifdef __APPLE__
-#define VA_FIND_ALL_MODS        RVA_RUN_ENABLED_MODS   /* Mac inlines find_all_mods into SDL_main; see fix_item_reset.c */
+#define VA_FIND_ALL_MODS        RVA_RUN_ENABLED_MODS
 #else
 #define VA_FIND_ALL_MODS        RVA_FIND_ALL_MODS
-#define VA_REPLACED_SPR         RVA_REPLACED_SPRITE    /* Mac inlines it; see fix_token_sprites.c */
+#define VA_REPLACED_SPR         RVA_REPLACED_SPRITE
 #endif
 #define VA_RESTORE_TABLES       RVA_RESET_MODS
-/* The item table moves with CoE5SE's table moves (table_move.h): its address and size are read at run time. */
 #define VA_ITEMS                ((ULONG_PTR)(fanpatchItemTable() - fanpatchGameBase()))
 #define VA_ITEM_COUNT           RVA_ITEM_COUNT
 #define ITEM_MAX                fanpatchItemRecords()
@@ -48,13 +45,11 @@ typedef long LONG;
 #define VA_SPR_WIDTH            RVA_SPRITE_WIDTHS
 #define VA_SPR_HEIGHT           RVA_SPRITE_HEIGHTS
 #ifdef __APPLE__
-#define VA_TOKEN_ICON_RET       (RVA_TOKEN_ITEM_ICON_CALL + 4)   /* after the bl */
+#define VA_TOKEN_ICON_RET       (RVA_TOKEN_ITEM_ICON_CALL + 4)
 #else
-#define VA_TOKEN_ICON_RET       (RVA_TOKEN_ITEM_ICON_CALL + 5)   /* after the call rel32 */
+#define VA_TOKEN_ICON_RET       (RVA_TOKEN_ITEM_ICON_CALL + 5)
 #endif
 
-/* The fan patch's helpers. fp_config_int: CoE5SE has no fanpatch.ini, so every fix takes its default. */
 #define fp_log                  fanpatchLog
 #define fp_config_int(section, key, def) (def)
-/* CoE5SE: the fixes' byte signatures became one check of CoE5SE's game code hash. */
 #define fp_game_code_matches    fanpatchGameCodeMatches

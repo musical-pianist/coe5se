@@ -1,7 +1,6 @@
-// Scripts and the AI: coe5.route, the ritual plans, the armies, recruiting, and coe5.keepTraceLines.
+#pragma once
 
 // ---- AI routes: coe5.route --------------------------------------------------------------------
-// The sites of an AI commander's move.
 static const CallSite AI_MOVE_SITES[] = {SITE_AI_RALLY, SITE_AI_FRIENDLY_MOVE, SITE_AI_CONQUER, SITE_AI_EXPLORE, SITE_AI_FAR_EXPLORE,
                                          SITE_AI_MOVE_COMSTR};
 static int aiMoveSiteRunning(void) {
@@ -10,9 +9,7 @@ static int aiMoveSiteRunning(void) {
     return 0;
 }
 
-// The steps of the script's budget each coe5.route call costs.
 #define ROUTE_CALL_STEPS 10000
-// Why coe5.route refuses its call, or NULL when it can go to the game.
 static const char *routeRefusal(int inAiSite, lua_Integer commander, lua_Integer x, lua_Integer y, lua_Integer comstr, int mapDepth,
                                 int mapH) {
     if (!inAiSite) return "outside_ai_site";
@@ -22,7 +19,6 @@ static const char *routeRefusal(int inAiSite, lua_Integer commander, lua_Integer
     return NULL;
 }
 
-// coe5.route(commander, x, y[, comstr]): how far the commander's army has to go to reach (x, y).
 static int lRoute(lua_State *L) {
     coe5seChargeLuaSteps(L, ROUTE_CALL_STEPS);
     lua_Integer commander = luaL_checkinteger(L, 1), x = luaL_checkinteger(L, 2), y = luaL_checkinteger(L, 3);
@@ -62,13 +58,11 @@ static int lRoute(lua_State *L) {
 }
 
 // ---- AI ritual plans: coe5.scrapRitualPlan --------------------------------------------------------
-// The AI sites.
 static int aiSiteRunning(void) {
     return aiMoveSiteRunning() || luaSiteDepth[SITE_AI_RITUAL_CANDIDATE] || luaSiteDepth[SITE_AI_GATHER_TROOPS] ||
            luaSiteDepth[SITE_AI_PICK_UP_LONER] || luaSiteDepth[SITE_AI_SPLIT_ARMY] || luaObserving[SITE_AI_TURN] != NULL;
 }
 
-// Why coe5.scrapRitualPlan refuses its call, or NULL.
 static const char *ritualPlanScrapRefusal(int inAiSite, lua_Integer commander, int owner, int controller, int plan) {
     if (!inAiSite) return "outside_ai_site";
     if (commander < 0 || commander >= COMMANDER_TABLE_MAX) return "bad_commander";
@@ -78,7 +72,6 @@ static const char *ritualPlanScrapRefusal(int inAiSite, lua_Integer commander, i
     return NULL;
 }
 
-// coe5.scrapRitualPlan(commander): drops an AI commander's planned ritual.
 enum { AI_ACTION_BUY, AI_ACTION_PLAN, AI_ACTION_SCRAP };
 static void noteAiAction(int player, const char *mod, int call, int a, int b, int c, int d, int e, int f);
 static int lScrapRitualPlan(lua_State *L) {
@@ -110,7 +103,6 @@ static int lScrapRitualPlan(lua_State *L) {
 }
 
 // ---- AI armies: coe5.releaseFollower -------------------------------------------------------------
-// Why coe5.releaseFollower refuses its call, or NULL.
 static const char *followerReleaseRefusal(int inAiSite, int network, lua_Integer unit, int owner, int controller, int activePlayer) {
     if (!inAiSite) return "outside_ai_site";
     if (network) return "network_game";
@@ -121,7 +113,6 @@ static const char *followerReleaseRefusal(int inAiSite, int network, lua_Integer
     return NULL;
 }
 
-// coe5.releaseFollower(unit): frees one unit of an AI player from the commander it follows.
 static int lReleaseFollower(lua_State *L) {
     lua_Integer unit = luaL_checkinteger(L, 1);
     int owner = -1, controller = CONTROLLER_REMOVED, leader = -1;
@@ -149,7 +140,6 @@ static int lReleaseFollower(lua_State *L) {
 }
 
 // ---- AI armies: coe5.transferFollower --------------------------------------------------------------
-// Why coe5.transferFollower refuses its call, or NULL.
 static const char *followerTransferRefusal(int inAiSite, int network, lua_Integer unit, int owner, int controller, int activePlayer,
                                            lua_Integer commander, int commanderOwner, int commanderUnit, int leader, int sameSquare) {
     const char *reason = followerReleaseRefusal(inAiSite, network, unit, owner, controller, activePlayer);
@@ -164,7 +154,6 @@ static const char *followerTransferRefusal(int inAiSite, int network, lua_Intege
     return NULL;
 }
 
-// The game's own one-unit transfer, worked out on both builds.
 static int unitAiSkips(int u) {
     if (u < 0 || u >= UNIT_TABLE_MAX) return 0;
     if ((short)G16(RVA_UNIT_MONSTER + (size_t)u * UNIT_SIZE) < 0) return 1;
@@ -217,7 +206,6 @@ static int transferUnitToCommander(int u, int c) {
 }
 static int (*transferUnitGame)(int unit, int commander) = transferUnitToCommander;
 
-// coe5.transferFollower(unit, commander): moves one unit to another commander on the same square.
 static int lTransferFollower(lua_State *L) {
     lua_Integer unit = luaL_checkinteger(L, 1), commander = luaL_checkinteger(L, 2);
     int owner = -1, controller = CONTROLLER_REMOVED, leader = -1, ux = -1, uy = -1;
@@ -256,9 +244,7 @@ static int lTransferFollower(lua_State *L) {
 }
 
 // ---- AI recruiting: coe5.shopOffers, classRecruits, recruitSquares, aiBuyOffer -------------------
-// A player's recruitment offers, its class's list, its recruit squares, and the AI's buy.
 
-// The game functions the square rules and the buy call.
 typedef struct AiRecruitCalls {
     int (*offerAvailable)(int player, int offer, int x, int y);
     int (*citadelFor)(int player, int x, int y);
@@ -284,19 +270,16 @@ static AiRecruitCalls aiRecruitCalls;
 static int unitAt(int unit, int x, int y) {
     return G32(RVA_UNIT_X + (size_t)unit * UNIT_SIZE) == x && G32(RVA_UNIT_X + (size_t)unit * UNIT_SIZE + 4) == y;
 }
-// The commander whose unit is `unit`, or -1.
 static int commanderOfUnit(int unit) {
     int last = G32(RVA_LAST_COMMANDER);
     for (int c = 0; c <= last && c < COMMANDER_TABLE_MAX; c++)
         if (G32(RVA_COMMANDERS + (size_t)c * COMMANDER_SIZE) == unit) return c;
     return -1;
 }
-// The terrain of square (x, y), -1 off the map, as the troop buy reads it.
 static int buyTerrainAt(int x, int y) {
     if (x < 0 || y < 0 || x >= G32(RVA_MAP_W) || y >= G32(RVA_MAP_H) || x >= MAP_COLUMNS_MAX || y >= MAP_COLUMN_SQUARES) return -1;
     return (short)G16(RVA_SQUARES + ((size_t)x * MAP_COLUMN_SQUARES + (size_t)y) * SQUARE_SIZE);
 }
-// The places on the player's ships at (x, y), less its sailors there.
 static int countAiFreeBoatPlaces(int player, int x, int y) {
     int places = 0, sailors = 0, last = G32(RVA_UNIT_COUNT);
     for (int u = 0; u <= last && u < UNIT_TABLE_MAX; u++) {
@@ -308,7 +291,6 @@ static int countAiFreeBoatPlaces(int player, int x, int y) {
     }
     return places - sailors;
 }
-// The player's unit at (x, y) with the most of `ability` that stays put, or -1.
 static int findAiBestBoosterAt(int player, int x, int y, int ability) {
     int best = 0, found = -1, last = G32(RVA_UNIT_COUNT);
     for (int u = 0; u <= last && u < UNIT_TABLE_MAX; u++) {
@@ -323,7 +305,6 @@ static int findAiBestBoosterAt(int player, int x, int y, int ability) {
     }
     return found;
 }
-// Sends the player's spawnboosters with `ability` at (x, y) back to plan 0.
 static void freeAiSpawnboosters(int player, int x, int y, int ability) {
     int freed = 0, last = G32(RVA_LAST_COMMANDER);
     for (int c = 0; c <= last && c < COMMANDER_TABLE_MAX; c++) {
@@ -336,17 +317,14 @@ static void freeAiSpawnboosters(int player, int x, int y, int ability) {
     }
     GAME_FN(void (*)(const char *, ...), RVA_TRACE)("ailog: removed %d old spawnboosters at %d,%d\n", freed, x, y);
 }
-// Pays an offer's first AI_PAID_COSTS costs, `sign` -1 to take them and 1 to add them.
 static void payAiOffer(int player, int offer, int sign) {
     const int *costs = (const int *)playerTableAddress(RVA_SHOP_COSTS + (size_t)player * PLAYER_BLOCK_SIZE + (size_t)offer * SHOP_COST_COUNT * 4);
     for (int i = 0; i < AI_PAID_COSTS; i++) GAME_FN(void (*)(int, int, int, int, int), RVA_PAY_RESOURCE_AT)(player, i, sign * costs[i], -1, -1);
 }
-// The offer's "=" limiter, the unit name an upgrade starts from ("" for none).
 static void aiOfferLimiter(int player, int offer, char out[SHOP_OFFER_TEXT_SIZE + 1]) {
     memcpy(out, playerTableAddress(RVA_SHOP_OFFER_LIMITS + (size_t)player * PLAYER_BLOCK_SIZE + (size_t)offer * SHOP_OFFER_TEXT_SIZE), SHOP_OFFER_TEXT_SIZE);
     out[SHOP_OFFER_TEXT_SIZE] = 0;
 }
-// Turns unit `u` into `monster`, keeping its wounds; with `free`, it follows no commander after.
 static void upgradeAiUnit(int u, int monster, int free) {
     size_t rec = (size_t)u * UNIT_SIZE;
     int (*maxHp)(int) = GAME_FN(int (*)(int), RVA_UNIT_MAX_HP);
@@ -357,7 +335,6 @@ static void upgradeAiUnit(int u, int monster, int free) {
     G16(RVA_UNIT_HP + rec) = (short)(hp < 1 ? 1 : hp);
 }
 
-// The commander's name as the AI's traces give it, "<name> the <unit's shown name>", in the game's ring.
 static const char *commanderTheName(int commander) {
     if (commander < 0 || commander > G32(RVA_LAST_COMMANDER) || commander >= COMMANDER_TABLE_MAX) return "John Doe";
     int ring = G32(RVA_COMMANDER_THE_NAME_INDEX);
@@ -369,15 +346,14 @@ static const char *commanderTheName(int commander) {
     return out;
 }
 
-// The troop buy: the offer's units at (x, y), their sailors and guards, the costs, and the square's army.
 static void buyAiTroops(int player, int offer, int x, int y) {
-    if (x < 0 || y < 0 || player < 0) return;   // No log: the game's own buy does nothing either
+    if (x < 0 || y < 0 || player < 0) return;
     size_t block = (size_t)player * PLAYER_BLOCK_SIZE;
     int monster = PG32(RVA_SHOP_OFFERS + block + (size_t)offer * 4), count = PG32(RVA_SHOP_OFFER_COUNTS + block + (size_t)offer * 4);
     char limiter[SHOP_OFFER_TEXT_SIZE + 1];
     aiOfferLimiter(player, offer, limiter);
     int terrain = buyTerrainAt(x, y);
-    if (terrain < 0) return;   // No log: as the game's
+    if (terrain < 0) return;
     unsigned parts = GAME_FN(unsigned (*)(int, int), RVA_SQUARE_FORT_PARTS)(x, y);
     const unsigned char *t = GAME_PTR(RVA_TERRAIN_TABLE + (size_t)terrain * TERRAIN_SIZE);
     int gold = *(const short *)(t + TERRAIN_GOLD), trade = *(const short *)(t + TERRAIN_TRADE), fort = (parts & FORT_PART_FORT) != 0;
@@ -396,7 +372,7 @@ static void buyAiTroops(int player, int offer, int x, int y) {
         } else {
             upgradeAiUnit(u, monster, 1);
         }
-        if (u < 0 || u >= UNIT_TABLE_MAX) continue;   // No log: no free unit record; the game's own buy goes on too
+        if (u < 0 || u >= UNIT_TABLE_MAX) continue;
         unsigned long long *flags = (unsigned long long *)GAME_PTR(RVA_UNITS + (size_t)u * UNIT_SIZE);
         int ship = monsterAbility(monster, MONSTER_ABILITY_SHIP);
         if (ship > 0) {
@@ -419,9 +395,8 @@ static void buyAiTroops(int player, int offer, int x, int y) {
     rebuildSquareArmyHook(x, y);
 }
 
-// The commander buy at (x, y): returns the commander, -1 for none.
 static int buyAiCommander(int player, int offer, int x, int y) {
-    if (x < 0 || y < 0 || player < 0) return -1;   // No log: the game's own buy does nothing either
+    if (x < 0 || y < 0 || player < 0) return -1;
     size_t block = (size_t)player * PLAYER_BLOCK_SIZE;
     int monster = PG32(RVA_SHOP_OFFERS + block + (size_t)offer * 4), commander = -1, upgraded = -1;
     char limiter[SHOP_OFFER_TEXT_SIZE + 1];
@@ -429,7 +404,7 @@ static int buyAiCommander(int player, int offer, int x, int y) {
     if (limiter[0]) {
         upgraded = GAME_FN(int (*)(int, int, int, const char *), RVA_FIND_UPGRADE_UNIT)(player, x, y, limiter);
         GAME_FN(void (*)(const char *, ...), RVA_TRACE_C)("upgrading from %s (du %d)\n", limiter, upgraded);
-        if (upgraded < 0) return -1;   // No log: the game's own buy pays nothing then either
+        if (upgraded < 0) return -1;
         commander = commanderOfUnit(upgraded);
         if (commander >= 0) upgradeAiUnit(upgraded, monster, 0);
     }
@@ -460,29 +435,28 @@ static int buyAiCommander(int player, int offer, int x, int y) {
     return commander;
 }
 
-// After a commander buy: a commander with a spawn ability on spawning ground may become a spawnbooster.
 static void makeAiSpawnbooster(int commander) {
-    if (commander < 0 || commander > G32(RVA_LAST_COMMANDER) || commander >= COMMANDER_TABLE_MAX) return;   // No log: the game's own does nothing
+    if (commander < 0 || commander > G32(RVA_LAST_COMMANDER) || commander >= COMMANDER_TABLE_MAX) return;
     int u = G32(RVA_COMMANDERS + (size_t)commander * COMMANDER_SIZE);
-    if (u < 0 || u >= UNIT_TABLE_MAX) return;   // No log: as the game's
+    if (u < 0 || u >= UNIT_TABLE_MAX) return;
     int ability = unitAbilityTotal(u, AI_SPAWN_ABILITY_MINO, 1) > 0   ? AI_SPAWN_ABILITY_MINO
                   : unitAbilityTotal(u, AI_SPAWN_ABILITY_CENT, 1) > 0 ? AI_SPAWN_ABILITY_CENT
                   : unitAbilityTotal(u, AI_SPAWN_ABILITY_SATYR, 1) > 0 ? AI_SPAWN_ABILITY_SATYR
                                                                        : 0;
-    if (!ability) return;   // No log: not a spawner
+    if (!ability) return;
     int (*random)(int) = GAME_FN(int (*)(int), RVA_RANDOM), level;
-    if (commanderRitpowOf(commander, &level) > 0 && random(100) < 50) return;   // No log: the game's own coin
-    if (GAME_FN(int (*)(int), RVA_UNIT_HAS_SPELL_WEAPON)(u) && random(100) < 50) return;   // No log: the game's own coin
+    if (commanderRitpowOf(commander, &level) > 0 && random(100) < 50) return;
+    if (GAME_FN(int (*)(int), RVA_UNIT_HAS_SPELL_WEAPON)(u) && random(100) < 50) return;
     size_t rec = (size_t)u * UNIT_SIZE;
     int player = u > G32(RVA_UNIT_COUNT) ? -1 : (short)G16(RVA_UNIT_PLAYER + rec);
     int x = G32(RVA_UNIT_X + rec), y = G32(RVA_UNIT_X + rec + 4);
-    if (!GAME_FN(int (*)(int, int, int), RVA_TERRAIN_MATCH)(AI_SPAWNBOOSTER_TERRAIN, x, y)) return;   // No log: not spawning ground
+    if (!GAME_FN(int (*)(int, int, int), RVA_TERRAIN_MATCH)(AI_SPAWNBOOSTER_TERRAIN, x, y)) return;
     int best = findAiBestBoosterAt(player, x, y, ability);
     if (best != u) {
         int theirs = best >= 0 && best <= G32(RVA_UNIT_COUNT) && (short)G16(RVA_UNIT_MONSTER + (size_t)best * UNIT_SIZE) >= 0
                          ? unitAbilityTotal(best, ability, 1)
                          : 0;
-        if (unitAbilityTotal(u, ability, 1) <= theirs) return;   // No log: one there boosts as much
+        if (unitAbilityTotal(u, ability, 1) <= theirs) return;
     }
     GAME_FN(void (*)(const char *, ...), RVA_TRACE)("ailog: turn %s into spawnbooster at %d,%d\n", commanderTheName(commander), x, y);
     freeAiSpawnboosters(player, x, y, ability);
@@ -523,7 +497,6 @@ static const AiRecruitCalls *aiRecruitGame(void) {
 #define SHOP_SQUARES_MAX 100
 #define SHIP_SEA_SQUARES 50
 
-// A monster's action points a turn.
 static int monsterMoves(int monster) {
     const unsigned char *record = monsterRecord(monster);
     if (!record) return 0;
@@ -531,7 +504,6 @@ static int monsterMoves(int monster) {
     return flags & UNIT_FLAG_FAST ? 4 : flags & UNIT_FLAG_SLOW ? 2 : 3;
 }
 
-// The highest level of a monster's spell attacks, 0 for none.
 static int monsterSpellLevel(int monster) {
     if (!monsterRecord(monster)) return 0;
     const unsigned char *rows = monsterRecord(monster) + MONSTER_ATTACKS;
@@ -553,14 +525,12 @@ static void setBoolField(lua_State *L, const char *key, int value) {
     lua_setfield(L, -2, key);
 }
 
-// A string cut to `size` bytes, its 0 or the end.
 static void pushRecordText(lua_State *L, const char *text, size_t size) {
     size_t len = 0;
     while (len < size && text[len]) len++;
     lua_pushlstring(L, text, len);
 }
 
-// The monster fields every offer has.
 static void setOfferMonster(lua_State *L, int monster, const char *name) {
     if (monster >= 0) setIntField(L, "monster", monster);
     pushRecordText(L, name, MONSTER_NAME_SIZE);
@@ -569,7 +539,6 @@ static void setOfferMonster(lua_State *L, int monster, const char *name) {
     setIntField(L, "spellLevel", monster >= 0 ? monsterSpellLevel(monster) : 0);
 }
 
-// An offer's costs, by cost type.
 static void setOfferCosts(lua_State *L, const int *costs) {
     lua_createtable(L, 0, SHOP_COST_COUNT);
     for (int t = 0; t < SHOP_COST_COUNT; t++) {
@@ -579,7 +548,6 @@ static void setOfferCosts(lua_State *L, const int *costs) {
     lua_setfield(L, -2, "costs");
 }
 
-// coe5.shopOffers(player): the player's recruitment offers this turn.
 static int lShopOffers(lua_State *L) {
     lua_Integer player = luaCheckPlayer(L, 1);
     lua_createtable(L, 0, 0);
@@ -621,7 +589,6 @@ static int lShopOffers(lua_State *L) {
     return 1;
 }
 
-// coe5.classRecruits(class): the class's recruitment list.
 static int lClassRecruits(lua_State *L) {
     lua_Integer cls = luaL_checkinteger(L, 1);
     lua_createtable(L, 0, 0);
@@ -668,7 +635,6 @@ static int lClassRecruits(lua_State *L) {
     return 1;
 }
 
-// The squares where the game's AI recruiting can buy for `player`.
 static int recruitSquaresOf(const AiRecruitCalls *g, int player, int *xs, int *ys) {
     int depth = G32(RVA_MAP_DEPTH), height = G32(RVA_MAP_H), n = 0;
     for (int y = 0; y < height && y < MAP_COLUMN_SQUARES; y++)
@@ -681,7 +647,6 @@ static int recruitSquaresOf(const AiRecruitCalls *g, int player, int *xs, int *y
     return n;
 }
 
-// Why the game's AI recruiting wouldn't buy `player`'s offer on square (x, y), or NULL.
 static const char *aiOfferSquareRefusal(const AiRecruitCalls *g, int player, int offer, int x, int y) {
     size_t block = (size_t)player * PLAYER_BLOCK_SIZE;
     int count = PG32(RVA_SHOP_OFFER_COUNTS + block + (size_t)offer * 4);
@@ -705,7 +670,6 @@ static const char *aiOfferSquareRefusal(const AiRecruitCalls *g, int player, int
     return NULL;
 }
 
-// The player of the AI_RECRUIT call whose wrap is running now, -1 outside one.
 static int aiRecruitPlayer(void) {
     for (const LuaFrame *f = luaFrames; f; f = f->up)
         if (f->wrap && luaSites[f->wrap->site].site == SITE_AI_RECRUIT) return (int)f->args->a[0];
@@ -713,7 +677,6 @@ static int aiRecruitPlayer(void) {
 }
 
 // ---- coe5.aiActions: which mod bought or planned for an AI ---------------------------------------
-// One call a script made for an AI player this turn: its mod, the call, and what it did.
 #define AI_ACTIONS_MAX 64
 typedef struct {
     const char *mod;
@@ -723,23 +686,22 @@ typedef struct {
 static struct { AiAction list[AI_ACTIONS_MAX]; int count, dropped, turn; } aiActions[PLAYER_SLOTS_MOVED];
 
 static void noteAiAction(int player, const char *mod, int call, int a, int b, int c, int d, int e, int f) {
-    if (player < 0 || player >= PLAYER_SLOTS_MOVED) return;   // No log: the callers refused any other player already.
+    if (player < 0 || player >= PLAYER_SLOTS_MOVED) return;
     int turn = G32(RVA_TURN);
     if (aiActions[player].turn != turn) aiActions[player].count = aiActions[player].dropped = 0, aiActions[player].turn = turn;
     if (aiActions[player].count >= AI_ACTIONS_MAX) {
         aiActions[player].dropped++;
-        return;   // No log: coe5.aiActions reports the cut (dropped).
+        return;
     }
     aiActions[player].list[aiActions[player].count++] = (AiAction){mod, call, a, b, c, d, e, f};
 }
 
-// coe5.aiActions(player): this turn's buys and ritual plans scripts made for the player, in order, with each one's mod.
 static int lAiActions(lua_State *L) {
     lua_Integer player = luaCheckPlayer(L, 1);
     lua_createtable(L, 0, 0);
     if (player < 0 || player >= PLAYER_SLOTS_MOVED || aiActions[player].turn != G32(RVA_TURN)) {
         lua_pushinteger(L, 0);
-        return 2;   // No log: no call this turn.
+        return 2;
     }
     static const char *const CALLS[] = {"aiBuyOffer", "planRitual", "scrapRitualPlan"};
     for (int i = 0; i < aiActions[player].count; i++) {
@@ -766,7 +728,6 @@ static int lAiActions(lua_State *L) {
     return 2;
 }
 
-// Why coe5.aiBuyOffer refuses its arguments, or NULL.
 static const char *aiBuyRefusal(int sitePlayer, int humanTurn, lua_Integer player, int controller, lua_Integer offer, int shopLast) {
     if (sitePlayer < 0) return "outside_ai_recruit";
     if (player < 0 || player >= playerSlotCount()) return "bad_player";
@@ -776,7 +737,6 @@ static const char *aiBuyRefusal(int sitePlayer, int humanTurn, lua_Integer playe
     return NULL;
 }
 
-// coe5.recruitSquares(player[, offer]): where the game's AI recruiting can buy for the player.
 static int lRecruitSquares(lua_State *L) {
     lua_Integer player = luaCheckPlayer(L, 1);
     int withOffer = !lua_isnoneornil(L, 2);
@@ -805,7 +765,6 @@ static int lRecruitSquares(lua_State *L) {
     return 1;
 }
 
-// coe5.aiBuyOffer(player, offer, x, y): buys the AI player's offer on square (x, y).
 typedef const char *(*AiBuySquareRule)(const AiRecruitCalls *g, int player, int offer, int x, int y);
 typedef void (*AiBuyAfter)(int player, int x, int y);
 static int aiBuyHumanTurn(int *x, int *y, AiBuySquareRule *rule, AiBuyAfter *after);
@@ -865,7 +824,6 @@ static int lAiBuyOffer(lua_State *L) {
     return 1;
 }
 
-// Why coe5.planRitual refuses its call, or NULL.
 static const char *ritualPlanRefusal(int inAiSite, lua_Integer commander, int owner, int controller, int plan, int known) {
     const char *reason = ritualPlanScrapRefusal(inAiSite, commander, owner, controller, 0);
     if (reason) return reason;
@@ -874,7 +832,65 @@ static const char *ritualPlanRefusal(int inAiSite, lua_Integer commander, int ow
     return NULL;
 }
 
-// coe5.planRitual(commander, ritual): gives an AI commander with no plan a ritual to cast.
+static int aiRitualTestArgs(lua_State *L, const char *call, int *commander, int *ritual) {
+    lua_Integer c = luaL_checkinteger(L, 1), r = luaL_checkinteger(L, 2);
+    const char *reason = G32(RVA_ACTIVE_PLAYER) < 0                                                  ? "no_game"
+                         : c < 0 || c >= COMMANDER_TABLE_MAX || livingCommanderUnit((int)c) < 0      ? "dead_commander"
+                         : r < 1 || r >= ritualSlotCount()                                           ? "bad_ritual"
+                                                                                                     : NULL;
+    if (reason) {
+        refuseLuaCall(runningLuaMod(), call, reason, "commander=%lld ritual=%lld", (long long)c, (long long)r);
+        return 0;
+    }
+    *commander = (int)c, *ritual = (int)r;
+    return 1;
+}
+static int lAiRitualBad(lua_State *L) {
+    int commander, ritual;
+    if (!aiRitualTestArgs(L, "coe5.aiRitualBad", &commander, &ritual)) return 0;
+    lua_pushboolean(L, GAME_FN(int (*)(int, int), RVA_AI_RITUAL_AI_BAD)(commander, ritual) != 0);
+    return 1;
+}
+static int lAiRitualBadTime(lua_State *L) {
+    int commander, ritual;
+    if (!aiRitualTestArgs(L, "coe5.aiRitualBadTime", &commander, &ritual)) return 0;
+    lua_Integer x = luaL_optinteger(L, 3, -1), y = luaL_optinteger(L, 4, -1);
+    int caster = x == -1 && y == -1;
+    if (!caster && (x < 0 || y < 0 || x >= G32(RVA_MAP_DEPTH) || y >= G32(RVA_MAP_H) || x >= MAP_COLUMNS_MAX || y >= MAP_COLUMN_SQUARES)) {
+        refuseLuaCall(runningLuaMod(), "coe5.aiRitualBadTime", "off_map", "commander=%d ritual=%d x=%lld y=%lld", commander, ritual, (long long)x,
+                      (long long)y);
+        return 0;
+    }
+    lua_pushboolean(L, GAME_FN(int (*)(int, int, int, int), RVA_AI_RITUAL_BAD_TIME)(commander, ritual, (int)x, (int)y) != 0);
+    return 1;
+}
+
+static int aiItemArgs(lua_State *L, const char *call, int *unit, int *item) {
+    lua_Integer u = luaL_checkinteger(L, 1), it = luaL_checkinteger(L, 2);
+    const char *reason = G32(RVA_ACTIVE_PLAYER) < 0                                                           ? "no_game"
+                         : u < 0 || u > G32(RVA_UNIT_COUNT) || u >= UNIT_TABLE_MAX || G16(RVA_UNIT_HP + (size_t)u * UNIT_SIZE) <= 0 ? "dead_unit"
+                         : it < 0 || it >= tableRecords(TABLE_ITEM) || !*(const char *)(tableAddress(TABLE_ITEM) + (size_t)it * ITEM_SIZE) ? "bad_item"
+                                                                                                              : NULL;
+    if (reason) {
+        refuseLuaCall(runningLuaMod(), call, reason, "unit=%lld item=%lld", (long long)u, (long long)it);
+        return 0;
+    }
+    *unit = (int)u, *item = (int)it;
+    return 1;
+}
+static int lAiItemValue(lua_State *L) {
+    int unit, item;
+    if (!aiItemArgs(L, "coe5.aiItemValue", &unit, &item)) return 0;
+    lua_pushinteger(L, GAME_FN(int (*)(int, int), RVA_AI_ITEM_VALUE)(unit, item));
+    return 1;
+}
+static int lAiItemUseRating(lua_State *L) {
+    int unit, item;
+    if (!aiItemArgs(L, "coe5.aiItemUseRating", &unit, &item)) return 0;
+    lua_pushinteger(L, GAME_FN(int (*)(int, int), RVA_AI_ITEM_USE_RATING)(unit, item));
+    return 1;
+}
+
 static int lPlanRitual(lua_State *L) {
     lua_Integer commander = luaL_checkinteger(L, 1), ritual = luaL_checkinteger(L, 2);
     int owner = -1, controller = CONTROLLER_REMOVED, plan = 0, known = 0;
@@ -906,7 +922,6 @@ static int lPlanRitual(lua_State *L) {
     return 1;
 }
 
-// coe5.terrainMatch(code, x, y): whether square (x, y) counts for terrain code `code`.
 static int lTerrainMatch(lua_State *L) {
     lua_Integer code = luaL_checkinteger(L, 1), x = luaL_checkinteger(L, 2), y = luaL_checkinteger(L, 3);
     if (code < TERRAIN_MATCH_CODE_MIN || code >= TERRAIN_TABLE_MAX) {
@@ -922,7 +937,6 @@ static int lTerrainMatch(lua_State *L) {
 }
 
 // ---- The trace: coe5.keepTraceLines -------------------------------------------------------------
-// coe5.keepTraceLines(words): the game writes only trace lines that start with one of the words.
 static int lKeepTraceLines(lua_State *L) {
     LuaScript *s = luaScriptOf(L);
     const char *mod = s ? s->mod : "?";

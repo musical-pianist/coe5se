@@ -1,4 +1,4 @@
-// The game's trace lines into log.txt through one open file, flushed after every line.
+// @platform-split trace_log_file: Windows only; Mac's trace writes to standard output, which it never reopens
 #pragma once
 
 #ifndef __APPLE__
@@ -7,18 +7,16 @@ typedef int (*TraceFileFn)(void *);
 
 static void *volatile traceLogFileOpen;
 
-// The trace writers' fopen: log.txt opened once for the launch.
 static void *traceLogOpen(const char *name, const char *mode) {
     void *file = traceLogFileOpen;
     if (file) return file;
-    if (!(file = GAME_FN(TraceFopenFn, RVA_FOPEN)(name, mode))) return NULL;   // No log: the game's own trace skips the line too
+    if (!(file = GAME_FN(TraceFopenFn, RVA_FOPEN)(name, mode))) return NULL;
     void *earlier = InterlockedCompareExchangePointer((void *volatile *)&traceLogFileOpen, file, NULL);
     if (!earlier) return file;
     GAME_FN(TraceFileFn, RVA_FCLOSE)(file);
     return earlier;
 }
 
-// The trace writers' fclose: the kept file is flushed, any other closed.
 static int traceLogClose(void *file) {
     if (file && file == traceLogFileOpen) return GAME_FN(TraceFileFn, RVA_FFLUSH)(file);
     return GAME_FN(TraceFileFn, RVA_FCLOSE)(file);
@@ -26,7 +24,6 @@ static int traceLogClose(void *file) {
 
 #define TRACE_LOG_STUB_SIZE 0x20
 
-// Points the four trace writers' fopen and fclose calls at the two above, and logs trace_log_file_installed.
 static void traceLogFileInit(void) {
     static const struct { unsigned int siteRva, targetRva; void *hook; const char *name; } CALLS[] = {
         {RVA_TRACE_LOG_OPEN_CALL, RVA_FOPEN, (void *)traceLogOpen, "trace_log_open"},

@@ -1,7 +1,5 @@
-// The key actions: every line of the game's Keyboard Shortcuts list that a key runs.
 #pragma once
 
-// The screens whose keys the list covers.
 enum {
     KEY_SCREEN_MAP = 1,
     KEY_SCREEN_ARMY,
@@ -18,7 +16,6 @@ enum {
 #define KEY_BOUND 1
 #define KEY_HELD  2
 
-// clang-format off
 #define KEY_ACTION_LIST(KEY_ACTION) \
     KEY_ACTION(MAP_SHORTCUTS_LIST,       mapShortcutsList,      MAP, BOUND, 0x2e,  '?',                  1, "List keyboard shortcuts") \
     KEY_ACTION(MAP_RECRUIT,              mapRecruit,            MAP, BOUND, 2,     'r',                  2, "Recruit") \
@@ -216,9 +213,7 @@ enum {
     KEY_ACTION(FILE_BROWSER_SORT_NAME,   fileBrowserSortName,   FILE_BROWSER, BOUND, 5, KEY_CTRL + 'n', 168, "Sort by name") \
     KEY_ACTION(FILE_BROWSER_SHORTCUTS_LIST, fileBrowserShortcutsList, FILE_BROWSER, BOUND, 8, '?',     169, "List keyboard shortcuts") \
     KEY_ACTION(FILE_BROWSER_CANCEL,      fileBrowserCancel,     FILE_BROWSER, BOUND, 2, KEY_ESC,        170, "Cancel")
-// clang-format on
 
-// The action numbers: KEY_ACTION_NONE is no action, and KEY_ACTION_COUNT is one past the last.
 #define KEY_ACTION_ENUM(name, lua, screen, how, id, key, row, label) KEY_ACTION_##name,
 enum { KEY_ACTION_NONE, KEY_ACTION_LIST(KEY_ACTION_ENUM) KEY_ACTION_COUNT };
 #undef KEY_ACTION_ENUM

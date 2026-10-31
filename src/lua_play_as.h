@@ -1,7 +1,5 @@
-// Play as AI: coe5.runAiTurn, the game's AI moves for a player a script plays, and that player's Recruit screen buys.
 #pragma once
 
-// coe5.runAiTurn(player): the game's AI moves for the player, at its human turn's end.
 static int lRunAiTurn(lua_State *L) {
     lua_Integer player = luaL_checkinteger(L, 1);
     const CallInfo *turn = luaObserving[SITE_HUMAN_TURN];
@@ -39,20 +37,18 @@ static int lRunAiTurn(lua_State *L) {
 }
 
 // ---- Play as AI's buys: coe5.recruitScreen, and coe5.aiBuyOffer on a human's Recruit screen -------
-// A played AI's buys on its Recruit screen, through the game's AI buy.
 
-// The Recruit screen while a wrap of its wait runs.
 typedef struct {
     int player, x, y, ctrl, latch;
 } RecruitScreen;
 
-// Reads the Recruit screen; NULL on Mac.
+// @platform-split recruit_screen_frame: Windows only; Mac's Recruit screen frame wasn't looked up
 static int (*recruitScreenRead)(RecruitScreen *out);
 #ifndef __APPLE__
 static int keyDown(int code) { return code >= 0 && code < KEY_STATE_SIZE && G8(RVA_KEY_STATE + (size_t)code) != 0; }
 static int recruitScreenFromFrame(RecruitScreen *out) {
     uintptr_t sp = luaApi->callerRsp(SITE_RECRUIT_WAIT);
-    if (!sp) return 0;   // Logged by callerRsp.
+    if (!sp) return 0;
     out->player = *(const int *)(sp + FRAME_RECRUIT_SCREEN_PLAYER);
     out->x = *(const int *)(sp + FRAME_RECRUIT_SCREEN_X);
     out->y = *(const int *)(sp + FRAME_RECRUIT_SCREEN_Y);
@@ -62,16 +58,14 @@ static int recruitScreenFromFrame(RecruitScreen *out) {
 }
 #endif
 
-// The Recruit screen now: 1 with *out filled, else 0.
 static int recruitScreenNow(RecruitScreen *out) {
 #ifndef __APPLE__
     if (!recruitScreenRead) recruitScreenRead = recruitScreenFromFrame;
 #endif
-    if (!luaSiteDepth[SITE_RECRUIT_WAIT] || !recruitScreenRead) return 0;   // No log: the callers log why.
+    if (!luaSiteDepth[SITE_RECRUIT_WAIT] || !recruitScreenRead) return 0;
     return recruitScreenRead(out);
 }
 
-// coe5.recruitScreen(): inside a wrap of RECRUIT_WAIT, the Recruit screen as {player, x, y, ctrl, latch}.
 static int lRecruitScreen(lua_State *L) {
     RecruitScreen r = {-1, -1, -1, 0, 0};
 #ifndef __APPLE__
@@ -96,7 +90,6 @@ static int lRecruitScreen(lua_State *L) {
     return 1;
 }
 
-// The game's stock reads the Recruit screen's buy checks a cost against.
 typedef struct {
     int (*resourceStock)(int player, int type);
     int (*resourceAvailable)(int player, int type, int x, int y);
@@ -105,7 +98,6 @@ typedef struct {
 } HumanBuyCalls;
 static HumanBuyCalls humanBuyCalls;
 #ifndef __APPLE__
-// A player's stock of a resource, as the Recruit screen reads it.
 static int resourceStockOf(int player, int type) {
     return GAME_FN(int (*)(int, int, int, int), RVA_RESOURCE_AVAILABLE)(player, type, -1, -1);
 }
@@ -122,17 +114,15 @@ static const HumanBuyCalls *humanBuyGame(void) {
     return humanBuyCalls.resourceStock ? &humanBuyCalls : NULL;
 }
 
-// After a buy through the AI's functions on this screen, what the human buy does after its own.
 static void humanBuyAfter(int player, int x, int y) {
     const HumanBuyCalls *h = humanBuyGame();
-    if (!h || !h->updateSightAround || !h->resetSquareCache) return;   // No log: Mac never buys here (windows_only).
+    if (!h || !h->updateSightAround || !h->resetSquareCache) return;
     h->updateSightAround(player, x, y);
     h->resetSquareCache();
 }
 
 #define SHOP_COST_EXPENDABLE 16
 
-// Why the Recruit screen's own buy would refuse the player's offer at (x, y), or NULL when it would buy it.
 static const char *humanBuyRefusal(const AiRecruitCalls *g, int player, int offer, int x, int y) {
     const HumanBuyCalls *h = humanBuyGame();
     if (!h) return "windows_only";
@@ -158,12 +148,11 @@ static const char *humanBuyRefusal(const AiRecruitCalls *g, int player, int offe
     return NULL;
 }
 
-// Who coe5.aiBuyOffer may buy for outside AI_RECRUIT: the active human on its own Recruit screen, or -1.
 static int aiBuyHumanTurn(int *x, int *y, AiBuySquareRule *rule, AiBuyAfter *after) {
     RecruitScreen r;
-    if (isNetworkGame() || !recruitScreenNow(&r)) return -1;   // Logged by coe5.aiBuyOffer (outside_ai_recruit).
-    if (r.player < 0 || r.player >= PLAYER_SLOTS || r.player != G32(RVA_ACTIVE_PLAYER)) return -1;   // Logged by coe5.aiBuyOffer.
-    if (PG16(RVA_SLOT_CONTROLLER + 2 * (size_t)r.player) != CONTROLLER_HUMAN) return -1;   // Logged by coe5.aiBuyOffer.
+    if (isNetworkGame() || !recruitScreenNow(&r)) return -1;
+    if (r.player < 0 || r.player >= PLAYER_SLOTS || r.player != G32(RVA_ACTIVE_PLAYER)) return -1;
+    if (PG16(RVA_SLOT_CONTROLLER + 2 * (size_t)r.player) != CONTROLLER_HUMAN) return -1;
     *x = r.x, *y = r.y;
     *rule = humanBuyRefusal;
     *after = humanBuyAfter;

@@ -1,4 +1,3 @@
-// The spell table move: SPELL_TABLE_RECORDS_MOVED records instead of the game's 1500.
 #include <stdint.h>
 #ifndef __APPLE__
 #include "spell_table_sites.h"
@@ -16,7 +15,6 @@ _Static_assert(SPELL_SLOT_BOUND_MOVED <= 10000, "the unit screen's spell row ids
 static int spellTableMoved;
 static unsigned char *movedSpellTable;
 
-// Where the game reads the spell table now, and its records.
 static unsigned char *spellTableAddress(void) { return spellTableMoved ? movedSpellTable : gameBase + RVA_SPELL_TABLE; }
 static int spellTableRecords(void) { return spellTableMoved ? SPELL_TABLE_RECORDS_MOVED : SPELL_TABLE_RECORDS_GAME; }
 
@@ -24,7 +22,6 @@ static unsigned char *oldSpellTableStart, *oldSpellTableEnd;
 
 #ifndef __APPLE__
 // ---- Windows: the patch ------------------------------------------------------------------------
-// A rewrite whose new value isn't a distance: the 4-byte field at rva + fieldOffset, and the new value.
 typedef struct {
     unsigned int rva;
     int fieldOffset;
@@ -42,7 +39,6 @@ static const SpellValueSite SPELL_VALUE_SITES[] = {
 static struct { unsigned char *at; int value, old; } spellMoveWrites[SPELL_MOVE_SITE_COUNT];
 static int spellMoveWriteCount;
 
-// Queues every site's new field, for the table at `table`.
 static int queueSpellTableWrites(unsigned char *table) {
     long long delta = table - (gameBase + RVA_SPELL_TABLE);
     int matched = 0;
@@ -70,7 +66,6 @@ static int queueSpellTableWrites(unsigned char *table) {
     return matched;
 }
 
-// Logs a read or write of the old table before the game stops on it.
 static LONG WINAPI logOldSpellTableAccess(EXCEPTION_POINTERS *e) {
     const EXCEPTION_RECORD *r = e->ExceptionRecord;
     if (r->ExceptionCode != EXCEPTION_ACCESS_VIOLATION || r->NumberParameters < 2) return EXCEPTION_CONTINUE_SEARCH;
@@ -84,7 +79,6 @@ static LONG WINAPI logOldSpellTableAccess(EXCEPTION_POINTERS *e) {
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
-// Makes the old table's whole pages unreadable.
 static void protectOldSpellTable(void) {
     unsigned char *old = gameBase + RVA_SPELL_TABLE;
     oldSpellTableStart = (unsigned char *)(((uintptr_t)old + 0xfff) & ~(uintptr_t)0xfff);
@@ -96,7 +90,6 @@ static void protectOldSpellTable(void) {
              guarded ? 0UL : GetLastError());
 }
 
-// Moves the table, or changes nothing.
 static int installSpellTableMove(void) {
     if (!gameCodeMatches) {
         writeLog("spell_table_not_moved", "reason=game_code_differs sites=0 of %d", SPELL_MOVE_SITE_COUNT);
@@ -137,10 +130,8 @@ static int installSpellTableMove(void) {
 }
 #else
 // ---- Mac: the patch ----------------------------------------------------------------------------
-// The Mac side: the ADRPs move their page, and every other change is one instruction word.
 typedef struct { unsigned int rva; uint32_t mask, value; const char *name; } SpellWordSite;
 
-// The bounds, each a cmp's 12-bit immediate.
 #define SPELL_BOUND_MASK (0x1fffu << 10)
 #define SPELL_WORD_SITE_COUNT 4
 static const SpellWordSite SPELL_WORD_SITES[SPELL_WORD_SITE_COUNT] = {
@@ -166,7 +157,6 @@ static uint32_t spellGameWord(unsigned int rva) {
     return word;
 }
 
-// Queues every site's new word, for the table at `table`.
 static int queueSpellTableWrites(unsigned char *table) {
     long long pages = ((long long)(uintptr_t)table >> ADRP_PAGE_SHIFT) - ((long long)(uintptr_t)(gameBase + RVA_SPELL_TABLE) >> ADRP_PAGE_SHIFT);
     int matched = 0;
@@ -189,7 +179,6 @@ static int queueSpellTableWrites(unsigned char *table) {
     return matched;
 }
 
-// Logs a read or write of the old table before the game stops on it.
 static struct sigaction previousSpellSegv, previousSpellBus;
 static void logOldSpellTableAccess(int signal, siginfo_t *info, void *context) {
     const unsigned char *target = info->si_addr;
@@ -203,7 +192,6 @@ static void logOldSpellTableAccess(int signal, siginfo_t *info, void *context) {
     sigaction(signal, signal == SIGBUS ? &previousSpellBus : &previousSpellSegv, NULL);
 }
 
-// Makes the old table's whole 16 KB pages unreadable.
 static void protectOldSpellTable(void) {
     unsigned char *old = gameBase + RVA_SPELL_TABLE;
     oldSpellTableStart = (unsigned char *)(((uintptr_t)old + MAC_PAGE_MASK) & ~(uintptr_t)MAC_PAGE_MASK);
@@ -222,7 +210,6 @@ static void protectOldSpellTable(void) {
     writeLog("spell_old_table_protected", "ok=%d from=%p to=%p error=%d", !error, (void *)oldSpellTableStart, (void *)oldSpellTableEnd, error);
 }
 
-// Moves the table, or changes nothing.
 static int installSpellTableMove(void) {
     if (!gameCodeMatches) {
         writeLog("spell_table_not_moved", "reason=game_code_differs sites=0 of %d", SPELL_MOVE_SITE_COUNT);
@@ -262,7 +249,6 @@ static int installSpellTableMove(void) {
 }
 #endif
 
-// Moves the table.
 static void spellTableMoveInit(void) {
     installSpellTableMove();
 }

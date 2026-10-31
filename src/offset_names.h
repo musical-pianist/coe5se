@@ -1,4 +1,3 @@
-// Names where the game wants an offset.
 #pragma once
 
 #define MONSTER_ABILITY_GROWHP     1
@@ -8,7 +7,6 @@
 #define OFFSET_NAME_LINE_MAX       1024
 #define GAINRIT_WORD               "gainrit"
 
-// The game's words that take a monster offset.
 static const char *const MONSTER_OFFSET_WORDS[] = {
     "spawnoffs",    "growoffs",       "lookslike",  "landshape",     "watershape",  "elysiumshape", "celestialshape", "skyshape",
     "agarthashape", "infernoshape",   "hadesshape", "aztlanshape",   "primalshape", "elementalshape", "voidshape",
@@ -22,7 +20,6 @@ static int isMonsterOffsetWord(const char *line, size_t len) {
     return 0;
 }
 
-// A monster's value of an ability.
 static int monsterAbility(int monster, int ability) {
     const unsigned char *record = monsterRecord(monster);
     if (!record) return 0;
@@ -32,12 +29,10 @@ static int monsterAbility(int monster, int ability) {
     return 0;
 }
 
-// Whether record name `record` is `name`, ignoring case.
 static int recordNameIs(const unsigned char *record, size_t size, const char *name) {
     return strlen(name) < size && !_strnicmp((const char *)record, name, size);
 }
 
-// The monster the game's find_monster(text, 0) finds.
 static int monsterByName(const char *text) {
     int nth = -1;
     const char *name = text;
@@ -68,7 +63,6 @@ static int monsterByName(const char *text) {
     return nth < count ? found[nth] : -1;
 }
 
-// The slot selectritual's lookup finds.
 static int ritualByName(const char *name, int nth) {
     int last = G32(RVA_RITUAL_COUNT);
     if (last >= ritualSlotCount()) last = ritualSlotCount() - 1;
@@ -77,7 +71,6 @@ static int ritualByName(const char *name, int nth) {
     return -1;
 }
 
-// Where a quoted name starts in a monster word's arguments, or -1.
 static int monsterNamePrefix(const char *args) {
     if (args[0] == '"') return 0;
     if (isdigit((unsigned char)args[0]) && args[1] == ':' && args[2] == '"') return 2;
@@ -85,7 +78,6 @@ static int monsterNamePrefix(const char *args) {
     return -1;
 }
 
-// Refuses the line, for offsetNameLineHook.
 static PRINTF_FORMAT(4, 5) const char *refuseOffsetName(const char *word, int mod, const char *reason, const char *fmt, ...) {
     char details[256];
     va_list ap;
@@ -96,7 +88,6 @@ static PRINTF_FORMAT(4, 5) const char *refuseOffsetName(const char *word, int mo
     return NULL;
 }
 
-// Every .c5m and .c5se line outside events comes here after spellPathLineHook.
 static const char *offsetNameLineHook(const char *line, size_t len, int mod, int level) {
     if (level != 2) return line;
     int ritualWord = spellWordIs(line, len, GAINRIT_WORD);
@@ -142,7 +133,6 @@ static const char *offsetNameLineHook(const char *line, size_t len, int mod, int
     return offsetNameLine;
 }
 
-// The same for declinedModCommandHook, when no plugin loaded.
 static int declinedOffsetNameLine(const char *line, size_t len, int level) {
     if (level != 2) return 0;
     int ritualWord = spellWordIs(line, len, GAINRIT_WORD);

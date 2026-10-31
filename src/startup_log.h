@@ -1,4 +1,3 @@
-// The log of the code that runs before CoE5SE: the stub and the loader.
 #pragma once
 #include <stdarg.h>
 #include <stdio.h>
@@ -15,7 +14,6 @@
 #endif
 #endif
 
-// coe5mod.log in the game folder.
 static char logPath[MAX_PATH];
 
 #ifdef STARTUP_LOG_ESCAPE
@@ -23,7 +21,6 @@ static char logPath[MAX_PATH];
 #include "log_escape.h"
 #endif
 
-// Appends one line to coe5mod.log.
 static PRINTF_FORMAT(2, 3) void writeLog(const char *event, const char *fmt, ...) {
     if (!logPath[0]) return;
     FILE *f = fopen(logPath, "a");

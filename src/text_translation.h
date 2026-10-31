@@ -1,7 +1,6 @@
-// Translating what goes into the game's text: a GUI call's %s arguments, which the game leaves as they are.
+#pragma once
 
 // ---- Translating what goes into the game's text --------------------------------------------
-// The game translates only a GUI call's format string, not its %s arguments.
 typedef int (*TextFormatFn)(u64 options, char *buf, size_t size, const char *fmt, void *locale, va_list args);
 static TextFormatFn nextTextFormat;
 
@@ -9,7 +8,6 @@ static TextFormatFn nextTextFormat;
 #define MAX_TRANSLATED_ARGS 8
 #define TRANSLATED_ARG_SIZE 2048
 
-// Marks each argument slot of a printf format that is a narrow %s.
 static int scanFormatArgs(const char *fmt, int stringArg[MAX_FORMAT_ARGS]) {
     int slots = 0;
     for (const char *p = fmt; *p; p++) {
@@ -34,7 +32,6 @@ static int scanFormatArgs(const char *fmt, int stringArg[MAX_FORMAT_ARGS]) {
     return slots;
 }
 
-// Replaces each %s argument that has a translation with the translated string.
 static void translateStringArgs(const int *stringArg, int slots, u64 *args,
                                 char translated[MAX_TRANSLATED_ARGS][TRANSLATED_ARG_SIZE]) {
     for (int k = 0, used = 0; k < slots && used < MAX_TRANSLATED_ARGS; k++) {
@@ -48,7 +45,6 @@ static void translateStringArgs(const int *stringArg, int slots, u64 *args,
 static char translatedArgs[MAX_TRANSLATED_ARGS][TRANSLATED_ARG_SIZE];
 static int busy;
 
-// Wraps the GUI functions' formatting call, so their %s arguments translate.
 static int textFormatHook(u64 options, char *buf, size_t size, const char *fmt, void *locale, va_list args) {
     int stringArg[MAX_FORMAT_ARGS];
     int slots = fmt && !busy ? scanFormatArgs(fmt, stringArg) : -1;
@@ -61,7 +57,6 @@ static int textFormatHook(u64 options, char *buf, size_t size, const char *fmt, 
     return nextTextFormat(options, buf, size, fmt, locale, (va_list)copy);
 }
 
-// The display-name builders format their text before drawing it.
 #define MAX_BUILD_ARGS 5
 typedef int (*TextBuildFn)(char *buf, u64 size, const char *fmt, u64, u64, u64, u64, u64);
 static TextBuildFn nextTextBuild;

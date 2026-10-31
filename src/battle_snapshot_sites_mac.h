@@ -1,4 +1,3 @@
-// Every call through which the game writes and reads back its battle snapshot file, in coe5_mac.
 #pragma once
 
 #define BATTLE_SNAPSHOT_MAC_SITE_COUNT 129

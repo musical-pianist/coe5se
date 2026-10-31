@@ -1,4 +1,3 @@
-// Every ADRP in coe5_mac that builds an address in the game's weapon table, and its bounds.
 #pragma once
 
 #define WEAPON_MAC_SITE_COUNT 114
@@ -119,7 +118,6 @@ static const TableMacSite WEAPON_MAC_SITES[WEAPON_MAC_SITE_COUNT] = {
     {0x5853f8},
 };
 
-// The compares of a record number against the game's 5000, or the mov that holds it: each becomes the moved size.
 #define WEAPON_MAC_BOUND_COUNT 6
 static const TableMacBound WEAPON_MAC_BOUNDS[WEAPON_MAC_BOUND_COUNT] = {
     {0x3f82ec, WEAPON_RECORDS_MOVED - 1},
@@ -129,9 +127,7 @@ static const TableMacBound WEAPON_MAC_BOUNDS[WEAPON_MAC_BOUND_COUNT] = {
     {0x532820, (WEAPON_RECORDS_MOVED + 7) / 8 - 1},
     {0x5343a4, (WEAPON_RECORDS_MOVED + 7) / 8 - 1},
 };
-// A shifted bound rounds up when the moved size isn't a multiple of 1 << s.
 
-// The table's size in bytes, 5000 records, built by a movz and a movk (the copies' and clears' sizes): each becomes the moved size.
 #define WEAPON_MAC_SIZE_COUNT 4
 static const TableMacSize WEAPON_MAC_SIZES[WEAPON_MAC_SIZE_COUNT] = {
     {0x332718},

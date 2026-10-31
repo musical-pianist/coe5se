@@ -1,9 +1,7 @@
-// Set pieces, zones and unit lists in mods' planes.
 #pragma once
 
 #define PLANE_PIECE_TRIES     100
 #define PLANE_UNITS_PLAYER    24
-#define TERRAIN_FLAG_WATER    0x4
 #define MONSTER_MOVE_WATER    0x40
 #define MONSTER_MOVE_NOLAND   0x200
 
@@ -35,7 +33,6 @@ static PieceTools pieceTools(void) {
 }
 
 // ---- The Mod Error box's lines ------------------------------------------------------------------
-// A piece's missing map file, or a list's monster no mod has, with the file and line that named it.
 typedef struct {
     char mod[MOD_NAME_MAX], file[MAX_PATH], text[96];
     int line, script;
@@ -64,7 +61,6 @@ static PRINTF_FORMAT(5, 6) void addPlaneProblem(int script, const char *mod, con
 
 static void dropPassPlaneProblems(void) { planeProblemCount[0] = 0; }
 
-// Appends each problem to the missing plane pop-up's text.
 static void appendPlaneProblems(char *text, size_t size, size_t *n, int *count) {
     for (int k = 0; k < 2; k++)
         for (int i = 0; i < planeProblemCount[k]; i++) {
@@ -76,7 +72,6 @@ static void appendPlaneProblems(char *text, size_t size, size_t *n, int *count) 
 }
 
 // ---- Declarations: the words' and coe5.addPlane's ----------------------------------------------------
-// Finds map file `spec` in mod folder `folder` ("x.coem" is read as "./x.coem"): NULL, or the reason.
 static const char *findPieceFile(const char *folder, const char *spec, char *path, size_t size) {
     static const char *const ENDINGS[2] = {".coem", ".coem"};
     static const char *const REASONS[4] = {"bad_file", "file_not_found", "file_wrong_case", "file_link"};
@@ -86,10 +81,8 @@ static const char *findPieceFile(const char *folder, const char *spec, char *pat
     return findModFile(folder, dotted, ENDINGS, REASONS, path, size);
 }
 
-// Whether a piece's refusal means its file isn't there, for the Mod Error box.
 static int pieceFileMissing(const char *reason) { return !strcmp(reason, "file_not_found") || !strcmp(reason, "file_wrong_case"); }
 
-// Adds a piece from map file `spec`; NULL, or the refusal's reason.
 static const char *addPlanePiece(PlaneLayout *layout, const char *folder, const char *spec, int placement, long long count, long long x, long long y, int line) {
     if (layout->pieceCount >= PLANE_PIECE_LINES_MAX) return "too_many_pieces";
     if (placement == PIECE_RANDOM && (count < 1 || count > PLANE_PIECE_COUNT_MAX)) return "bad_count";
@@ -106,7 +99,6 @@ static const char *addPlanePiece(PlaneLayout *layout, const char *folder, const 
     return NULL;
 }
 
-// Adds a zone `name` around each copy of piece file `around`, `radius` squares out. NULL, or the reason.
 static const char *addPlaneZone(PlaneLayout *layout, const char *folder, const char *name, const char *around, long long radius, int line) {
     if (layout->zoneCount >= PLANE_ZONES_MAX) return "too_many_zones";
     if (!name[0]) return "no_name";
@@ -135,7 +127,6 @@ static const char *addZoneSwap(PlaneZone *z, int from, int to) {
     return NULL;
 }
 
-// Adds a monster to a unit list: how many with Wilder off, and the chance per square in percent.
 static const char *addPlaneUnits(PlaneUnitList *list, const char *monster, long long count, long long chance, int line) {
     if (!monster[0]) return "no_name";
     if (strlen(monster) >= PLANE_UNIT_NAME_SIZE) return "bad_name";
@@ -148,7 +139,6 @@ static const char *addPlaneUnits(PlaneUnitList *list, const char *monster, long 
     return NULL;
 }
 
-// Logs a refusal of a layout's entry: a .c5se line's (c5m_refused) or a script's (lua_refused).
 static PRINTF_FORMAT(5, 6) void refuseLayoutLine(const PlaneLayout *layout, const char *word, const char *mod, const char *reason, const char *fmt, ...) {
     char details[400];
     va_list ap;
@@ -159,7 +149,6 @@ static PRINTF_FORMAT(5, 6) void refuseLayoutLine(const PlaneLayout *layout, cons
     else refuseC5mLine(word, mod, reason, "%s", details);
 }
 
-// At the block's or call's end, refuses pieces that don't fit the plane, with their zones.
 static void finishPlaneLayout(PlaneLayout *layout, int w, int h, const char *mod) {
     int map[PLANE_PIECE_LINES_MAX], kept = 0;
     for (int i = 0; i < layout->pieceCount; i++) {
@@ -191,7 +180,6 @@ static void finishPlaneLayout(PlaneLayout *layout, int w, int h, const char *mod
     layout->zoneCount = kept;
 }
 
-// Adds a Mod Error line for each monster of the layout's lists that no mod has.
 static void notePlaneLayoutProblems(const PlaneLayout *layout, const char *mod) {
     for (int z = -1; z < layout->zoneCount; z++) {
         const PlaneUnitList *list = z < 0 ? &layout->units : &layout->zones[z].units;
@@ -202,7 +190,6 @@ static void notePlaneLayoutProblems(const PlaneLayout *layout, const char *mod) 
 }
 
 // ---- The words --------------------------------------------------------------------------------------
-// Reads a bare word (letters) at *p into out; its length, 0 for none.
 static size_t readPlaneBareWord(const char **p, char *out, size_t size) {
     skipSpaces(p);
     size_t len = 0;
@@ -212,7 +199,6 @@ static size_t readPlaneBareWord(const char **p, char *out, size_t size) {
     return len;
 }
 
-// The open zone of the block, for a zone word: NULL, having refused the line, when there is none.
 static PlaneZone *openPlaneZone(const char *word, int mod, int level, const char *args) {
     if (!planeBlockTakes(word, mod, level)) return NULL;
     if (planeBlock.zoneOpen) return &planeBlock.layout.zones[planeBlock.zoneOpen - 1];
@@ -220,7 +206,6 @@ static PlaneZone *openPlaneZone(const char *word, int mod, int level, const char
     return NULL;
 }
 
-// planepiece "<file.coem>" center | random [count] | at <x> <y> | nearportal
 static void planepieceLine(const char *args, int mod, int level) {
     if (!planeBlockTakes("planepiece", mod, level)) return;
     const char *p = args;
@@ -245,7 +230,6 @@ static void planepieceLine(const char *args, int mod, int level) {
     if (pieceFileMissing(reason)) addPlaneProblem(0, spellModName(mod), planeBlock.layout.source, G32(RVA_MOD_LINE), "No map file '%.60s'", spec);
 }
 
-// planezone "<name>" around "<file.coem>" <radius>
 static void planezoneLine(const char *args, int mod, int level) {
     if (!planeBlockTakes("planezone", mod, level)) return;
     planeBlock.zoneOpen = 0;
@@ -270,7 +254,6 @@ static void planezoneLine(const char *args, int mod, int level) {
     if (pieceFileMissing(reason)) addPlaneProblem(0, spellModName(mod), planeBlock.layout.source, G32(RVA_MOD_LINE), "No map file '%.60s'", around);
 }
 
-// planezoneswap <terrain> <terrain>: in the open zone.
 static void planezoneswapLine(const char *args, int mod, int level) {
     PlaneZone *z = openPlaneZone("planezoneswap", mod, level, args);
     if (!z) return;
@@ -280,7 +263,6 @@ static void planezoneswapLine(const char *args, int mod, int level) {
     if (reason) refusePlaneLine("planezoneswap", mod, reason, "plane=%s zone=%s text=%.40s", planeBlock.name, z->name, args);
 }
 
-// Reads `"<monster>" <count> <chance>` into list: NULL, or the reason.
 static const char *readPlaneUnitsLine(const char *args, PlaneUnitList *list, int line) {
     const char *p = args;
     char name[PLANE_UNIT_NAME_SIZE + 2];
@@ -293,7 +275,6 @@ static const char *readPlaneUnitsLine(const char *args, PlaneUnitList *list, int
     return addPlaneUnits(list, name, count, chance, line);
 }
 
-// planezoneunits "<monster>" <count> <chance>: the open zone's list.
 static void planezoneunitsLine(const char *args, int mod, int level) {
     PlaneZone *z = openPlaneZone("planezoneunits", mod, level, args);
     if (!z) return;
@@ -301,7 +282,6 @@ static void planezoneunitsLine(const char *args, int mod, int level) {
     if (reason) refusePlaneLine("planezoneunits", mod, reason, "plane=%s zone=%s text=%.60s", planeBlock.name, z->name, args);
 }
 
-// planezonepopulate off: the open zone stays empty.
 static void planezonepopulateLine(const char *args, int mod, int level) {
     PlaneZone *z = openPlaneZone("planezonepopulate", mod, level, args);
     if (!z) return;
@@ -316,7 +296,6 @@ static void planezonepopulateLine(const char *args, int mod, int level) {
     z->populateOff = 1;
 }
 
-// planeunits "<monster>" <count> <chance>: the plane's list.
 static void planeunitsLine(const char *args, int mod, int level) {
     if (!planeBlockTakes("planeunits", mod, level)) return;
     const char *reason = readPlaneUnitsLine(args, &planeBlock.layout.units, G32(RVA_MOD_LINE));
@@ -324,7 +303,6 @@ static void planeunitsLine(const char *args, int mod, int level) {
 }
 
 // ---- coe5.addPlane's pieces, zones and units ------------------------------------------------------
-// Reads a unit list's table, {{"<monster>", count, chance}, ...}, into list; refusals logged.
 static void readLuaUnitList(lua_State *L, int at, PlaneUnitList *list, const PlaneLayout *layout, const char *mod, const char *zone, int line) {
     if (lua_isnil(L, at)) return;
     luaL_checktype(L, at, LUA_TTABLE);
@@ -343,7 +321,6 @@ static void readLuaUnitList(lua_State *L, int at, PlaneUnitList *list, const Pla
     }
 }
 
-// Reads coe5.addPlane's pieces, zones and units into layout.
 static void readLuaPlaneLayout(lua_State *L, int piecesAt, int zonesAt, int unitsAt, PlaneLayout *layout, const char *mod, const char *folder,
                                const char *script, int line) {
     memset(layout, 0, sizeof *layout);
@@ -417,14 +394,12 @@ static void readLuaPlaneLayout(lua_State *L, int piecesAt, int zonesAt, int unit
 }
 
 // ---- Where the pieces go --------------------------------------------------------------------------
-// The game's square distance from (x, y) to the rectangle: 0 inside it.
 static int squareDistanceToRect(int x, int y, const PlacedPiece *r) {
     int dx = x < r->x ? r->x - x : x >= r->x + r->w ? x - (r->x + r->w - 1) : 0;
     int dy = y < r->y ? r->y - y : y >= r->y + r->h ? y - (r->y + r->h - 1) : 0;
     return dx > dy ? dx : dy;
 }
 
-// Whether the w x h rectangle at (x, y) meets a placed piece, or the way in's square.
 static int pieceOverlaps(const PlaneLayout *layout, int x, int y, int w, int h) {
     for (int i = 0; i < layout->placedCount; i++) {
         const PlacedPiece *r = &layout->placed[i];
@@ -433,14 +408,12 @@ static int pieceOverlaps(const PlaneLayout *layout, int x, int y, int w, int h) 
     return layout->wayInX >= 0 && layout->wayInX >= x && layout->wayInX < x + w && layout->wayInY >= y && layout->wayInY < y + h;
 }
 
-// Whether square (x, y) is on a placed piece.
 static int onPlacedPiece(const PlaneLayout *layout, int x, int y) {
     for (int i = 0; i < layout->placedCount; i++)
         if (!squareDistanceToRect(x, y, &layout->placed[i])) return 1;
     return 0;
 }
 
-// The zone square (x, y) is in: the first zone declared whose piece's copy is within its radius; -1 for none.
 static int planeZoneAt(const PlaneLayout *layout, int x, int y) {
     for (int z = 0; z < layout->zoneCount; z++)
         for (int i = 0; i < layout->placedCount; i++)
@@ -448,7 +421,6 @@ static int planeZoneAt(const PlaneLayout *layout, int x, int y) {
     return -1;
 }
 
-// Whether any square of the rectangle holds a portal.
 static int rectHasPortal(int x0, int y0, int w, int h) {
     for (int x = x0; x < x0 + w; x++)
         for (int y = y0; y < y0 + h; y++)
@@ -456,7 +428,6 @@ static int rectHasPortal(int x0, int y0, int w, int h) {
     return 0;
 }
 
-// A square of plane p with a portal whose number a square off the plane holds: 1 and the square, else 0.
 static int findWayInSquare(const CustomPlane *p, int *wx, int *wy) {
     int x0 = planeField(p->index, PLANE_X), y0 = planeField(p->index, PLANE_Y);
     int depth = G32(RVA_MAP_DEPTH) < MAP_COLUMNS_MAX ? G32(RVA_MAP_DEPTH) : MAP_COLUMNS_MAX;
@@ -477,7 +448,6 @@ static int findWayInSquare(const CustomPlane *p, int *wx, int *wy) {
     return 0;
 }
 
-// The way in's square on plane p, for a nearportal piece.
 static int planeWayInSquare(CustomPlane *p, const PieceTools *t) {
     PlaneLayout *layout = &p->layout;
     if (layout->wayInX >= 0) return 1;
@@ -496,7 +466,6 @@ static int planeWayInSquare(CustomPlane *p, const PieceTools *t) {
     return 0;
 }
 
-// Where copy of piece `piece` goes on plane p (world squares): 1 and the corner, else 0 with *why set.
 static int placePiece(CustomPlane *p, const PlanePiece *piece, const PieceTools *t, int *px, int *py, const char **why) {
     PlaneLayout *layout = &p->layout;
     int x0 = planeField(p->index, PLANE_X), y0 = planeField(p->index, PLANE_Y), w = piece->w, h = piece->h;
@@ -548,7 +517,6 @@ static int placePiece(CustomPlane *p, const PlanePiece *piece, const PieceTools 
 }
 
 // ---- Stamping ----------------------------------------------------------------------------------------
-// Clears portal `n` from every square of the map.
 static void clearPortalEverywhere(int n) {
     int depth = G32(RVA_MAP_DEPTH) < MAP_COLUMNS_MAX ? G32(RVA_MAP_DEPTH) : MAP_COLUMNS_MAX;
     int height = G32(RVA_MAP_H) < MAP_COLUMN_SQUARES ? G32(RVA_MAP_H) : MAP_COLUMN_SQUARES;
@@ -557,7 +525,6 @@ static void clearPortalEverywhere(int n) {
             if (abs(*(short *)(squareRecordAt(x, y) + SQUARE_PORTAL)) == n) *(short *)(squareRecordAt(x, y) + SQUARE_PORTAL) = 0;
 }
 
-// Stamps map file `path` at square (x, y) of plane p through the game's map reader.
 static void stampMapFileAt(const CustomPlane *p, const char *path, int x, int y, int w, int h, const PieceTools *t) {
     int portals = 0;
     for (int sx = x; sx < x + w; sx++)
@@ -578,25 +545,21 @@ static void stampMapFileAt(const CustomPlane *p, const char *path, int x, int y,
              h, x - saved[0], y - planeField(p->index, PLANE_Y), planeFileLoad.lines, planeFileLoad.leftOut, portals, path);
 }
 
-// Adds a stamped rectangle to the plane's list; 0 when it is full.
 static int notePlacedPiece(PlaneLayout *layout, int piece, int x, int y, int w, int h) {
     if (layout->placedCount >= PLANE_PIECES_PLACED_MAX) return 0;
     layout->placed[layout->placedCount++] = (PlacedPiece){piece, x, y, w, h};
     return 1;
 }
 
-// A world build's start for plane p: no piece stamped, no way in kept.
 static void clearPlacedPieces(CustomPlane *p) {
     p->layout.placedCount = 0;
     p->layout.wayInX = p->layout.wayInY = -1;
 }
 
-// The order the copies of the plane's pieces go in.
 static int pieceOrderRank(const PlanePiece *piece) {
     return piece->placement == PIECE_CENTRE || piece->placement == PIECE_AT ? 0 : piece->placement == PIECE_NEAR_PORTAL ? 1 : 2;
 }
 
-// Stamps plane p's pieces, after its recipe and generate function.
 static void stampPlanePieces(CustomPlane *p) {
     PlaneLayout *layout = &p->layout;
     if (!layout->pieceCount) return;
@@ -631,7 +594,6 @@ static void stampPlanePieces(CustomPlane *p) {
     writeLog("plane_pieces", "mod=%s name=%s stamped=%d skipped=%d way_in_x=%d way_in_y=%d", p->mod, p->name, stamped, skipped, layout->wayInX, layout->wayInY);
 }
 
-// coe5.gen.stampPiece(file, x, y): stamps a map file onto the plane; true, or nil when refused.
 static int lGenStampPiece(lua_State *L) {
     const char *call = "coe5.gen.stampPiece", *spec = luaL_checkstring(L, 1);
     int x, y;
@@ -658,7 +620,6 @@ static int lGenStampPiece(lua_State *L) {
 }
 
 // ---- After the game's special squares ---------------------------------------------------------------
-// Keeps the pieces' squares while the recipe's special step runs.
 static unsigned char *guardPlacedPieces(const PlaneLayout *layout) {
     size_t squares = 0;
     for (int i = 0; i < layout->placedCount; i++) squares += (size_t)layout->placed[i].w * (size_t)layout->placed[i].h;
@@ -689,7 +650,6 @@ static void keepPlacedPieces(const CustomPlane *p, unsigned char *saved) {
     if (kept) writeLog("plane_pieces_kept", "mod=%s name=%s squares=%d", p->mod, p->name, kept);
 }
 
-// Applies each zone's swap through the game's own terrain change, after the special squares.
 static void applyZoneSwaps(const CustomPlane *p) {
     const PlaneLayout *layout = &p->layout;
     if (!layout->zoneCount || !layout->placedCount) return;
@@ -720,14 +680,12 @@ static void applyZoneSwaps(const CustomPlane *p) {
 }
 
 // ---- Population ------------------------------------------------------------------------------------
-// Whether square (x, y) of plane p belongs to `area`.
 static int zoneHasOwnStock(const PlaneZone *z) { return z->units.count || z->populateOff; }
 static int inStockArea(const PlaneLayout *layout, int x, int y, int area) {
     int z = planeZoneAt(layout, x, y);
     return area >= 0 ? z == area : z < 0 || !zoneHasOwnStock(&layout->zones[z]);
 }
 
-// Whether square (x, y) is water, as RVA_DROWN_CHECK reads it: the terrain's water word, or a flooded square.
 static int squareIsWater(int x, int y) {
     size_t square = (size_t)x * MAP_COLUMN_SQUARES + (size_t)y;
     int terrain = *(short *)(squareRecordAt(x, y) + SQUARE_TERRAIN_TYPE);
@@ -736,12 +694,10 @@ static int squareIsWater(int x, int y) {
     return (terrainFlags & TERRAIN_FLAG_WATER) || (G32(RVA_SQUARE_FLAGS + square * SQUARE_SIZE) & SQUARE_FLAG_FLOODED);
 }
 
-// Whether a monster with move flags `moves` may stand there: water for the water move word, land without noland.
 static int monsterFitsSquare(unsigned long long moves, int water) {
     return water ? (moves & MONSTER_MOVE_WATER) != 0 : !(moves & MONSTER_MOVE_NOLAND);
 }
 
-// Stocks `area` of plane p from `list`.
 static void stockPlaneArea(const CustomPlane *p, int area, const PlaneUnitList *list, const PieceTools *t) {
     const PlaneLayout *layout = &p->layout;
     int valid[PLANE_UNIT_LINES_MAX], wilder = G32(RVA_WILDER) > 0 ? G32(RVA_WILDER) : 1;
@@ -777,7 +733,6 @@ static void stockPlaneArea(const CustomPlane *p, int area, const PlaneUnitList *
              squares, groups, units, wilder);
 }
 
-// Marks the zones with their own stock so the plane's population skips them; returns how many.
 static int hideZoneSquares(const CustomPlane *p, int **hidden) {
     const PlaneLayout *layout = &p->layout;
     int x0 = planeField(p->index, PLANE_X), y0 = planeField(p->index, PLANE_Y), n = 0;
@@ -803,7 +758,6 @@ static int hideZoneSquares(const CustomPlane *p, int **hidden) {
     return n;
 }
 
-// Takes the army mark off: the game recounts each square's units (RVA_REBUILD_SQUARE_ARMY).
 static void showZoneSquares(const CustomPlane *p, int *hidden, int n, const PieceTools *t) {
     int armies = 0;
     for (int i = 0; i < n; i++) {
@@ -815,7 +769,6 @@ static void showZoneSquares(const CustomPlane *p, int *hidden, int n, const Piec
     writeLog("plane_zones_hidden", "mod=%s name=%s squares=%d armies_after=%d", p->mod, p->name, n, armies);
 }
 
-// Plane p's population, then each zone's list.
 static void populatePlaneWithZones(const CustomPlane *p) {
     const PlaneLayout *layout = &p->layout;
     PieceTools t = pieceTools();

@@ -1,7 +1,6 @@
-// Mod Settings: the readers of a mod's <ModName>.ini and the settings blocks of its <ModName>.c5se.
+#pragma once
 
 // ---- The mod's .ini, <ModName>.ini ----------------------------------------------------------------
-// Reads the text of `mod`'s .ini into reading `r`, declaring its settings in file order.
 static void readIniText(IniParse *r, const char *text) {
     r->sidecar = 0;
     IniSection s;
@@ -44,7 +43,6 @@ static void readIniText(IniParse *r, const char *text) {
 }
 
 // ---- The mod's sidecar, <ModName>.c5se ------------------------------------------------------------
-// The sidecar's settings blocks.
 static const char *const SETTING_BLOCK_WORDS[] = {"onoff", "choice", "key", "default", "label", "option", "optiontip", "tip",
                                                   "restart", "group", "fixed"};
 
@@ -52,7 +50,6 @@ static int isSettingLine(const char *line);
 static void eventFindersLineBegin(void);
 static void eventFindersLineEnd(void);
 
-// One line of the open block.
 typedef struct {
     int line, hashInText;
     char word[24];
@@ -60,7 +57,6 @@ typedef struct {
     char source[160];
 } BlockLine;
 
-// The block being read.
 static struct {
     int open;
     IniSection s;
@@ -78,7 +74,6 @@ static int isSettingBlockWord(const char *word) {
     return 0;
 }
 
-// The section type of kind line `word` (onoff, choice, or key), or 0 for any other word.
 static int settingKindType(const char *word) {
     if (!strcmp(word, "onoff")) return SECTION_ONOFF;
     if (!strcmp(word, "choice")) return SECTION_CHOICE;
@@ -86,7 +81,6 @@ static int settingKindType(const char *word) {
     return 0;
 }
 
-// Reads "quoted text" at *p (spaces first) into `out`, cut to fit, and moves past it.
 static int readSidecarText(const char **p, const char *what, char *out, size_t size, SettingProblem *pr) {
     skipSpaces(p);
     if (**p != '"') return settingProblem(pr, "needs_quotes", "%.16s needs its text in quotes: %.16s \"...\"", what, what);
@@ -98,7 +92,6 @@ static int readSidecarText(const char **p, const char *what, char *out, size_t s
     return 0;
 }
 
-// Reads a name at *p, quoted or not, into `out` (INI_LINE_MAX bytes), and moves past it.
 static int readSidecarName(const char **p, char *out, SettingProblem *pr) {
     skipSpaces(p);
     if (**p == '"') return readSidecarText(p, "name", out, INI_LINE_MAX, pr);
@@ -106,7 +99,6 @@ static int readSidecarName(const char **p, char *out, SettingProblem *pr) {
     return 0;
 }
 
-// Starts a block at the line `word args`, line `line` of the sidecar.
 static void startSidecarBlock(IniParse *r, const char *word, const char *args, int line, const char *source, int hashInText) {
     IniSection *s = &sidecarBlock.s;
     memset(s, 0, sizeof *s);
@@ -131,7 +123,6 @@ static void startSidecarBlock(IniParse *r, const char *word, const char *args, i
     if (bad) iniSectionProblem(r, s, &p);
 }
 
-// Which IniKey a block word is (not a kind word), for iniKeyLine and storeIniKey.
 static IniKey sidecarKeyNamed(const char *word) {
     int option;
     if (!strcmp(word, "option")) return INI_KEY_OPTION;
@@ -139,7 +130,6 @@ static IniKey sidecarKeyNamed(const char *word) {
     return iniKeyNamed(word, &option);
 }
 
-// Reads line `b` of setting or page block `s`.
 static int readSidecarBlockLine(IniSection *s, const BlockLine *b, SettingProblem *p) {
     const char *at = b->args;
     if (s->type == SECTION_HEADER) return settingProblem(p, "unknown_key", "%s: a header has only its title line", b->word);
@@ -178,7 +168,6 @@ static int readSidecarBlockLine(IniSection *s, const BlockLine *b, SettingProble
     return storeIniKey(s, b->word, k, option, value, p);
 }
 
-// Ends the open block: checks and declares its setting.
 static void finishSidecarBlock(IniParse *r) {
     if (!sidecarBlock.open) return;
     sidecarBlock.open = 0;
@@ -216,7 +205,6 @@ static void finishSidecarBlock(IniParse *r) {
     finishIniSection(r, s);
 }
 
-// Records a +setting or -setting line of the sidecar.
 static void noteSidecarSettingRef(const IniParse *r, const char *at, int line) {
     if (!reading.active || reading.disabled || _stricmp(reading.mod, r->mod)) return;
     if (!growList((void **)&reading.refs, &reading.refCapacity, reading.refCount + 1, sizeof reading.refs[0])) return;
@@ -231,7 +219,6 @@ static void noteSidecarSettingRef(const IniParse *r, const char *at, int line) {
     ref->inSidecar = r->sidecar;
 }
 
-// Cuts raw at its first #, which starts a comment, as the game does.
 static int cutSidecarComment(char *raw) {
     int inQuotes = 0;
     for (char *c = raw; *c; c++) {
@@ -244,13 +231,11 @@ static int cutSidecarComment(char *raw) {
     return 0;
 }
 
-// Reads the text of `mod`'s sidecar into reading `r`.
 static char *readSettingsFileText(const char *mod, const char *path, int in);
 static void noteSettingsInclude(const char *mod, const char *path);
 static int settingsIncludeRead(const char *mod, const char *path);
 static void readSidecarSettingsText(IniParse *r, const char *text, int in);
 
-// Reads the settings blocks of `file`, an include line's, into reading `r`, then goes on with file `in`.
 static void readIncludedSettings(IniParse *r, const char *file, int in) {
     char path[MAX_PATH], *text;
     finishSidecarBlock(r);

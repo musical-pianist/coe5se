@@ -1,4 +1,3 @@
-// Every instruction in CoE5.exe that builds an address in the game's class table.
 #pragma once
 
 #define CLASS_TABLE_SITE_COUNT 127
@@ -132,7 +131,6 @@ static const TableMoveSite CLASS_TABLE_SITES[CLASS_TABLE_SITE_COUNT] = {
     {0x32fb18, 3, TABLE_FIELD_DISP32},
 };
 
-// The compares of a record number against the game's 200: each becomes the moved table's size.
 #define CLASS_BOUND_SITE_COUNT 1
 static const TableValueSite CLASS_BOUND_SITES[CLASS_BOUND_SITE_COUNT] = {
     {0x1bda27, 1, CLASS_RECORDS_MOVED, "bound"},

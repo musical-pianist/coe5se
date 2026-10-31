@@ -1,4 +1,3 @@
-// buildPath: builds a file path into a fixed buffer, refusing one that doesn't fit.
 #pragma once
 #include <stdarg.h>
 #include <stdio.h>
@@ -11,7 +10,6 @@
 #endif
 #endif
 
-// Writes the path that fmt and its arguments give into `out`, which holds `size` bytes.
 static __attribute__((unused)) PRINTF_FORMAT(4, 5) int buildPath(char *out, size_t size, const char *call,
                                                                 const char *fmt, ...) {
     va_list ap;

@@ -1,25 +1,20 @@
-// Mods' factions in saves: which factions a save holds, their slots' data, and loads without them refused.
 #pragma once
 
 #define SAVE_FCTN_VERSION   1
 #define SAVE_FCDT_VERSION   1
 #define FACTION_SQUARE_BYTES 7
 
-// The moved per-player tables, each slot's entry in them, as FCDT holds them.
 static const struct { unsigned int rva; int entry; } FACTION_SLOT_TABLES[] = {
     {RVA_SLOT_NAME, PLAYER_BLOCK_SIZE}, {RVA_SLOT_CONTROLLER, 2}, {RVA_SLOT_CLASS, 2}, {RVA_PLAYER_HOME_X, 2},
     {RVA_PLAYER_HOME_Y, 2}, {RVA_PLAYER_COLOURS, 12}, {RVA_PLAYER_PLANE_SEEN, 11},
 };
 #define FACTION_SLOT_TABLE_COUNT (int)(sizeof FACTION_SLOT_TABLES / sizeof FACTION_SLOT_TABLES[0])
 
-// Whether this world holds a faction, so its saves carry them.
 static int factionsInWorld(void) { return factionCount > 0 && factionSlotsInUse(); }
 
-// The save magic's hooks, which a faction's save needs as a plane's does (custom_planes.h); 1 when in.
 static int installSaveMagicHooks(void);
 static int ensureFactionSaveHooks(void) { return installSaveMagicHooks(); }
 
-// The world's squares the per-square arrays are saved over: RVA_MAP_DEPTH by RVA_MAP_H, within the arrays.
 static void factionSaveArea(int *w, int *h) {
     *w = G32(RVA_MAP_DEPTH) < MAP_COLUMNS_MAX ? G32(RVA_MAP_DEPTH) : MAP_COLUMNS_MAX;
     *h = G32(RVA_MAP_H) < MAP_COLUMN_SQUARES ? G32(RVA_MAP_H) : MAP_COLUMN_SQUARES;
@@ -28,7 +23,6 @@ static void factionSaveArea(int *w, int *h) {
 }
 
 // ---- Writing ------------------------------------------------------------------------------------
-// Adds FCDT for each faction, then FCTN.
 static void addFactionChunks(SaveList *list) {
     if (!factionsInWorld()) return;
     int w, h;
@@ -70,7 +64,6 @@ static void addFactionChunks(SaveList *list) {
 }
 
 // ---- Loading ------------------------------------------------------------------------------------
-// The save being loaded: its factions by slot, until the load's mod pass gives them their slots.
 static struct {
     int present, accepted, pending, count;
     int slots[FACTION_SLOT_TARGET];
@@ -78,7 +71,6 @@ static struct {
     char mods[FACTION_SLOT_TARGET][MOD_NAME_MAX];
 } loadedSaveFactions;
 
-// Reads an FCTN payload into loadedSaveFactions and decides whether the load may go on; the result word.
 static const char *useFactionIndex(const unsigned char *payload, int size, char *missing, size_t missingSize) {
     SaveCursor c = {payload, payload + size, 0};
     int version = saveCursorInt(&c), count = saveCursorInt(&c), absent = 0, waiting = 0;
@@ -105,7 +97,6 @@ static const char *useFactionIndex(const unsigned char *payload, int size, char 
     return "accepted";
 }
 
-// Reads FCTN from the end of the save at `path`, when it has one, and decides whether it loads.
 static void readLoadedSaveFactions(const char *path) {
     memset(&loadedSaveFactions, 0, sizeof loadedSaveFactions);
     FILE *f = fopen(path, "rb");
@@ -142,7 +133,6 @@ static void readLoadedSaveFactions(const char *path) {
     else writeLog("save_factions_refused", "reason=%s factions=%d missing=%s", word, loadedSaveFactions.count, missing[0] ? missing : "-");
 }
 
-// A load's pass: the save's factions at their saved places first.
 static void placeSavedFactions(void) {
     if (!loadedSaveFactions.pending) return;
     Faction placed[FACTION_SLOT_TARGET];
@@ -163,10 +153,8 @@ static void placeSavedFactions(void) {
     factionCount = n;
 }
 
-// What the magic check may do with the save being loaded: -1 it has no FCTN, 0 refused, 1 accepted.
 static int loadedSaveFactionsDecision(void) { return !loadedSaveFactions.present ? -1 : loadedSaveFactions.accepted; }
 
-// Puts the factions in the order their saved slots give: the save's first, each at its slot, then the rest.
 static int orderFactionsAsSaved(char *missing, size_t missingSize) {
     Faction ordered[FACTION_SLOT_TARGET];
     int used[FACTION_SLOT_TARGET] = {0}, n = 0, absent = 0;
@@ -189,7 +177,6 @@ static int orderFactionsAsSaved(char *missing, size_t missingSize) {
     return 1;
 }
 
-// After the load's mod pass: each saved faction takes its saved slot.
 static void applyLoadedSaveFactions(int level) {
     if (level != 2 || !loadedSaveFactions.pending) return;
     loadedSaveFactions.pending = 0;
@@ -206,7 +193,6 @@ static void applyLoadedSaveFactions(int level) {
     GAME_FN(void (*)(const char *), RVA_EXIT_GAME)("");
 }
 
-// Puts one FCDT back: the slot's table entries, its turn state and its per-square arrays; the result word.
 static const char *useFactionDataChunk(const SaveChunk *chunk) {
     SaveCursor c = {chunk->payload, chunk->payload + chunk->size, 0};
     char name[SAVE_STRING_MAX + 1];
@@ -236,7 +222,6 @@ static const char *useFactionDataChunk(const SaveChunk *chunk) {
     return c.failed ? "bad_chunk" : "given";
 }
 
-// The tail's FCDT chunks, read at a save's load; logs one line.
 static void useFactionDataChunks(const SaveList *list) {
     int given = 0, refused = 0;
     for (int i = 0; i < list->count; i++) {

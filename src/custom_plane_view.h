@@ -1,17 +1,13 @@
-// Mods' planes on screen: their plane buttons on the game's four plane rows, with each mod's icon.
-
 #define PLANE_ICON_FALLBACK  PLANE_FILES_DIR PATH_SEP "plane_icon_%d.tga"
 #define PLANE_ROW_GREY       0.3f
 #define PLANE_ICON_FLAGS     4
 #define PLANE_ICON_FLAGS_GREY 0xe
 #define PLANE_PICKER_GREY_ID 2
 #define PLANE_GAME_OVER_GREY_ID 0
-// The game's monthly discovered pass: the slots it reads, and the share of squares one human must see.
 #define PLANE_DISCOVERED_SLOTS   24
 #define PLANE_DISCOVERED_SHARE   10
 #define PLANE_DISCOVERED_MIN     20
 #define CONTROLLER_REMOTE_HUMAN  5
-// The game's own texts for its plane buttons (the top bar's, the editor's, the picker's).
 #define PLANE_TEXT_VIEWED    "%s (currently viewing this plane) (right click = info)"
 #define PLANE_TEXT_SHOWN     "%s (select to view this plane) (right click = info)"
 #define PLANE_TEXT_UNKNOWN   "Unknown plane (cannot view this plane)"
@@ -20,7 +16,6 @@
 
 typedef void (*GameTextFn)(const char *fmt, ...);
 
-// The declared plane whose index in this world is `index`, or NULL.
 static CustomPlane *customPlaneAt(int index) {
     for (int i = 0; i < customPlaneCount; i++)
         if (customPlanes[i].index == index && !customPlanes[i].skipped && !strncmp((const char *)planeRecord(index), customPlanes[i].name, PLANE_NAME_SIZE))
@@ -28,12 +23,10 @@ static CustomPlane *customPlaneAt(int index) {
     return NULL;
 }
 
-// The vanilla plane whose button pictures a mod's plane takes; else -1.
 static int customPlaneIconLike(const CustomPlane *p) {
     return !p->icon[0] && p->recipe >= 0 && p->recipe < PLANE_ELYSIUM2 ? p->recipe : -1;
 }
 
-// The misc.trs sprite number of a mod's plane's button; -1 when it can't be.
 static int customPlaneSprite(CustomPlane *p, int viewed) {
     int like = customPlaneIconLike(p);
     if (like >= 0) return (viewed ? PLANE_SPRITE_VIEWED : PLANE_SPRITE_SHOWN) + like;
@@ -61,7 +54,6 @@ static int customPlaneSprite(CustomPlane *p, int viewed) {
     return sprite;
 }
 
-// Whether `player` has seen any square of plane `plane`: the game's RVA_PLANE_SEEN test, uncached.
 static int customPlaneSeen(int player, int plane) {
     if (player < 0) return 1;
     if (player >= PLAYER_SLOTS) return 0;
@@ -73,7 +65,6 @@ static int customPlaneSeen(int player, int plane) {
     return 0;
 }
 
-// The last index of a mod's plane in this world, or below 11 when it has none.
 static int lastCustomPlaneIndex(void) {
     if (!planeTableMoved) return -1;
     int last = G32(RVA_LAST_PLANE);
@@ -81,12 +72,9 @@ static int lastCustomPlaneIndex(void) {
 }
 
 // ---- Discovered planes and Reveal Map -----------------------------------------------------------
-// Mods' planes are discovered and revealed as the game's are.
 
-// Whether plane `index` carries the game's discovered mark.
 static int planeDiscovered(int index) { return (planeField(index, PLANE_FLAGS) & PLANE_FLAG_DISCOVERED) != 0; }
 
-// The game's discovered pass for the mods' planes, run right after the game's own.
 static void markCustomPlanesDiscovered(void) {
     int last = lastCustomPlaneIndex(), mapW = G32(RVA_MAP_W), mapH = G32(RVA_MAP_H);
     const unsigned char *squares = GAME_PTR(RVA_SQUARE_RECORDS);
@@ -110,21 +98,18 @@ static void markCustomPlanesDiscovered(void) {
 }
 
 typedef long long (*GameDeadUnitsPassFn)(long long a0);
-// After the game's discovered pass: the mods' planes' pass, then the game's call.
 static long long planeDiscoveredNextHook(long long a0) {
     markCustomPlanesDiscovered();
     return GAME_FN(GameDeadUnitsPassFn, RVA_DEAD_UNITS_PASS)(a0);
 }
 
 typedef void (*GameRevealMapFn)(int player, int plane);
-// Reveals each discovered mod's plane to `player` through `reveal` (the game's RVA_REVEAL_MAP_FOR).
 static void revealDiscoveredCustomPlanes(int player, GameRevealMapFn reveal) {
     int last = lastCustomPlaneIndex();
     for (int index = PLANE_ELYSIUM2 + 1; index <= last; index++)
         if (customPlaneAt(index) && planeDiscovered(index)) reveal(player, index);
 }
 
-// Reveal Map also reveals the mods' discovered planes.
 static void revealMapPlaneHook(int player, int plane) {
     GameRevealMapFn reveal = GAME_FN(GameRevealMapFn, RVA_REVEAL_MAP_FOR);
     reveal(player, plane);
@@ -132,7 +117,6 @@ static void revealMapPlaneHook(int player, int plane) {
 }
 
 // ---- The top bar and the map editor's plane bar -------------------------------------------------
-// CoE5SE adds a button per mod's plane after each bar's last slot.
 typedef struct {
     int count;
     int ids;
@@ -140,7 +124,6 @@ typedef struct {
 } PlaneIconRow;
 static PlaneIconRow topBarPlaneRow, editorPlaneRow;
 
-// Draws one fixed-place plane button and its hover text.
 static void drawPlaneIconAt(int id, int sprite, int grey, float x, float y, float w, float h, const char *text, const char *name) {
     if (grey)
         GAME_FN(void (*)(int, int, int, int, float, float, float, float, float, float, float, float), RVA_ICON_BUTTON_TINTED_AT)(
@@ -155,7 +138,6 @@ static void drawPlaneIconAt(int id, int sprite, int grey, float x, float y, floa
     GAME_FN(GameTextFn, RVA_TEXT)(text, name);
 }
 
-// The game's hover text for a slot, then, after the row's last slot, the mods' planes' buttons.
 static void planeRowText(PlaneIconRow *row, int editor, const char *fmt, const char *name) {
     const unsigned char *e = GAME_PTR(RVA_GUI_TABLE) + (size_t)(G32(RVA_GUI_NEXT_SLOT) - 1) * GUI_STRIDE;
     int id;
@@ -184,7 +166,6 @@ static void planeRowText(PlaneIconRow *row, int editor, const char *fmt, const c
     }
 }
 
-// The top bar's and the editor's RVA_TEXT(fmt, name) after each plane slot.
 static void topBarPlaneTextHook(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
@@ -201,12 +182,10 @@ static void editorPlaneTextHook(const char *fmt, ...) {
 }
 
 // ---- The location picker and the Game Over map view --------------------------------------------
-// CoE5SE adds a row of mods' plane buttons, with the game's rules.
 static struct { int active, player, multiplane, startPlane; } planePicker;
 
 typedef long long (*PlaneScreenFn)(void *title, long long player, void *x, void *y, long long multiplane, long long a6, long long a7,
                                    long long a8, int a9);
-// chooselocation(title, player, &x, &y, multiplane, ...): notes the picker's player and multiplane.
 static long long planeScreenHook(void *title, long long player, void *x, void *y, long long multiplane, long long a6, long long a7,
                                  long long a8, int a9) {
     int outer = planePicker.active;
@@ -217,7 +196,6 @@ static long long planeScreenHook(void *title, long long player, void *x, void *y
     return result;
 }
 
-// One layout-row plane button.
 static void planeRowButton(int id, int sprite, int grey, const char *text) {
     int element = GAME_FN(int (*)(int, int, int, int), RVA_SPRITE_BUTTON)(id, SPRITE_KIND_ICON, sprite, grey ? PLANE_ICON_FLAGS_GREY : PLANE_ICON_FLAGS);
     if (grey && element >= 0) {
@@ -227,7 +205,6 @@ static void planeRowButton(int id, int sprite, int grey, const char *text) {
     tooltip(text);
 }
 
-// The row of the mods' planes' buttons, after the picker's or the Game Over view's own.
 static void drawCustomPlaneButtonRow(int gameOver) {
     int last = lastCustomPlaneIndex(), view = G32(RVA_MAP_VIEW_PLANE), opened = 0;
     for (int index = PLANE_ELYSIUM2 + 1; index <= last; index++) {
@@ -246,7 +223,6 @@ static void drawCustomPlaneButtonRow(int gameOver) {
     if (opened) rowClose();
 }
 
-// The first RVA_LAYOUT_NEW after the picker's plane row: the mods' planes' row, then the game's call.
 static int pickerPlaneRowEndHook(void) {
     if (planePicker.active && planePicker.multiplane > 0) drawCustomPlaneButtonRow(0);
     return GAME_FN(int (*)(void), RVA_LAYOUT_NEW)();
@@ -257,14 +233,13 @@ static int gameOverPlaneRowEndHook(void) {
 }
 
 // ---- The plane info screen ----------------------------------------------------------------------
-// A mod's plane gets its own button's picture on the plane info screen.
 static int planeInfoIconHook(int id, int kind, int sprite, int flags) {
     CustomPlane *p = sprite - PLANE_SPRITE_SHOWN > PLANE_ELYSIUM2 ? customPlaneAt(sprite - PLANE_SPRITE_SHOWN) : NULL;
     int own = p ? customPlaneSprite(p, 0) : -1;
     return GAME_FN(int (*)(int, int, int, int), RVA_SPRITE_BUTTON)(id, kind, own >= 0 ? own : sprite, flags);
 }
 
-// Installs the button hooks, with the other mods' planes' hooks (installCustomPlaneHooks).
+// @platform-split plane_button_text: Windows has one text call per kind of slot, Mac one shared call per row
 static int installCustomPlaneViewHooks(int *wanted) {
     static const struct { unsigned int callRva, targetRva; void *hook; const char *name; } CALLS[] = {
         {RVA_TOP_BAR_PLANE_SHOWN_TEXT_CALL,  RVA_TEXT,          (void *)topBarPlaneTextHook,     "top_bar_plane_text"},

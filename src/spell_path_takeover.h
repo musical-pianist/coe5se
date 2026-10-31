@@ -1,4 +1,3 @@
-// The handover of CoE5SE's spell paths to a plugin that raises them further.
 #pragma once
 
 typedef int (*SpellPathInstallFn)(int *count, const char ***names);

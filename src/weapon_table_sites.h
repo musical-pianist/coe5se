@@ -1,4 +1,3 @@
-// Every instruction in CoE5.exe that builds an address in the game's weapon table.
 #pragma once
 
 #define WEAPON_TABLE_SITE_COUNT 154

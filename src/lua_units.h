@@ -1,15 +1,12 @@
-// Units from scripts: coe5.spawnUnit, coe5.spawnCommander, coe5.monsterVariant, coe5.teleportCommander, coe5.mayEnterSquare.
+#pragma once
 
 // ---- Units: coe5.spawnUnit, coe5.spawnCommander, coe5.monsterVariant ----------------------------
-// A script makes units the way the game's recruit purchase and summons do.
 #define SPAWN_SIGHT_RADIUS 3
 
-// Whether `monster` is a record the game makes units of: 0 to the last monster, with a name.
 static int isUsedMonster(lua_Integer monster) {
     return monster >= 0 && monster <= G32(RVA_MONSTER_COUNT) && monsterRecord((int)monster) && monsterRecord((int)monster)[0];
 }
 
-// Why a spawn of `monster` for `player` on (x, y) can't be made, or NULL.
 static const char *spawnProblem(lua_Integer player, lua_Integer monster, lua_Integer x, lua_Integer y) {
     if (G32(RVA_ACTIVE_PLAYER) < 0) return "no_game";
     if (player < 0 || player >= playerSlotCount()) return "bad_player";
@@ -19,7 +16,6 @@ static const char *spawnProblem(lua_Integer player, lua_Integer monster, lua_Int
     return NULL;
 }
 
-// What the game does after making a unit.
 static void settleSpawnedUnit(int player, int unit, int x, int y) {
     GAME_FN(void (*)(int), RVA_UNIT_FIT_TERRAIN)(unit);
     rebuildSquareArmyHook(x, y);
@@ -28,7 +24,6 @@ static void settleSpawnedUnit(int player, int unit, int x, int y) {
     GAME_FN(void (*)(void), RVA_RESET_SQUARE_CACHE)();
 }
 
-// coe5.spawnUnit and coe5.spawnCommander: one unit, or one commander with its unit, on (x, y).
 static int luaSpawn(lua_State *L, int commander) {
     const char *call = commander ? "coe5.spawnCommander" : "coe5.spawnUnit";
     lua_Integer player = luaCheckPlayer(L, 1), monster = luaL_checkinteger(L, 2);
@@ -60,7 +55,26 @@ static int luaSpawn(lua_State *L, int commander) {
 static int lSpawnUnit(lua_State *L) { return luaSpawn(L, 0); }
 static int lSpawnCommander(lua_State *L) { return luaSpawn(L, 1); }
 
-// coe5.monsterVariant(monster): what the recruit purchase makes for an offer of `monster`.
+#define SUMMON_STRING_MAX 1999
+static int lNewUnits(lua_State *L) {
+    lua_Integer player = luaCheckPlayer(L, 1), x = luaL_checkinteger(L, 2), y = luaL_checkinteger(L, 3);
+    size_t len;
+    const char *monsters = luaL_checklstring(L, 4, &len);
+    const char *problem = G32(RVA_ACTIVE_PLAYER) < 0                           ? "no_game"
+                          : player < 0 || player >= playerSlotCount()          ? "bad_player"
+                          : x < 0 || y < 0 || x >= G32(RVA_MAP_DEPTH) || y >= G32(RVA_MAP_H) || x >= MAP_COLUMNS_MAX || y >= MAP_COLUMN_SQUARES ? "off_map"
+                          : len > SUMMON_STRING_MAX || strlen(monsters) != len ? "bad_string"
+                                                                               : NULL;
+    if (problem) {
+        refuseLuaCall(runningLuaMod(), "coe5.newUnits", problem, "player=%lld x=%lld y=%lld length=%zu", (long long)player, (long long)x,
+                      (long long)y, len);
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushinteger(L, GAME_FN(int (*)(int, int, int, const char *, int), RVA_SUMMON_STRING)((int)player, (int)x, (int)y, monsters, 100));
+    return 1;
+}
+
 static int lMonsterVariant(lua_State *L) {
     lua_Integer monster = luaL_checkinteger(L, 1);
     if (!isUsedMonster(monster)) {
@@ -73,10 +87,8 @@ static int lMonsterVariant(lua_State *L) {
 }
 
 // ---- Moving armies: coe5.teleportCommander, coe5.mayEnterSquare --------------------------------
-// A script moves a commander's army the way the teleport rituals do.
 #define MOVE_ORDER_NONE -1
 
-// Why commander `commander` can't be moved to (x, y), or NULL.
 static const char *commanderMoveProblem(lua_Integer commander, lua_Integer x, lua_Integer y) {
     if (G32(RVA_ACTIVE_PLAYER) < 0) return "no_game";
     if (commander < 0 || commander > G32(RVA_LAST_COMMANDER) || commander >= COMMANDER_TABLE_MAX) return "bad_commander";
@@ -89,7 +101,6 @@ static const char *commanderMoveProblem(lua_Integer commander, lua_Integer x, lu
     return NULL;
 }
 
-// coe5.teleportCommander(commander, x, y): the commander and his army to (x, y), as a teleport ritual moves them.
 static int lTeleportCommander(lua_State *L) {
     lua_Integer commander = luaL_checkinteger(L, 1), x = luaL_checkinteger(L, 2), y = luaL_checkinteger(L, 3);
     const char *problem = commanderMoveProblem(commander, x, y);
@@ -109,7 +120,6 @@ static int lTeleportCommander(lua_State *L) {
     return 1;
 }
 
-// coe5.mayEnterSquare(commander, x, y): whether the commander's army may walk onto (x, y), by the game's own test.
 static int lMayEnterSquare(lua_State *L) {
     lua_Integer commander = luaL_checkinteger(L, 1), x = luaL_checkinteger(L, 2), y = luaL_checkinteger(L, 3);
     const char *problem = commanderMoveProblem(commander, x, y);

@@ -1,4 +1,3 @@
-// The order CoE5SE loads mods' code in, and the mods' versions and requirements.
 #pragma once
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,7 +8,6 @@
 #define MOD_PRIO_DEFAULT  5
 #define MOD_LINE_MAX      50000
 
-// One `requires` line.
 typedef struct {
     char mod[MOD_NAME_MAX];
     char want[MOD_VERSION_MAX];
@@ -17,7 +15,6 @@ typedef struct {
     int target;
 } ModRequirement;
 
-// A modversion or requires line CoE5SE couldn't read.
 typedef struct {
     char word[16];
     const char *reason;
@@ -39,14 +36,12 @@ typedef struct {
 
 enum { MOD_REQUIREMENT_MISSING, MOD_REQUIREMENT_OLD, MOD_REQUIREMENT_CYCLE };
 
-// One warning from orderMods.
 typedef struct {
     int kind;
     int mod;
     int requirement;
 } ModIssue;
 
-// The game's mod name comparison: < 0 if a sorts first, 0 if equal, > 0 if b sorts first.
 static int compareModNames(const char *a, const char *b) {
     for (;; a++, b++) {
         if (*a != *b) return (signed char)*a < (signed char)*b ? -1 : 1;
@@ -54,7 +49,6 @@ static int compareModNames(const char *a, const char *b) {
     }
 }
 
-// 1 if `text` is a version: digits, then optionally a dot and more digits.
 static int isModVersion(const char *text) {
     const char *c = text;
     if (*c < '0' || *c > '9') return 0;
@@ -67,7 +61,6 @@ static int isModVersion(const char *text) {
     return *c == '\0';
 }
 
-// Compares two versions (isModVersion) as numbers, exactly: < 0, 0, or > 0.
 static int compareModVersions(const char *a, const char *b) {
     while (*a == '0' && a[1] >= '0' && a[1] <= '9') a++;
     while (*b == '0' && b[1] >= '0' && b[1] <= '9') b++;
@@ -85,7 +78,6 @@ static int compareModVersions(const char *a, const char *b) {
     return 0;
 }
 
-// The game's number reader for modprio.
 static long long gameFirstNumber(const char *line) {
     int inQuotes = 0;
     const char *start = NULL;
@@ -102,7 +94,6 @@ static long long gameFirstNumber(const char *line) {
     }
 }
 
-// Grows a list to hold at least `count` items of `size` bytes.
 static int growList(void **list, int *capacity, int count, size_t size) {
     if (count <= *capacity) return 1;
     int newCapacity = *capacity ? *capacity * 2 : 16;
@@ -123,7 +114,6 @@ static void addModLineProblem(ModInfo *m, const char *word, const char *reason, 
     snprintf(p->text, sizeof p->text, "%.159s", text);
 }
 
-// Copies the next argument of `*args` into out: a "quoted" one without its quotes, or one word.
 static int nextModArg(const char **args, char *out, size_t size) {
     const char *c = *args, *start = c, *end;
     if (*c == '"') {
@@ -144,7 +134,6 @@ static int nextModArg(const char **args, char *out, size_t size) {
     return (int)len;
 }
 
-// Reads one .c5m line for modprio, modversion, and requires.
 static void readModOrderLine(ModInfo *m, const char *text, int line) {
     while (*text == ' ' || *text == '\t') text++;
     size_t wordLen = strcspn(text, " \t");
@@ -187,7 +176,6 @@ static void readModOrderLine(ModInfo *m, const char *text, int line) {
     }
 }
 
-// Starts a mod's info: its name, the default modprio, no version, no requirements.
 static void initModInfo(ModInfo *m, const char *name, int tag) {
     memset(m, 0, sizeof *m);
     snprintf(m->name, sizeof m->name, "%s", name);
@@ -204,7 +192,6 @@ static void freeModInfo(ModInfo *m) {
     m->requirementCount = m->requirementCapacity = m->problemCount = m->problemCapacity = 0;
 }
 
-// Reads a whole .c5m text for modprio, modversion, and requires.
 static void readModOrderText(ModInfo *m, const char *text) {
     static char buf[MOD_LINE_MAX + 1];
     int line = 0, inEvent = 0;
@@ -226,7 +213,6 @@ static void readModOrderText(ModInfo *m, const char *text) {
     }
 }
 
-// Reads the .c5m file at `path` into m (readModOrderText).
 static int readModOrderFile(ModInfo *m, const char *path) {
     FILE *f = fopen(path, "rb");
     if (!f) return 0;
@@ -243,13 +229,11 @@ static int readModOrderFile(ModInfo *m, const char *path) {
     return 1;
 }
 
-// 1 if mod a comes before mod b by rules 1 and 2 (modprio, then name).
 static int modBefore(const ModInfo *a, const ModInfo *b) {
     if (a->prio != b->prio) return a->prio < b->prio;
     return compareModNames(a->name, b->name) < 0;
 }
 
-// The working state of orderMods.
 typedef struct {
     ModInfo *mods;
     int count;
@@ -262,7 +246,6 @@ typedef struct {
     int *members, *groupStart;
 } ModOrderState;
 
-// Tarjan's algorithm: finds the groups of mods that require each other.
 static void findModGroups(ModOrderState *s, int v) {
     s->index[v] = s->low[v] = s->nextIndex++;
     s->stack[s->stackSize++] = v;
@@ -288,7 +271,6 @@ static void findModGroups(ModOrderState *s, int v) {
     s->componentCount++;
 }
 
-// Places the group of mod v.
 static int placeModGroup(ModOrderState *s, int v) {
     int c = s->component[v];
     if (s->placed[c]) return 1;
@@ -318,7 +300,6 @@ static int placeModGroup(ModOrderState *s, int v) {
     return ok;
 }
 
-// Sorts `order` (mod indices) by rules 1 and 2.
 static void sortModsByPrioAndName(const ModInfo *mods, int count, int *order) {
     for (int i = 0; i < count; i++) order[i] = i;
     for (int i = 1; i < count; i++)
@@ -327,7 +308,6 @@ static void sortModsByPrioAndName(const ModInfo *mods, int count, int *order) {
         }
 }
 
-// Points each requirement at the mod it names (its index), or -1 when that mod isn't among them.
 static void linkModRequirements(ModInfo *mods, int count) {
     for (int i = 0; i < count; i++)
         for (int r = 0; r < mods[i].requirementCount; r++) {
@@ -338,7 +318,6 @@ static void linkModRequirements(ModInfo *mods, int count) {
         }
 }
 
-// Allocates orderMods' state, with `order` (in rule 1 and 2 order) as its base.
 static int startModOrderState(ModOrderState *s, ModInfo *mods, int count, int *order) {
     memset(s, 0, sizeof *s);
     s->mods = mods;
@@ -367,7 +346,6 @@ static void freeModOrderState(ModOrderState *s) {
     free(s->members); free(s->groupStart); free(s->onStack); free(s->placed);
 }
 
-// Lists each group's members, in name order, once findModGroups has found the groups.
 static int listGroupMembers(ModOrderState *s) {
     s->groupStart = calloc((size_t)s->componentCount + 1, sizeof(int));
     if (!s->groupStart) return 0;
@@ -387,7 +365,6 @@ static int listGroupMembers(ModOrderState *s) {
     return 1;
 }
 
-// Sets the cycle of each mod in a group of more than one mod, or that requires itself.
 static void markModCycles(ModOrderState *s) {
     for (int i = 0; i < s->count; i++) {
         const ModInfo *m = &s->mods[i];
@@ -397,7 +374,6 @@ static void markModCycles(ModOrderState *s) {
     }
 }
 
-// The warnings, in load order.
 static int collectModIssues(const ModInfo *mods, int count, const int *order, ModIssue **issues, int *issueCount) {
     int issueCapacity = 0;
     for (int k = 0; k < count; k++) {
@@ -417,7 +393,6 @@ static int collectModIssues(const ModInfo *mods, int count, const int *order, Mo
     return 1;
 }
 
-// Orders `count` mods into `order` and returns the warnings.
 static int orderMods(ModInfo *mods, int count, int *order, ModIssue **issues, int *issueCount) {
     *issues = NULL;
     *issueCount = 0;

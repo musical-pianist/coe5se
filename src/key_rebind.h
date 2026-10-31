@@ -1,8 +1,7 @@
-// The key actions behind rebindKey, addActionKey, and actionKey.
+#pragma once
 
 #include "key_names.h"
 
-// One action, as key_actions.h lists it.
 typedef struct {
     const char *name;
     unsigned char screen;
@@ -11,7 +10,6 @@ typedef struct {
     int id, gameKey;
 } KeyActionInfo;
 
-// Each screen's name for the log.
 static const char *const KEY_SCREEN_NAMES[KEY_SCREEN_COUNT] = {
     "none", "map", "army", "battle", "map_editor", "battle_editor", "recruit", "participants", "view_army", "unit_list",
     "file_browser",
@@ -30,7 +28,6 @@ typedef struct { int id, key; } HotkeyEntry;
 
 static int actionKeys[KEY_ACTION_COUNT];
 static int actionExtraKeys[KEY_ACTION_COUNT];
-// Who changed each action's key last, for the log.
 static char actionKeySetBy[KEY_ACTION_COUNT][2][80];
 static unsigned char screenChanged[KEY_SCREEN_COUNT];
 static int keyScreen;
@@ -40,7 +37,6 @@ static int unitListSheetOpen;
 static int unitListNeedsSheet;
 
 // ---- Key names for players ------------------------------------------------------------------------
-// Writes the key an action shows in texts: "y", "Esc/F10" with a second key, "" with none.
 static void actionKeyText(int action, char *out, size_t size) {
     char main[24] = "", extra[24] = "";
     if (actionKeys[action]) keyValueName(actionKeys[action], main, sizeof main);
@@ -53,7 +49,6 @@ static int actionIsGame(int action) {
     return actionKeys[action] == KEY_ACTION_INFO[action].gameKey && !actionExtraKeys[action];
 }
 
-// The action's name for the log: "map_end_turn".
 static void actionLogName(int action, char *out, size_t size) {
     snprintf(out, size, "%s", KEY_ACTION_INFO[action].name);
     for (char *c = out; *c; c++) *c = (char)tolower((unsigned char)*c);
@@ -67,7 +62,6 @@ static void markScreenChanged(int screen) {
 }
 
 // ---- Bound keys ---------------------------------------------------------------------------------
-// The bound action of `screen` whose game binding is {id, key}, or 0.
 static int boundActionOf(int screen, int id, int key) {
     for (int a = 1; a < KEY_ACTION_COUNT; a++) {
         const KeyActionInfo *k = &KEY_ACTION_INFO[a];
@@ -76,7 +70,6 @@ static int boundActionOf(int screen, int id, int key) {
     return 0;
 }
 
-// The changed action of `screen` that has `key` now, as its key or second key, or 0.
 static int actionTakingKey(int screen, int key) {
     if (key == KEY_NONE || key == KEY_UNBOUND) return 0;
     for (int a = 1; a < KEY_ACTION_COUNT; a++)
@@ -85,7 +78,6 @@ static int actionTakingKey(int screen, int key) {
     return 0;
 }
 
-// Logs once per launch that the game's binding {id, key} on `screen` was dropped for `action`.
 static void logBindingDropped(int screen, int id, int key, int action) {
     static unsigned int seen[64];
     static int seenCount;
@@ -99,7 +91,6 @@ static void logBindingDropped(int screen, int id, int key, int action) {
     writeLog("key_binding_dropped", "screen=%s id=%d key=%s for=%s", KEY_SCREEN_NAMES[screen], id, keyName, name);
 }
 
-// Rewrites this frame's shortcut table for `screen`.
 static void rewriteShortcuts(int screen) {
     if (!screenChanged[screen] || isNetworkGame()) return;
     HotkeyEntry *table = (HotkeyEntry *)GAME_PTR(RVA_HOTKEY_TABLE);
@@ -124,7 +115,6 @@ static void rewriteShortcuts(int screen) {
             bindHotkey(KEY_ACTION_INFO[a].id, actionExtraKeys[a]);
 }
 
-// Runs one frame's wait of `screen`, with its keys rewritten.
 static int runKeyScreenWait(int screen, int (**next)(int, int), int a, int b) {
     int outer = keyScreen;
     keyScreen = screen;
@@ -151,13 +141,11 @@ KEY_SCREEN_WAIT(VIEW_ARMY)
 KEY_SCREEN_WAIT(FILE_BROWSER)
 #undef KEY_SCREEN_WAIT
 
-// The unit list's wait.
 static int (*nextKeyWait_UNIT_LIST)(int, int);
 static int keyWait_UNIT_LIST(int a, int b) {
     if (unitListNeedsSheet && !unitListSheetOpen) return nextKeyWait_UNIT_LIST(a, b);
     return runKeyScreenWait(KEY_SCREEN_UNIT_LIST, &nextKeyWait_UNIT_LIST, a, b);
 }
-// unsigned int sheet(void): the unit list's call to the list sheet.
 static unsigned int (*nextUnitListSheet)(void);
 static unsigned int unitListSheetHook(void) {
     int outer = unitListSheetOpen;
@@ -168,7 +156,6 @@ static unsigned int unitListSheetHook(void) {
 }
 
 // ---- Held keys ----------------------------------------------------------------------------------
-// SDL2's key and window events, as SDL_PollEvent fills them.
 #define SDL_WINDOW_EVENT       0x200
 #define SDL_KEY_DOWN           0x300
 #define SDL_KEY_UP             0x301
@@ -192,7 +179,6 @@ static int keySymToCode(int sym) { return (int)GAME_FN(unsigned int (*)(unsigned
 
 static int keyCodeHeld(int code) { return code > 0 && code < KEY_STATE_SIZE && keysHeld[code]; }
 
-// 1 while the keys of key value `key` are held down: its key and its modifiers.
 static int keyValueHeld(int key) {
     if (key == KEY_NONE) return 0;
     int base = keyBase(key), modifier = keyModifier(key), shift = 0;
@@ -210,7 +196,6 @@ static int keyValueHeld(int key) {
     return keyCodeHeld(base);
 }
 
-// At the end of a poll: sets each changed held action's game key state from its own keys.
 static void writeHeldKeys(void) {
     unsigned char want[KEY_STATE_SIZE], set[KEY_STATE_SIZE];
     memset(want, 0, sizeof want);
@@ -233,10 +218,8 @@ static void writeHeldKeys(void) {
     }
 }
 
-// Frames the game has run: its event poll ends once a frame.
 static unsigned long gameFrames;
 
-// SDL_PollEvent, as the game's event poll calls it until it returns 0.
 static int pollEventHook(void *event) {
     int got = nextPollEvent(event);
     if (!got) {
@@ -260,7 +243,6 @@ static int pollEventHook(void *event) {
 }
 
 // ---- Texts that name a key ----------------------------------------------------------------------
-// Each text that names a key action's key.
 typedef struct {
     CallSite site;
     const char *text;
@@ -304,7 +286,6 @@ static const KeyText KEY_TEXTS[] = {
 };
 #define KEY_TEXT_COUNT (int)(sizeof KEY_TEXTS / sizeof KEY_TEXTS[0])
 
-// Replaces the first `mark` in `text` with "(<key>)", or removes it when the action has no key.
 static void replaceKeyMark(char *text, size_t size, const char *mark, int action) {
     char *at = strstr(text, mark);
     if (!at) return;
@@ -318,7 +299,6 @@ static void replaceKeyMark(char *text, size_t size, const char *mark, int action
     else snprintf(at, size - head, "%s", rest);
 }
 
-// Formats a key text site's text with each action's key.
 static const char *formatKeyText(CallSite site, const char *fmt, va_list ap) {
     static char translated[TRANSLATED_SIZE], out[TRANSLATED_SIZE];
     static unsigned char logged[KEY_TEXT_COUNT];
@@ -377,12 +357,10 @@ static u64 keyTextButtonHook(int id, const char *fmt, ...) {
 }
 
 // ---- The Keyboard Shortcuts list ----------------------------------------------------------------
-// The list's {key text, description} table is the game's data.
 static const char *gameRowTexts[SHORTCUTS_ROWS];
 static char rowTexts[SHORTCUTS_ROWS][64];
 static int shortcutsTableReady;
 
-// Writes a row's key text from its actions' keys.
 static void buildRowText(int row, char *out, size_t size) {
     char names[12][56];
     int count = 0, allSingle = 1;
@@ -406,7 +384,6 @@ static void buildRowText(int row, char *out, size_t size) {
         n += (size_t)snprintf(out + n, size - n, "%s%s", i ? sep : "", names[i]);
 }
 
-// Points each row of the Keyboard Shortcuts table at its keys now, or at the game's text.
 static void refreshShortcutsList(void) {
     const char **pairs = (const char **)GAME_PTR(RVA_SHORTCUTS_TABLE);
     if (!shortcutsTableReady) {
@@ -441,7 +418,6 @@ static void refreshShortcutsList(void) {
 }
 
 // ---- The API --------------------------------------------------------------------------------------
-// The screens other than the action's own whose game keys include `key`, for the log.
 static void screensReadingKey(int key, int ownScreen, char *out, size_t size) {
     size_t n = 0;
     out[0] = '\0';
@@ -455,7 +431,6 @@ static void screensReadingKey(int key, int ownScreen, char *out, size_t size) {
     }
 }
 
-// rebindKey (extra 0) and addActionKey (extra 1).
 static int setActionKeyFor(void *caller, const char *call, int action, int key, int extra) {
     if (action <= KEY_ACTION_NONE || action >= KEY_ACTION_COUNT) {
         refuseApiCall(caller, call, "unknown_action", "action=%d key=%d", action, key);
@@ -499,7 +474,6 @@ static int apiActionKey(int action) {
 }
 
 // ---- Start --------------------------------------------------------------------------------------
-// Wraps every screen's wait, the event poll, the key texts, and the Keyboard Shortcuts list.
 static int wrapInnermost(CallSite site, void *hook, void **next) {
     char owner[64];
     moduleFileName(hook, owner, sizeof owner);

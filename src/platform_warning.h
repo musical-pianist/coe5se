@@ -1,4 +1,4 @@
-// The warning for an enabled mod whose DLL was built for the other platform only.
+#pragma once
 #include "platform_plugins.h"
 
 #ifdef __APPLE__
@@ -17,21 +17,18 @@
 
 #define MISSING_POPUP_MODS 12
 
-// One enabled mod with a plugin for the other platform only.
 typedef struct {
     char mod[MOD_NAME_MAX], folder[MAX_PATH], files[512], missing[512];
 } ModMissingPlugin;
 static ModMissingPlugin *missingPluginMods;
 static int missingPluginModCount, missingPluginModCapacity;
 
-// Appends `name` to a comma-separated list, if it fits.
 static void appendFileName(char *list, size_t size, const char *name) {
     size_t n = strlen(list);
     if (n + strlen(name) + 3 > size) return;
     snprintf(list + n, size - n, "%s%s", n ? ", " : "", name);
 }
 
-// findPluginsMissingHere's callback: records one file in the mod being checked, and logs it.
 static int missingPluginLogIt;
 static void noteMissingPlugin(void *context, const char *otherFile, const char *missingFile) {
     ModMissingPlugin *m = context;
@@ -42,7 +39,6 @@ static void noteMissingPlugin(void *context, const char *otherFile, const char *
                  missingFile, HERE_PLATFORM_LOG, m->folder);
 }
 
-// Rebuilds the list from the game's mod table.
 static int listModsMissingPlugins(int logIt) {
     missingPluginModCount = 0;
     missingPluginLogIt = logIt;
@@ -65,7 +61,6 @@ static int listModsMissingPlugins(int logIt) {
     return missingPluginModCount;
 }
 
-// The pop-up, shown once per launch, between main menu frames.
 static void warnModsMissingPlugins(void) {
     int count = listModsMissingPlugins(1);
     if (!count) return;
@@ -98,7 +93,6 @@ static void warnModsMissingPlugins(void) {
     relaunchGame("plugin_missing_for_platform");
 }
 
-// The CoE5SE page's lines under "Mods with DLLs".
 static void drawModsMissingPlugins(int count) {
     char row[224], tip[1600], label[80];
     for (int i = 0; i < count; i++) {

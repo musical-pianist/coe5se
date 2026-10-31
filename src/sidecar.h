@@ -1,4 +1,4 @@
-// A mod's sidecar file, <ModName>.c5se next to <ModName>.c5m: the lines that need CoE5SE.
+#pragma once
 
 static void finishSpellBlock(void);
 static void maxdataReadingAt(int mod, int start);
@@ -31,7 +31,6 @@ static struct {
     char seen[SIDECAR_ANNOUNCE_MAX][MOD_NAME_MAX];
 } sidecar;
 
-// Whether CoE5SE is reading mod `mod`'s sidecar right now.
 static int readingSidecarOf(int mod) {
     return sidecar.reading && sidecar.mod == mod;
 }
@@ -40,27 +39,22 @@ static int readingSidecarNow(void) {
     return sidecar.reading;
 }
 
-// Whether the line the game is handling is a #!@ line of a .c5m, which may hold what a sidecar may.
 static int readingPrefixedLine(void) {
     return sidecar.prefixedLine;
 }
 
-// Which file the game is reading: a number that changes at each file's start and each include's end.
 static unsigned int modFileNow(void) {
     return sidecar.file;
 }
 
-// The name of the mod whose included file the game reads now, else NULL.
 static const char *includingModName(void) {
     return sidecar.including ? modName(sidecar.mod) : NULL;
 }
 
-// The includeLabelIndex of the file the game reads now, -1 outside an included file.
 static int includedLabelNow(void) {
     return sidecar.including ? sidecar.includeLabel : -1;
 }
 
-// Turns "<folder>/<name>.c5m" in buf into "<folder>/<name>.c5se".
 static int sidecarPathFromModPath(char *buf, size_t size) {
     size_t n = strlen(buf), old = sizeof MOD_FILE_SUFFIX - 1, add = sizeof SIDECAR_SUFFIX - 1;
     if (n < old || _stricmp(buf + n - old, MOD_FILE_SUFFIX)) return 0;
@@ -69,7 +63,6 @@ static int sidecarPathFromModPath(char *buf, size_t size) {
     return 1;
 }
 
-// The game's snprintf(buf, 2500, "%s/%s.c5m", folder, name) in run_one_mod.
 static int modPathHook(char *buf, size_t size, const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
@@ -92,7 +85,6 @@ static int modPathHook(char *buf, size_t size, const char *fmt, ...) {
     return n;
 }
 
-// Finds `file`, an include line's, in the folder of the mod named `name`: NULL, or the refusal's reason.
 static const char *findIncludedFileIn(const char *folder, const char *name, const char *file, char *path, size_t size) {
     static const char *const ENDINGS[2] = {SIDECAR_SUFFIX, SIDECAR_SUFFIX};
     static const char *const REASONS[4] = {"bad_file", "file_not_found", "file_wrong_case", "file_link"};
@@ -108,7 +100,6 @@ static const char *findIncludedFile(int mod, const char *file, char *path, size_
     return findIncludedFileIn(modFolder(mod), modName(mod), file, path, size);
 }
 
-// Logs the refusal of mod `mod`'s include line, then shows the game's Mod Error box, which names its file and line.
 static PRINTF_FORMAT(5, 6) void refuseIncludeLine(int mod, int ahead, const char *reason, const char *file, const char *fmt, ...) {
     char text[300];
     va_list ap;
@@ -122,7 +113,6 @@ static PRINTF_FORMAT(5, 6) void refuseIncludeLine(int mod, int ahead, const char
     G32(RVA_MOD_LINE) = line;
 }
 
-// Has the game read `file` of mod `mod` at `level`, where its include line stands.
 static void readIncludedFile(int mod, int level, const char *file) {
     char outer[GAME_PATH_SIZE];
     memcpy(outer, GAME_PTR(RVA_EVENT_FILE), sizeof outer);
@@ -142,7 +132,6 @@ static void readIncludedFile(int mod, int level, const char *file) {
     if (read <= 0) writeLog("include_not_read", "mod=%s file=%s level=%d", modName(mod), file, level);
 }
 
-// An include line of mod `mod`'s sidecar or #!@ line of its .c5m, read at `level`: reads its file, or refuses it.
 static void takeIncludeLine(int mod, int level, int kind, const char *file) {
     char path[MAX_PATH];
     const char *name = modName(mod);
@@ -182,7 +171,6 @@ static void takeIncludeLine(int mod, int level, int kind, const char *file) {
     readIncludedFile(mod, level, file);
 }
 
-// The game's fgets(buf, 50000, file) of each line in run_one_mod.
 static char *modLineReadHook(char *buf, int size, void *file) {
     char *got = nextModLineRead(buf, size, file);
     sidecar.prefixedLine = 0;
@@ -203,7 +191,6 @@ static char *modLineReadHook(char *buf, int size, void *file) {
     return got;
 }
 
-// include in a file that can't include: an included file, or a plain line of the .c5m.
 static void includeWordLine(const char *args, int mod, int level) {
     if (level != 2 || mod < 0 || mod > G32(RVA_MOD_LAST_INDEX)) return;
     char file[INCLUDE_FILE_MAX + 2] = "-";
@@ -221,7 +208,6 @@ static int sidecarExists(int mod) {
     return GetFileAttributesA(path) != INVALID_FILE_ATTRIBUTES;
 }
 
-// Logs sidecar_read the first time mod `mod`'s sidecar is read this launch.
 static void announceSidecar(int mod) {
     const char *name = modName(mod);
     for (unsigned int i = 0; i < sidecar.announced; i++)
@@ -230,7 +216,6 @@ static void announceSidecar(int mod) {
     writeLog("sidecar_read", "mod=%s file=%s" SIDECAR_SUFFIX, name, name);
 }
 
-// Reads mod `mod`'s .c5m at `level`, then at level 2 to 4 its sidecar the same way.
 static int readModAndSidecar(int mod, int level) {
     int capped = sidecar.installed && level == 2 && !sidecar.reading && mod >= 0 && mod <= G32(RVA_MOD_LAST_INDEX);
     if (capped) maxdataReadingAt(mod, 1);
@@ -258,7 +243,6 @@ static int readModAndSidecar(int mod, int level) {
 
 static void noteModContent(int mod);
 
-// run_one_mod(mod, level): the .c5m and the sidecar.
 static int runOneModHook(int mod, int level) {
     int outer = sidecar.prefixedLines, outerMod = sidecar.lineMod, outerLevel = sidecar.lineLevel;
     sidecar.prefixedLines = level >= 2;
@@ -272,7 +256,6 @@ static int runOneModHook(int mod, int level) {
     return result;
 }
 
-// Wraps run_one_mod's calls and its path, and adds the include word for the lines that can't include.
 static void sidecarInit(void) {
     int ok = wrapSite(SITE_RUN_ONE_MOD, (void *)runOneModHook, (void **)&nextRunOneMod) +
              wrapSite(SITE_RUN_ONE_MOD_PATH, (void *)modPathHook, (void **)&nextModPath);

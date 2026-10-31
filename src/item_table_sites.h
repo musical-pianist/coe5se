@@ -1,4 +1,3 @@
-// Every instruction in CoE5.exe that builds an address in the game's item table.
 #pragma once
 
 #define ITEM_TABLE_SITE_COUNT 896
@@ -901,7 +900,6 @@ static const TableMoveSite ITEM_TABLE_SITES[ITEM_TABLE_SITE_COUNT] = {
     {0x33069f, 4, TABLE_FIELD_DISP32},
 };
 
-// The compares of a record number against the game's 1000: each becomes the moved table's size.
 #define ITEM_BOUND_SITE_COUNT 346
 static const TableValueSite ITEM_BOUND_SITES[ITEM_BOUND_SITE_COUNT] = {
     {0x06dfd0, 1, ITEM_RECORDS_MOVED, "bound"},

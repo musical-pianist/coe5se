@@ -1,4 +1,4 @@
-// Mods' own spells: the .c5m words newspell, path, level, weapon, and the spell flags.
+#pragma once
 #include <limits.h>
 
 #define NEWSPELL_WORD         "newspell"
@@ -11,7 +11,6 @@ _Static_assert(MOD_SPELL_CAP_MAX == MOD_SPELL_TARGET, "the moved table has room 
 #define SPELL_LEVEL_MAX       3
 #define WEAPON_NAME_MAX       63
 
-// The game's flags, one bit each.
 #define SPELL_FLAG_BURNFOREST      0x01ULL
 #define SPELL_FLAG_PRIORITYLEARN   0x02ULL
 #define SPELL_FLAG_SLOWCAST        0x04ULL
@@ -20,7 +19,6 @@ _Static_assert(MOD_SPELL_CAP_MAX == MOD_SPELL_TARGET, "the moved table has room 
 #define SPELL_FLAG_HEALHUMANARMY   0x20ULL
 #define SPELL_FLAG_NOTUNDERGROUND  0x40ULL
 
-// One record of the game's spell table.
 typedef struct {
     const char *name;
     int path, level;
@@ -31,7 +29,6 @@ typedef struct {
 } SpellRecord;
 _Static_assert(sizeof(SpellRecord) == SPELL_SIZE, "a spell record is SPELL_SIZE bytes");
 
-// The game's words that start a block.
 static const char *const SPELL_BLOCK_ENDERS[] = {
     "newmonster", "selectmonster", "newclass", "selectclass", "newweapon", "selectweapon", "newritpow",
     "newritual", "selectritual", "newitem", "selectitem", "selectterr", "selectterrgroup",
@@ -56,10 +53,8 @@ static struct {
     int nameHashSize;
 } spellTable = {.lastMod = -1};
 
-// The mods' spells the table has room for now.
 static int modSpellCap(void) { return spellTableRecords() - 1 - VANILLA_SPELL_COUNT; }
 
-// The open newspell block.
 static struct {
     int open;
     int refused;
@@ -71,7 +66,6 @@ static struct {
     SpellRecord record;
 } spellBlock;
 
-// Every spell line the latest mod pass refused.
 #define SPELL_PROBLEM_TEXT  140
 #define SPELL_FILE_C5M      ".c5m"
 #define SPELL_FILE_SIDECAR  SIDECAR_SUFFIX
@@ -88,7 +82,6 @@ static int spellProblemCount, spellProblemCapacity;
 
 static const char *spellModName(int mod);
 
-// Adds a refused line of mod `mod` to the list.
 static PRINTF_FORMAT(3, 4) void noteSpellProblem(int mod, int line, const char *fmt, ...) {
     if (mod < 0 || mod > G32(RVA_MOD_LAST_INDEX)) return;
     if (!growList((void **)&spellProblems, &spellProblemCapacity, spellProblemCount + 1, sizeof *spellProblems))
@@ -105,7 +98,6 @@ static PRINTF_FORMAT(3, 4) void noteSpellProblem(int mod, int line, const char *
     va_end(ap);
 }
 
-// A spell with no free slot.
 static void noteNoFreeSlot(int mod, int line, const char *name) {
     SpellProblem *last = spellProblemCount ? &spellProblems[spellProblemCount - 1] : NULL;
     if (last && last->slotRun && !strcmp(last->mod, spellModName(mod))) {
@@ -122,14 +114,12 @@ static void noteNoFreeSlot(int mod, int line, const char *name) {
     snprintf(last->spell, sizeof last->spell, "%s", name);
 }
 
-// Finds a weapon by name the way the game's meleeweapon does, or -1.
 static int (*spellFindWeapon)(const char *name);
 
 static SpellRecord *spellSlot(int slot) {
     return (SpellRecord *)spellTableAddress() + slot;
 }
 
-// Whether the table past the vanilla spells is as the game ships it.
 static int shippedSpellTableReady(void) {
     if (spellTable.state) return spellTable.state > 0;
     static const SpellRecord empty;
@@ -150,7 +140,6 @@ static int shippedSpellTableReady(void) {
     return 1;
 }
 
-// Whether CoE5SE can write the records past the vanilla spells.
 static int spellTableWritable(void) {
 #ifdef __APPLE__
     if (spellTableMoved) return 1;
@@ -169,7 +158,6 @@ static unsigned int spellNameHash(const char *name) {
     return hash;
 }
 
-// Puts names[index] into the hash, growing it to stay at most half full.
 static int hashSpellName(int index) {
     if ((spellTable.nameCount + 1) * 2 > spellTable.nameHashSize) {
         int size = spellTable.nameHashSize ? spellTable.nameHashSize * 2 : 1024;
@@ -191,7 +179,6 @@ static int hashSpellName(int index) {
     return 1;
 }
 
-// The launch's copy of `name`.
 static const char *keptSpellName(const char *name) {
     if (spellTable.nameHashSize) {
         unsigned int at = spellNameHash(name) & (unsigned)(spellTable.nameHashSize - 1);
@@ -215,7 +202,6 @@ static const char *spellModName(int mod) {
     return mod >= 0 && mod <= G32(RVA_MOD_LAST_INDEX) ? modName(mod) : "-";
 }
 
-// Ends the open block.
 static void finishSpellBlock(void) {
     if (!spellBlock.open) return;
     spellBlock.open = 0;
@@ -228,7 +214,6 @@ static void finishSpellBlock(void) {
                          !spellBlock.hasPath ? "path" : !spellBlock.hasLevel ? "level" : "weapon", spellBlock.name);
 }
 
-// Puts back the records past the vanilla spells as the game ships them, removing every mod's spell.
 static void restoreShippedSpells(const char *reason) {
     finishSpellBlock();
     resetSpellPaths(reason);
@@ -240,7 +225,6 @@ static void restoreShippedSpells(const char *reason) {
     spellTable.modSpells = 0;
 }
 
-// Writes the open block into the table.
 static void storeSpell(void) {
     if (spellBlock.slot) {
         *spellSlot(spellBlock.slot) = spellBlock.record;
@@ -268,7 +252,6 @@ static void storeSpell(void) {
 }
 
 // ---- Reading the lines ---------------------------------------------------------------------------
-// Reads a whole number from *p and moves past it.
 static int readSpellNumber(const char **p, long long *out) {
     skipSpaces(p);
     char *end;
@@ -279,7 +262,6 @@ static int readSpellNumber(const char **p, long long *out) {
     return 1;
 }
 
-// Reads "quoted text" from *p into `out` (cut to fit) and moves past it.
 static int readSpellQuoted(const char **p, char *out, size_t size) {
     skipSpaces(p);
     if (**p != '"') return -1;
@@ -301,7 +283,6 @@ static int isSpellBlockEnder(const char *line, size_t len) {
     return 0;
 }
 
-// Whether a line of a spell block's word applies.
 static int spellBlockTakes(const char *word, int mod, int level) {
     if (level != 2) return 0;
     if (!spellBlock.open) {
@@ -312,14 +293,12 @@ static int spellBlockTakes(const char *word, int mod, int level) {
     return !spellBlock.refused;
 }
 
-// Ends the parser's current records, as the game's own new and select words do.
 static void clearParserCurrentRecords(void) {
     static const unsigned int CURRENT[] = {RVA_MONSTER_CURRENT, RVA_WEAPON_CURRENT, RVA_RITUAL_CURRENT, RVA_ITEM_CURRENT,
                                            RVA_CLASS_CURRENT, RVA_TERRAIN_CURRENT, RVA_TERRAIN_GROUP_CURRENT};
     for (size_t i = 0; i < sizeof CURRENT / sizeof CURRENT[0]; i++) G32(CURRENT[i]) = -1;
 }
 
-// Why a newspell line of name length `len` can't open a block, or NULL.
 static const char *newspellRefusal(int mod, int len) {
     if (mod < 0 || mod > G32(RVA_MOD_LAST_INDEX)) return "not_in_a_mod";
     if (len <= 0) return "no_name";
@@ -329,7 +308,6 @@ static const char *newspellRefusal(int mod, int len) {
     return NULL;
 }
 
-// newspell "<name>": opens a spell block, and ends the parser's current records.
 static void newspellLine(const char *args, int mod, int level) {
     if (level != 2) return;
     finishSpellBlock();
@@ -356,7 +334,6 @@ static void newspellLine(const char *args, int mod, int level) {
     }
 }
 
-// path <nbr> or path "<name>": the spell's magic path.
 static void pathLine(const char *args, int mod, int level) {
     if (!spellBlockTakes("path", mod, level)) return;
     long long path;
@@ -387,7 +364,6 @@ static void pathLine(const char *args, int mod, int level) {
     storeSpell();
 }
 
-// level <1-3>, inside a spell block.
 static void spellLevelLine(const char *args, int mod, int level) {
     if (!spellBlockTakes("level", mod, level)) return;
     long long spellLevel;
@@ -403,7 +379,6 @@ static void spellLevelLine(const char *args, int mod, int level) {
     storeSpell();
 }
 
-// weapon <dmg> "<weapon>" or weapon <dmg> <nbr>: the spell's effect.
 static void weaponLine(const char *args, int mod, int level) {
     if (!spellBlockTakes("weapon", mod, level)) return;
     long long dmg, number = 0;
@@ -440,7 +415,6 @@ static void weaponLine(const char *args, int mod, int level) {
     storeSpell();
 }
 
-// The flag words take nothing after them, like the game's own flag words.
 static void spellFlagLine(const char *word, unsigned long long bit, int mod, int level) {
     if (!spellBlockTakes(word, mod, level)) return;
     spellBlock.record.flags |= bit;
@@ -472,7 +446,6 @@ static void healhumanarmyLine(const char *args, int mod, int level) {
     spellFlagLine("healhumanarmy", SPELL_FLAG_HEALHUMANARMY, mod, level);
 }
 
-// Every .c5m line outside events comes here first.
 static int spellLineHook(const char *line, size_t len, int mod, int level) {
     if (level != spellTable.lastLevel || mod != spellTable.lastMod) finishSpellBlock();
     if (level == 2 && spellTable.lastLevel != 2) {
@@ -496,7 +469,6 @@ static int spellLineHook(const char *line, size_t len, int mod, int level) {
     return 0;
 }
 
-// The same for declinedModCommandHook, when no plugin loaded.
 static int declinedSpellLine(const char *word, int mod, int level) {
     static int inBlock, blockMod, blockLevel;
     size_t len = strlen(word);
@@ -508,12 +480,10 @@ static int declinedSpellLine(const char *word, int mod, int level) {
     return inBlock && (spellWordIs(word, len, "level") || spellWordIs(word, len, "burnforest"));
 }
 
-// The number of level-2 readings started, for spellsAfterPass.
 static unsigned int spellPassCount(void) { return spellTable.passes; }
 
 static void dropSpellsOfDisabledMods(void);
 
-// After the Mods screen.
 static void spellsAfterModsScreen(unsigned int passesBefore) {
 #ifdef __APPLE__
     (void)passesBefore;
@@ -523,13 +493,11 @@ static void spellsAfterModsScreen(unsigned int passesBefore) {
 #endif
 }
 
-// After a mod pass at `level`, or the Mods screen.
 static void spellsAfterPass(int level, unsigned int passesBefore) {
     finishSpellBlock();
     if (level == 2 && spellTable.passes == passesBefore) restoreShippedSpells("no_mods");
 }
 
-// Before a game starts from the main menu: drops the spells of mods turned off.
 static void dropSpellsOfDisabledMods(void) {
     finishSpellBlock();
     for (int i = 0; i < spellTable.modSpells; i++)
@@ -543,7 +511,6 @@ static void dropSpellsOfDisabledMods(void) {
 #define SPELL_PROBLEM_ROWS    10
 #define SPELL_POPUP_LINES     16
 
-// The CoE5SE page's "Spell lines left out" box, drawn only when a line was left out.
 static void drawSpellProblems(void) {
     finishSpellBlock();
     if (!spellProblemCount) return;
@@ -566,7 +533,6 @@ static void drawSpellProblems(void) {
     sectionEnd();
 }
 
-// The pop-up, between main menu frames, once for each new set of lines left out.
 static void popupSpellProblems(void) {
     static unsigned int shownHash;
     static char text[POPUP_TEXT_SIZE];
@@ -598,7 +564,6 @@ static void popupSpellProblems(void) {
     okBox("CoE5SE: Spells left out", text);
 }
 
-// Adds the words and the weapon lookup.
 static void spellWordsInit(void) {
     spellFindWeapon = GAME_FN(int (*)(const char *), RVA_FIND_WEAPON);
     int words = apiAddModCommand("newspell", newspellLine) + apiAddModCommand("path", pathLine) +

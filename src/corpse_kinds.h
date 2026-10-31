@@ -1,4 +1,3 @@
-// Corpse kinds: a kind after the game's corpse words, corpsekind, raisecorpses, and the calls that apply them.
 #pragma once
 
 #define CORPSE_MASK_HUMANOID       0xc7
@@ -18,7 +17,6 @@
 #define CONTROLLER_REMOTE_HUMAN    5
 #define CORPSE_CASTS_MAX           4
 
-// The kind and group names, each with its kinds' bits.
 static const struct {
     const char *name;
     int mask;
@@ -31,7 +29,6 @@ static const struct {
 
 enum { CORPSE_RULE_PUT, CORPSE_RULE_RAISE_DEAD, CORPSE_RULE_RAISE_ANIMALS, CORPSE_RULE_RAISE_CORPSES, CORPSE_RULE_DROPPED };
 
-// One ritual line of this pass that names corpse kinds.
 typedef struct {
     int ritual, type, occurrence, mask, line;
     char mod[64], monster[MONSTER_NAME_SIZE];
@@ -42,7 +39,6 @@ static int corpseRuleCount, corpseRuleCapacity;
 static unsigned char *monsterCorpseKinds;
 static int monsterCorpseKindCount;
 
-// A cast in progress: what the hooks inside RVA_EXECUTE_RITUAL need.
 typedef struct {
     int ritual, unit, human, percent, puts, raiseDeads, raiseAnimals;
 } CorpseCast;
@@ -50,7 +46,6 @@ typedef struct {
 static CorpseCast corpseCasts[CORPSE_CASTS_MAX];
 static int corpseCastDepth;
 
-// Reads a kind or group name at *p into *mask and moves past it; 0 for any other text.
 static int readCorpseKinds(const char **p, int *mask) {
     size_t len = strcspn(*p, " \t\r\n");
     for (size_t i = 0; i < sizeof CORPSE_KIND_WORDS / sizeof CORPSE_KIND_WORDS[0]; i++) {
@@ -62,14 +57,12 @@ static int readCorpseKinds(const char **p, int *mask) {
     return 0;
 }
 
-// The one kind in `mask`, or -1 when it holds more or none.
 static int onlyCorpseKind(int mask) {
     for (int k = 0; k < SQUARE_CORPSE_KINDS; k++)
         if (mask == 1 << k) return k;
     return -1;
 }
 
-// The square's 8 corpse counts, or NULL outside the world.
 static short *squareCorpses(int x, int y) {
     if (x < 0 || y < 0 || x >= G32(RVA_MAP_DEPTH) || y >= G32(RVA_MAP_H) || x >= MAP_COLUMNS_MAX || y >= MAP_COLUMN_SQUARES) return NULL;
     return (short *)(gameBase + RVA_SQUARE_RECORDS + ((size_t)x * MAP_COLUMN_SQUARES + (size_t)y) * SQUARE_SIZE + SQUARE_CORPSES);
@@ -82,13 +75,11 @@ static int countCorpses(const short *corpses, int mask) {
     return count;
 }
 
-// Adds n corpses of one kind, up to the count's top.
 static void addCorpses(short *corpses, int kind, int n) {
     int total = corpses[kind] + n;
     corpses[kind] = (short)(total > CORPSE_COUNT_MAX ? CORPSE_COUNT_MAX : total);
 }
 
-// Takes up to n corpses of the kinds in `mask`, one of each kind in turn; returns how many it took.
 static int takeCorpses(short *corpses, int mask, int n) {
     int taken = 0;
     for (int round = 0; round < n && taken < n; round++)
@@ -97,7 +88,6 @@ static int takeCorpses(short *corpses, int mask, int n) {
     return taken;
 }
 
-// How many effects `id` ritual `ritual` holds now.
 static int ritualEffectCount(int ritual, int id) {
     unsigned char *record = ritualWordRecord(ritual);
     int count = 0;
@@ -105,7 +95,6 @@ static int ritualEffectCount(int ritual, int id) {
     return count;
 }
 
-// The value of the ritual's nth effect `id`, from 0; 0 when it has fewer.
 static long long ritualEffectValueAt(int ritual, int id, int nth) {
     unsigned char *record = ritualWordRecord(ritual);
     for (int s = 0; s < RITUAL_FX_MAX && ritualWordEffect(record, s)[0]; s++)
@@ -113,14 +102,12 @@ static long long ritualEffectValueAt(int ritual, int id, int nth) {
     return 0;
 }
 
-// The rule for the ritual's nth effect of a type, or NULL.
 static const CorpseRule *corpseRuleFor(int ritual, int type, int occurrence) {
     for (int i = 0; i < corpseRuleCount; i++)
         if (corpseRules[i].ritual == ritual && corpseRules[i].type == type && corpseRules[i].occurrence == occurrence) return &corpseRules[i];
     return NULL;
 }
 
-// Adds a rule for the current ritual's line; 0 when it can't.
 static int addCorpseRule(const char *word, int mod, int type, int occurrence, int mask, const char *monster) {
     if (!growList((void **)&corpseRules, &corpseRuleCapacity, corpseRuleCount + 1, sizeof corpseRules[0])) {
         refuseC5mLine(word, spellModName(mod), "out_of_memory", "line=%d", G32(RVA_MOD_LINE));
@@ -138,7 +125,6 @@ static int addCorpseRule(const char *word, int mod, int type, int occurrence, in
     return 1;
 }
 
-// The current ritual, or -1 after a refusal naming `word`.
 static int currentCorpseRitual(const char *word, int mod) {
     int record = G32(RVA_RITUAL_CURRENT);
     if (record >= 0 && record < ritualSlotCount()) return record;
@@ -146,7 +132,6 @@ static int currentCorpseRitual(const char *word, int mod) {
     return -1;
 }
 
-// putcorpses, raisedead and raiseanimals with kinds after them, before the game's parser.
 static const char *corpseWordLineHook(const char *line, size_t len, int mod, int level) {
     if (level != 2) return line;
     static char rewritten[64];
@@ -190,7 +175,6 @@ static const char *corpseWordLineHook(const char *line, size_t len, int mod, int
     return rewritten;
 }
 
-// corpsekind: the corpse a unit of the current monster leaves, or none.
 static void corpsekindLine(const char *args, int mod, int level) {
     if (level != 2) return;
     const char *p = args;
@@ -223,7 +207,6 @@ static void corpsekindLine(const char *args, int mod, int level) {
     monsterCorpseKinds[monster] = (unsigned char)(kind + 1);
 }
 
-// raisecorpses: raises a monster from the current ritual's caster's corpses of those kinds.
 static void raisecorpsesLine(const char *args, int mod, int level) {
     if (level != 2) return;
     const char *p = args;
@@ -247,14 +230,12 @@ static void raisecorpsesLine(const char *args, int mod, int level) {
     addCorpseRule("raisecorpses", mod, CORPSE_RULE_RAISE_CORPSES, 0, mask, name);
 }
 
-// Before a level-2 mod pass: the pass reads every corpse word again.
 static void corpseWordsBeforePass(int level) {
     if (level != 2) return;
     corpseRuleCount = 0;
     if (monsterCorpseKinds) memset(monsterCorpseKinds, 0, (size_t)monsterCorpseKindCount);
 }
 
-// After a level-2 mod pass: drops each raisecorpses whose monster no mod made.
 static void corpseWordsAfterPass(int level) {
     if (level != 2) return;
     for (int i = 0; i < corpseRuleCount; i++) {
@@ -266,7 +247,6 @@ static void corpseWordsAfterPass(int level) {
 }
 
 // ---- Events: +mincorpses and removecorpses with kinds ----------------------------------------------
-// One event line on one square: a trigger's answer, or the action done.
 static int corpseEventSquare(short *corpses, int mask, int n, int remove) {
     if (remove) {
         if (corpses) takeCorpses(corpses, mask, n);
@@ -275,7 +255,6 @@ static int corpseEventSquare(short *corpses, int mask, int n, int remove) {
     return (corpses ? countCorpses(corpses, mask) : 0) >= n;
 }
 
-// +mincorpses, -mincorpses and removecorpses with kinds, before the game's event runner; 1 when it took the line.
 static int corpseEventLine(const char *line, int level) {
     int sign = 0, remove = 0;
     const char *p;
@@ -330,7 +309,6 @@ static int (*corpseSummon)(int, const char *, int, int, int);
 static void (*corpseSendSquare)(int, int, int);
 static uint64_t (*corpseProgressText)(int, const char *, ...);
 
-// 1 when the unit's owner is a human player.
 static int unitOwnerIsHuman(int unit) {
     if (unit < 0 || unit >= UNIT_TABLE_MAX) return 0;
     int owner = (short)G16(RVA_UNIT_PLAYER + (size_t)unit * UNIT_SIZE);
@@ -344,7 +322,6 @@ static CorpseCast *currentCorpseCast(void) {
     return corpseCastDepth > 0 && corpseCastDepth <= CORPSE_CASTS_MAX ? &corpseCasts[corpseCastDepth - 1] : NULL;
 }
 
-// The game's square root (RVA_INT_SQRT): the largest i with i * i at most n, 40000 at most; 0 below 1.
 static int gameSquareRoot(int n) {
     if (n < 1) return 0;
     int i = 1;
@@ -352,7 +329,6 @@ static int gameSquareRoot(int n) {
     return i < 40000 || (long long)i * i > n ? i - 1 : 40000;
 }
 
-// Adds insanity to the unit's commander, as the game's RVA_INSANITY_ADD does (inlined on Mac).
 static void addInsanity(int unit, int amount) {
     int last = G32(RVA_LAST_COMMANDER), commander = -1;
     for (int c = 0; c <= last && c < COMMANDER_TABLE_MAX && commander < 0; c++)
@@ -365,7 +341,6 @@ static void addInsanity(int unit, int amount) {
     *insanity = (short)(value < 0 ? 0 : value > INSANITY_MAX ? INSANITY_MAX : value);
 }
 
-// raisecorpses for a cast that ended: each of the ritual's raises, at the caster's square.
 static void runRaiseCorpses(const CorpseCast *cast) {
     for (int i = 0; i < corpseRuleCount; i++) {
         const CorpseRule *r = &corpseRules[i];
@@ -390,7 +365,6 @@ static void runRaiseCorpses(const CorpseCast *cast) {
     }
 }
 
-// RVA_EXECUTE_RITUAL at each of its calls: notes the cast for the hooks inside it, then runs raisecorpses.
 static long long corpseExecuteRitual(int unit, int ritual, int x, int y, int percent, int pay) {
     if (!corpseRuleCount) return executeRitualGame(unit, ritual, x, y, percent, pay);
     int depth = corpseCastDepth++;
@@ -401,7 +375,6 @@ static long long corpseExecuteRitual(int unit, int ritual, int x, int y, int per
     return result;
 }
 
-// A raise with only the kinds in `mask`: the others are set aside for the game's call, then put back.
 static int raiseWithKinds(RaiseFn game, int commander, int mask) {
     if (commander < 0 || commander > G32(RVA_LAST_COMMANDER) || commander >= COMMANDER_TABLE_MAX) return game(commander);
     int unit = G32(RVA_COMMANDERS + (size_t)commander * COMMANDER_SIZE);
@@ -434,7 +407,6 @@ static int corpseRaiseAnimals(int commander) {
     return corpseRaise(raiseAnimalsGame, commander, CORPSE_RULE_RAISE_ANIMALS, cast ? &cast->raiseAnimals : NULL);
 }
 
-// putcorpses' trace call, right after the game added human corpses: moves them to the line's kind.
 static const char *corpsePutText(int x, int y) {
     CorpseCast *cast = currentCorpseCast();
     int occurrence = cast ? cast->puts++ : -1;
@@ -450,7 +422,6 @@ static const char *corpsePutText(int x, int y) {
     return squareTextGame(x, y);
 }
 
-// A dying unit's corpse: its monster's corpsekind when it has one, else the game's choice.
 static void corpseLeave(int unit) {
     int monster = unit >= 0 && unit < UNIT_TABLE_MAX ? (short)G16(RVA_UNIT_MONSTER + (size_t)unit * UNIT_SIZE) : -1;
     int kind = monster >= 0 && monster < monsterCorpseKindCount ? monsterCorpseKinds[monster] - 1 : -1;
@@ -505,7 +476,6 @@ static int pointCorpseCall(const CorpseCall *c, int index) {
 }
 #endif
 
-// Adds corpsekind and raisecorpses, and points the game's calls at the hooks above.
 static void corpseKindsInit(void) {
     executeRitualGame = GAME_FN(ExecuteRitualFn, RVA_EXECUTE_RITUAL);
     raiseDeadGame = GAME_FN(RaiseFn, RVA_RAISE_DEAD);

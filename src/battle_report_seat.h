@@ -1,7 +1,6 @@
-// coe5.reportBattlesTo(seat): one human seat gets the game's Battle Report message for every AI faction's battle it isn't in.
+// @platform-split battle_report_seat: Windows only; the Mac build refuses coe5.reportBattlesTo
 
 static int battleReportSeat = -1;
-// Every new or loaded game starts with no seat.
 static void clearBattleReportSeat(void) { battleReportSeat = -1; }
 
 #ifndef __APPLE__
@@ -15,7 +14,6 @@ static void emitBattleReportRel32(unsigned char **p, const unsigned char *target
     *p += 4;
 }
 
-// Writes the stub and the jump to it, once. Returns 1 when in place.
 static int installBattleReportStub(void) {
     static int done;
     if (done) return done > 0;
@@ -86,7 +84,6 @@ static int installBattleReportStub(void) {
 }
 #endif
 
-// coe5.reportBattlesTo(seat): the seat, while human, gets a Battle Report for every AI faction's battle it isn't in; nil or -1 for none.
 static int lReportBattlesTo(lua_State *L) {
     lua_Integer seat = luaL_optinteger(L, 1, -1);
     const char *reason = isNetworkGame() ? "network_game" : NULL;

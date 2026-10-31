@@ -1,4 +1,3 @@
-// Locks a plugin DLL, hashes it, and checks the hash against approved.txt.
 #pragma once
 #ifdef _WIN32
 #include <bcrypt.h>
@@ -10,7 +9,6 @@
 #include "approvals.h"
 
 #ifdef _WIN32
-// Opens a DLL so nobody can change, replace, or delete it while the handle is open.
 static __attribute__((unused)) HANDLE lockDllFile(const char *path) {
     return CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 }
@@ -19,7 +17,6 @@ static __attribute__((unused)) void unlockDllFile(HANDLE file) {
     if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
 }
 
-// Writes the open file's SHA-256 to `hex` as lowercase hex.
 static __attribute__((unused)) int hashFileSha256(HANDLE file, char *hex) {
     static unsigned char buf[65536];
     unsigned char digest[32];
@@ -38,7 +35,6 @@ static __attribute__((unused)) int hashFileSha256(HANDLE file, char *hex) {
     return ok;
 }
 #else
-// macOS can't lock a file against writers, so the handle is a plain read-only descriptor.
 static __attribute__((unused)) HANDLE lockDllFile(const char *path) {
     int fd = open(path, O_RDONLY);
     return fd < 0 ? INVALID_HANDLE_VALUE : (HANDLE)(intptr_t)fd;
@@ -48,7 +44,6 @@ static __attribute__((unused)) void unlockDllFile(HANDLE file) {
     if (file != INVALID_HANDLE_VALUE) close((int)(intptr_t)file);
 }
 
-// Writes the open file's SHA-256 to `hex` as lowercase hex.
 static __attribute__((unused)) int hashFileSha256(HANDLE file, char *hex) {
     static unsigned char buf[65536];
     unsigned char digest[CC_SHA256_DIGEST_LENGTH];
@@ -65,7 +60,6 @@ static __attribute__((unused)) int hashFileSha256(HANDLE file, char *hex) {
 }
 #endif
 
-// Asks the player whether to load `path`, a DLL whose hash isn't approved.
 static __attribute__((unused)) int askApproval(const char *mod, const char *path, const char *hash, int isCoe5se) {
     char text[2048];
     const char *file = strrchr(path, '/');
@@ -89,7 +83,6 @@ static __attribute__((unused)) int askApproval(const char *mod, const char *path
 #endif
 }
 
-// Checks the DLL `name`'s hash: approved, or approved now by auto-approve or the player.
 static __attribute__((unused)) int approveDll(const char *name, const char *mod, const char *source, const char *path, const char *hash,
                       int autoApprove, int isCoe5se) {
     if (isHashApproved(hash)) return 1;
@@ -104,7 +97,6 @@ static __attribute__((unused)) int approveDll(const char *name, const char *mod,
     return 1;
 }
 
-// Loads the DLL at `path`.
 static __attribute__((unused)) void *loadDllFile(const char *path, char *error, size_t errorSize) {
 #ifdef _WIN32
     DWORD oldMode = 0;

@@ -1,5 +1,3 @@
-// A seal's event at the month's end (SITE_SEAL_EVENT).
-
 #ifndef __aarch64__
 #define SEAL_EVENT_STAND_IN 0x00
 #define SEAL_EVENT_STUB     0x10
@@ -14,7 +12,6 @@ static void emitSealRel32(unsigned char **p, unsigned char *target) {
     *p += 4;
 }
 
-// Copies the month-end function's unwind info for the stub.
 static size_t copySealEventUnwind(unsigned char *out) {
     DWORD64 imageBase = 0;
     PRUNTIME_FUNCTION f = RtlLookupFunctionEntry((DWORD64)(uintptr_t)GAME_PTR(RVA_SEAL_EVENT_SWITCH), &imageBase, NULL);
@@ -30,7 +27,6 @@ static size_t copySealEventUnwind(unsigned char *out) {
     return 4 + (size_t)((codes + 1) & ~1) * 2;
 }
 
-// Writes the stub and the jump once.
 static int patchSealEventStep(void) {
     if (sealEventCall) return 1;
     if (!checkGameFunction("seal_event_step_check", ""))
@@ -83,13 +79,11 @@ static int patchSealEventStep(void) {
     return 1;
 }
 
-// The call CoE5SE wrote for a site the game has no call for, and its stand-in function.
 static unsigned char *generatedSiteCall(CallSite site) { return site == SITE_SEAL_EVENT ? sealEventCall : NULL; }
 static unsigned char *generatedSiteTarget(CallSite site) {
     return site == SITE_SEAL_EVENT && sealEventPage ? sealEventPage + SEAL_EVENT_STAND_IN : NULL;
 }
 
-// installSite's step before it checks a site's calls.
 static int checkSplitMinUnitsCode(void);
 static int checkGameStartOnceCode(void);
 static int installTopBarIncomeDraws(void);

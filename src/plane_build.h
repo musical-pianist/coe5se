@@ -1,4 +1,4 @@
-// Mods' planes built the game's way: coe5.gen, the recipes, population and terrain swap.
+#pragma once
 
 #define PLANE_RECIPES_FILE   PLANE_FILES_DIR PATH_SEP "plane_recipes.lua"
 #define MARK_LAYER_SQUARES   (MAP_COLUMNS_MAX * MAP_COLUMN_SQUARES)
@@ -11,13 +11,11 @@
 #define PLANE_PORTAL_TRIES   100
 #define TERRAIN_APCOST_WALL  99
 
-// The vanilla planes by the short names coe5.addPlane takes (or the record's name), and which have a recipe.
 static const char *const VANILLA_PLANE_SHORT_NAMES[PLANE_ELYSIUM2] = {
     "Elysium", "Celestial", "Sky", "Agartha", "Inferno", "Hades", "Aztlan", "Primal", "Elemental", "Void",
 };
 static const unsigned char PLANE_HAS_RECIPE[PLANE_ELYSIUM2] = {0, 1, 1, 1, 1, 1, 0, 0, 1, 1};
 
-// The index of vanilla plane `name` (0 Elysium to 9 the Void), or -1.
 static int vanillaPlaneNamed(const char *name) {
     for (int k = 0; k < PLANE_ELYSIUM2; k++)
         if (!strcmp(name, VANILLA_PLANE_SHORT_NAMES[k]) || !strcmp(name, VANILLA_PLANE_NAMES[k])) return k;
@@ -41,7 +39,6 @@ static int insidePlaneBuilt(int x, int y) {
     return x >= a.x && y >= a.y && x < a.x + a.w && y < a.y + a.h;
 }
 
-// Starts building plane `index` over `area`: the mark layer saved and emptied, square writes opened.
 static int beginPlaneBuild(int index, SquareRect area, const char *mod, const char *name) {
     planeBuild.savedMarks = malloc(sizeof(short) * MARK_LAYER_SQUARES);
     if (!planeBuild.savedMarks) {
@@ -55,7 +52,6 @@ static int beginPlaneBuild(int index, SquareRect area, const char *mod, const ch
     return 1;
 }
 
-// Ends the build beginPlaneBuild started: the marks back as they were, square writes closed.
 static void endPlaneBuild(void) {
     if (!planeBuild.active) return;
     memcpy(markLayer(), planeBuild.savedMarks, sizeof(short) * MARK_LAYER_SQUARES);
@@ -65,7 +61,6 @@ static void endPlaneBuild(void) {
     stopWorldBuilding(planeBuild.previousArea);
 }
 
-// Clears every mark outside the plane being built.
 static void clearMarksOutsidePlane(void) {
     short *marks = markLayer();
     SquareRect a = planeBuild.area;
@@ -80,7 +75,6 @@ static void clearMarksOutsidePlane(void) {
     }
 }
 
-// The squares around a tool's work that lie outside the plane, kept as they were.
 typedef struct { int x0, y0, x1, y1; unsigned char *saved; } SquareGuard;
 static void guardSquares(SquareGuard *g, int x0, int y0, int x1, int y1) {
     g->x0 = x0 < 0 ? 0 : x0, g->y0 = y0 < 0 ? 0 : y0;
@@ -110,13 +104,11 @@ static const char *genMod(lua_State *L) {
     LuaScript *s = luaScriptOf(L);
     return s ? s->mod : "?";
 }
-// 1 while a plane is being built; else logs not_world_building for `call`.
 static int genBuilding(lua_State *L, const char *call) {
     if (planeBuild.active) return 1;
     refuseLuaCall(genMod(L), call, "not_world_building", "plane=-");
     return 0;
 }
-// Reads integer argument `arg` (`what` in the log) into *out; 0 and out_of_range outside min..max.
 static int genInt(lua_State *L, const char *call, int arg, const char *what, lua_Integer min, lua_Integer max, int *out) {
     lua_Integer v = luaL_checkinteger(L, arg);
     if (v < min || v > max) {
@@ -126,7 +118,6 @@ static int genInt(lua_State *L, const char *call, int arg, const char *what, lua
     *out = (int)v;
     return 1;
 }
-// Reads the square at arguments `arg` and `arg` + 1: 1 when a plane is being built and it is on it.
 static int genSquare(lua_State *L, const char *call, int arg, int *x, int *y) {
     lua_Integer lx = luaL_checkinteger(L, arg), ly = luaL_checkinteger(L, arg + 1);
     if (!genBuilding(L, call)) return 0;
@@ -138,7 +129,6 @@ static int genSquare(lua_State *L, const char *call, int arg, int *x, int *y) {
     *x = (int)lx, *y = (int)ly;
     return 1;
 }
-// Reads the rectangle at arguments `arg`..`arg` + 3, cut to the plane being built; 0 when nothing is left.
 static int genRect(lua_State *L, const char *call, int arg, SquareRect *r) {
     lua_Integer x = luaL_checkinteger(L, arg), y = luaL_checkinteger(L, arg + 1);
     lua_Integer w = luaL_checkinteger(L, arg + 2), h = luaL_checkinteger(L, arg + 3);
@@ -157,11 +147,18 @@ static int genTerrain(lua_State *L, const char *call, int arg, int *out) {
     return genInt(L, call, arg, "terrain", 0, G32(RVA_LAST_TERRAIN), out);
 }
 static int genMark(lua_State *L, const char *call, int arg, int *out) { return genInt(L, call, arg, "mark", 1, SHRT_MAX, out); }
-// A terrain to test against: a terrain number or one of the game's negative terrain codes.
-static int genCode(lua_State *L, const char *call, int arg, int *out) { return genInt(L, call, arg, "code", SHRT_MIN, SHRT_MAX, out); }
+#define TERRAIN_CODE_NOT_FIRST 8001
+#define TERRAIN_CODE_NOT_LAST  11999
+static int genCode(lua_State *L, const char *call, int arg, int *out) {
+    lua_Integer v = luaL_checkinteger(L, arg);
+    if (v >= TERRAIN_CODE_NOT_FIRST && v <= TERRAIN_CODE_NOT_LAST) {
+        *out = (int)v;
+        return 1;
+    }
+    return genInt(L, call, arg, "code", TERRAIN_MATCH_CODE_MIN, TERRAIN_TABLE_MAX - 1, out);
+}
 static int genPlaneSquares(void) { return planeBuild.area.w * planeBuild.area.h; }
 
-// coe5.gen.random(n): the game's own random draw, 0 to n - 1 (RVA_RANDOM), as the builders draw.
 static int lGenRandom(lua_State *L) {
     int n;
     if (!genInt(L, "coe5.gen.random", 1, "n", 0, INT_MAX, &n) || !genBuilding(L, "coe5.gen.random")) return 0;
@@ -169,7 +166,6 @@ static int lGenRandom(lua_State *L) {
     return 1;
 }
 
-// coe5.gen.markAt(x, y) and coe5.gen.setMark(x, y, mark): a square's mark (0 for none).
 static int lGenMarkAt(lua_State *L) {
     int x, y;
     if (!genSquare(L, "coe5.gen.markAt", 1, &x, &y)) return 0;
@@ -183,7 +179,6 @@ static int lGenSetMark(lua_State *L) {
     return 0;
 }
 
-// coe5.gen.setTerrain(x, y, terrain): stores a square's terrain as the builders do.
 static int lGenSetTerrain(lua_State *L) {
     int x, y, terrain;
     if (!genSquare(L, "coe5.gen.setTerrain", 1, &x, &y) || !genTerrain(L, "coe5.gen.setTerrain", 3, &terrain)) return 0;
@@ -191,7 +186,6 @@ static int lGenSetTerrain(lua_State *L) {
     return 0;
 }
 
-// coe5.gen.terrainFlags(terrain): the terrain's flag bits (the terrain table's u64 at +0x50).
 static int lGenTerrainFlags(lua_State *L) {
     int terrain;
     if (!genTerrain(L, "coe5.gen.terrainFlags", 1, &terrain)) return 0;
@@ -201,7 +195,6 @@ static int lGenTerrainFlags(lua_State *L) {
     return 1;
 }
 
-// coe5.gen.terrainNear(x, y, code, radius): counts matching squares within radius.
 static int lGenTerrainNear(lua_State *L) {
     int x, y, code, radius;
     if (!genSquare(L, "coe5.gen.terrainNear", 1, &x, &y) || !genCode(L, "coe5.gen.terrainNear", 3, &code) ||
@@ -211,7 +204,6 @@ static int lGenTerrainNear(lua_State *L) {
     return 1;
 }
 
-// coe5.gen.markRect(x, y, w, h, mark): marks a rectangle, cut to the plane (RVA_GEN_MARK_RECT).
 static int lGenMarkRect(lua_State *L) {
     SquareRect r;
     int mark;
@@ -220,7 +212,6 @@ static int lGenMarkRect(lua_State *L) {
     return 0;
 }
 
-// coe5.gen.markWalk(x, y, terrain or -1, count, mark): marks squares along a random walk.
 static int lGenMarkWalk(lua_State *L) {
     int x, y, terrain, count, mark;
     if (!genSquare(L, "coe5.gen.markWalk", 1, &x, &y) || !genInt(L, "coe5.gen.markWalk", 3, "terrain", -1, G32(RVA_LAST_TERRAIN), &terrain) ||
@@ -231,7 +222,6 @@ static int lGenMarkWalk(lua_State *L) {
     return 0;
 }
 
-// coe5.gen.markBlob(x, y, size, mark): the builders' round blob (RVA_MARK_BLOB) from a square of the plane.
 static int lGenMarkBlob(lua_State *L) {
     int x, y, size, mark;
     if (!genSquare(L, "coe5.gen.markBlob", 1, &x, &y) || !genInt(L, "coe5.gen.markBlob", 3, "size", 1, genPlaneSquares(), &size) ||
@@ -242,7 +232,6 @@ static int lGenMarkBlob(lua_State *L) {
     return 0;
 }
 
-// coe5.gen.markRiver(x1, y1, x2, y2, mark, mode): marks the cheapest path between two squares.
 static int lGenMarkRiver(lua_State *L) {
     int x1, y1, x2, y2, mark, mode;
     if (!genSquare(L, "coe5.gen.markRiver", 1, &x1, &y1) || !genSquare(L, "coe5.gen.markRiver", 3, &x2, &y2) ||
@@ -254,7 +243,6 @@ static int lGenMarkRiver(lua_State *L) {
     return 1;
 }
 
-// coe5.gen.marksToTerrain(mark, from, to): turns marked squares of one terrain into another.
 static int lGenMarksToTerrain(lua_State *L) {
     int mark, from, to;
     if (!genMark(L, "coe5.gen.marksToTerrain", 1, &mark) || !genCode(L, "coe5.gen.marksToTerrain", 2, &from) ||
@@ -264,7 +252,6 @@ static int lGenMarksToTerrain(lua_State *L) {
     return 1;
 }
 
-// coe5.gen.marksToTerrainChance(mark, terrain, percent): turns marked squares into a terrain by chance.
 static int lGenMarksToTerrainChance(lua_State *L) {
     int mark, terrain, percent;
     if (!genMark(L, "coe5.gen.marksToTerrainChance", 1, &mark) || !genTerrain(L, "coe5.gen.marksToTerrainChance", 2, &terrain) ||
@@ -283,7 +270,6 @@ static int lGenMarksToTerrainChance(lua_State *L) {
     return 1;
 }
 
-// The squares of the plane marked `mark`.
 static int countPlaneMarks(int mark) {
     SquareRect a = planeBuild.area;
     const short *marks = markLayer();
@@ -293,7 +279,6 @@ static int countPlaneMarks(int mark) {
     return n;
 }
 
-// coe5.gen.markNearTerrain(terrain, code, mark): marks squares of a terrain next to a code.
 static int lGenMarkNearTerrain(lua_State *L) {
     int terrain, code, mark;
     if (!genCode(L, "coe5.gen.markNearTerrain", 1, &terrain) || !genCode(L, "coe5.gen.markNearTerrain", 2, &code) ||
@@ -305,7 +290,6 @@ static int lGenMarkNearTerrain(lua_State *L) {
     return 1;
 }
 
-// coe5.gen.markVoidNear(code, mark, radius): marks Void squares near a code.
 static int lGenMarkVoidNear(lua_State *L) {
     int code, mark, radius;
     if (!genCode(L, "coe5.gen.markVoidNear", 1, &code) || !genMark(L, "coe5.gen.markVoidNear", 2, &mark) ||
@@ -321,7 +305,6 @@ static int lGenMarkVoidNear(lua_State *L) {
     return 1;
 }
 
-// coe5.gen.findCaveSpot(need): a random Cave Wall square with enough Cave Walls around it.
 static int lGenFindCaveSpot(lua_State *L) {
     int need, x = -1, y = -1;
     if (!genInt(L, "coe5.gen.findCaveSpot", 1, "need", 0, 25, &need) || !genBuilding(L, "coe5.gen.findCaveSpot")) return 0;
@@ -336,7 +319,6 @@ static int lGenFindCaveSpot(lua_State *L) {
     return 2;
 }
 
-// coe5.gen.setFixedTemperature(x, y, w, h): temperature 25 on the rectangle ("setfixtemp").
 static int lGenSetFixedTemperature(lua_State *L) {
     SquareRect r;
     if (!genRect(L, "coe5.gen.setFixedTemperature", 1, &r)) return 0;
@@ -344,7 +326,6 @@ static int lGenSetFixedTemperature(lua_State *L) {
     return 0;
 }
 
-// coe5.gen.setTemperatures(x, y, w, h): sets a rectangle's temperatures as the game does.
 #define HEAT_REACH 6
 static int lGenSetTemperatures(lua_State *L) {
     SquareRect r;
@@ -356,7 +337,6 @@ static int lGenSetTemperatures(lua_State *L) {
     return 0;
 }
 
-// coe5.gen.setGround(x, y, w, h, terrain or -1): sets a rectangle's ground kinds.
 static int lGenSetGround(lua_State *L) {
     SquareRect r;
     int terrain;
@@ -365,21 +345,19 @@ static int lGenSetGround(lua_State *L) {
     return 0;
 }
 
-// coe5.gen.floodPlane(): floods open squares joined to water; returns how many.
 static int lGenFloodPlane(lua_State *L) {
     if (!genBuilding(L, "coe5.gen.floodPlane")) return 0;
     lua_pushinteger(L, GAME_FN(int (*)(int), RVA_GEN_FLOOD_PLANE)(planeBuild.index));
     return 1;
 }
 
-// coe5.gen.updateMoistWalls(): Cave Wall next to water becomes Moist Cave Wall (RVA_GEN_UPDATE_MOIST_WALLS).
 static int lGenUpdateMoistWalls(lua_State *L) {
     if (!genBuilding(L, "coe5.gen.updateMoistWalls")) return 0;
     GAME_FN(void (*)(int), RVA_GEN_UPDATE_MOIST_WALLS)(planeBuild.index);
     return 0;
 }
 
-// coe5.gen.fixDiagonals(): closes corner-only gaps in Rock Ground with Cave Wall.
+// @platform-split plane_diagonal_fix: Windows passes the plane; Mac's copy reads Agartha's record (plane 3), which holds the plane's rectangle for the call
 static int lGenFixDiagonals(lua_State *L) {
     if (!genBuilding(L, "coe5.gen.fixDiagonals")) return 0;
 #ifdef __APPLE__
@@ -396,7 +374,6 @@ static int lGenFixDiagonals(lua_State *L) {
     return 1;
 }
 
-// coe5.gen.spreadTerrain(x, y, tries, onto): spreads a square's terrain onto neighbours.
 static int lGenSpreadTerrain(lua_State *L) {
     int x, y, tries, onto;
     if (!genSquare(L, "coe5.gen.spreadTerrain", 1, &x, &y) || !genInt(L, "coe5.gen.spreadTerrain", 3, "tries", 0, 1000, &tries) ||
@@ -410,7 +387,6 @@ static int lGenSpreadTerrain(lua_State *L) {
     return 1;
 }
 
-// coe5.gen.specBlob(x, y, wx, wy, n, t1, t2[, a, b, c]): grows Elysium's terrain blob.
 static int lGenSpecBlob(lua_State *L) {
     int x, y, wx, wy, n, t1, t2, a = 0, b = 0, c = 0;
     const char *call = "coe5.gen.specBlob";
@@ -427,7 +403,6 @@ static int lGenSpecBlob(lua_State *L) {
     return 0;
 }
 
-// coe5.gen.drawRiver(x, y, tx, ty): draws Elysium's river between two squares.
 #define RIVER_REACH 8
 static int lGenDrawRiver(lua_State *L) {
     int x, y, tx, ty;
@@ -440,7 +415,6 @@ static int lGenDrawRiver(lua_State *L) {
     return 0;
 }
 
-// coe5.gen.decorateSquare(x, y): adds Elysium's sites to one square.
 #define DECORATE_REACH 16
 static int lGenDecorateSquare(lua_State *L) {
     int x, y;
@@ -452,7 +426,6 @@ static int lGenDecorateSquare(lua_State *L) {
     return 0;
 }
 
-// coe5.gen.addGroundItems(x, y, count, level): puts random items on a square's ground.
 static int lGenAddGroundItems(lua_State *L) {
     int x, y, count, level;
     if (!genSquare(L, "coe5.gen.addGroundItems", 1, &x, &y) || !genInt(L, "coe5.gen.addGroundItems", 3, "count", 1, 50, &count) ||
@@ -462,7 +435,6 @@ static int lGenAddGroundItems(lua_State *L) {
     return 0;
 }
 
-// coe5.gen.randomSquareOfTerrain(code): a random square matching a terrain; x, y, or nil.
 static int lGenRandomSquareOfTerrain(lua_State *L) {
     int code, x = -1, y = -1;
     if (!genCode(L, "coe5.gen.randomSquareOfTerrain", 1, &code) || !genBuilding(L, "coe5.gen.randomSquareOfTerrain")) return 0;
@@ -473,19 +445,58 @@ static int lGenRandomSquareOfTerrain(lua_State *L) {
     return 2;
 }
 
-// Whether (x, y) can hold the far end of a portal: a square of a plane, inside the world.
+static int lGenRandomMarkedSquare(lua_State *L) {
+    int mark, code, x = -1, y = -1;
+    if (!genMark(L, "coe5.gen.randomMarkedSquare", 1, &mark) || !genCode(L, "coe5.gen.randomMarkedSquare", 2, &code) ||
+        !genBuilding(L, "coe5.gen.randomMarkedSquare"))
+        return 0;
+    GAME_FN(int (*)(int, int, int, int *, int *), RVA_MARK_RANDOM_LOC)(mark, code, lua_toboolean(L, 3), &x, &y);
+    if (x < 0 || y < 0 || !insidePlaneBuilt(x, y)) return 0;
+    lua_pushinteger(L, x);
+    lua_pushinteger(L, y);
+    return 2;
+}
+
+#define HEAT_BLOB_STEPS_MAX 1000
+static unsigned char heatBlobDone[MAP_COLUMNS_MAX * MAP_COLUMN_SQUARES];
+static void heatBlob(int x0, int y0, int squares, int amount) {
+    int (*random)(int) = GAME_FN(int (*)(int), RVA_RANDOM);
+    int mapW = G32(RVA_MAP_W), mapH = G32(RVA_MAP_H);
+    memset(heatBlobDone, 0, sizeof heatBlobDone);
+    int x = x0, y = y0, counted = 0;
+    for (int step = 0;; step++) {
+        if (x < 0 || y < 0 || x >= mapW || y >= mapH || x >= MAP_COLUMNS_MAX || y >= MAP_COLUMN_SQUARES) {
+            counted++, x = x0, y = y0;
+        } else if (!heatBlobDone[(size_t)x * MAP_COLUMN_SQUARES + (size_t)y]) {
+            heatBlobDone[(size_t)x * MAP_COLUMN_SQUARES + (size_t)y] = 1;
+            counted++;
+            if (insidePlaneBuilt(x, y)) *(short *)(squareRecordAt(x, y) + SQUARE_TEMPERATURE) += (short)amount;
+            x = x0, y = y0;
+        }
+        if (step >= HEAT_BLOB_STEPS_MAX || counted >= squares) return;
+        if (random(100) < 50) x += random(3) - 1;
+        else y += random(3) - 1;
+    }
+}
+static int lGenHeatBlob(lua_State *L) {
+    int x, y, squares, amount;
+    if (!genSquare(L, "coe5.gen.heatBlob", 1, &x, &y) || !genInt(L, "coe5.gen.heatBlob", 3, "squares", 1, genPlaneSquares(), &squares) ||
+        !genInt(L, "coe5.gen.heatBlob", 4, "amount", SHRT_MIN, SHRT_MAX, &amount))
+        return 0;
+    heatBlob(x, y, squares, amount);
+    return 0;
+}
+
 static int portalEndAllowed(lua_Integer x, lua_Integer y) {
     return x >= 0 && y >= 0 && x < G32(RVA_MAP_DEPTH) && x < MAP_COLUMNS_MAX && y < G32(RVA_MAP_H) && y < MAP_COLUMN_SQUARES &&
            GAME_FN(int (*)(int, int), RVA_PLANE_AT)((int)x, (int)y) >= 0;
 }
 
-// Writes a portal pair between two squares, as the game does.
 static void setPortalPair(int x1, int y1, int x2, int y2, int twoway, int n) {
     *(short *)(squareRecordAt(x1, y1) + SQUARE_PORTAL) = (short)n;
     *(short *)(squareRecordAt(x2, y2) + SQUARE_PORTAL) = (short)(twoway ? n : -n);
 }
 
-// A portal number no square holds yet, picked as the game picks it.
 static int newPortalNumber(void) {
     int n = PORTAL_NUMBER_FIRST, x, y;
     for (int i = 0; i < PORTAL_NUMBER_TRIES; i++) {
@@ -495,7 +506,6 @@ static int newPortalNumber(void) {
     return n;
 }
 
-// coe5.gen.setPortalPair and coe5.gen.linkNewPortal: a portal from the plane to any square.
 static int genPortal(lua_State *L, const char *call, int pick) {
     int x1, y1, n = 0;
     if (!genSquare(L, call, 1, &x1, &y1)) return 0;
@@ -514,7 +524,6 @@ static int genPortal(lua_State *L, const char *call, int pick) {
 static int lGenSetPortalPair(lua_State *L) { return genPortal(L, "coe5.gen.setPortalPair", 0); }
 static int lGenLinkNewPortal(lua_State *L) { return genPortal(L, "coe5.gen.linkNewPortal", 1); }
 
-// coe5.gen.refuseSmallPlane(step, minW, minH): true when the plane is big enough for the step.
 static int lGenRefuseSmallPlane(lua_State *L) {
     const char *step = luaL_checkstring(L, 1);
     int minW, minH;
@@ -540,14 +549,13 @@ static const luaL_Reg LUA_GEN[] = {
     {"fixDiagonals", lGenFixDiagonals}, {"spreadTerrain", lGenSpreadTerrain}, {"specBlob", lGenSpecBlob}, {"drawRiver", lGenDrawRiver},
     {"decorateSquare", lGenDecorateSquare}, {"addGroundItems", lGenAddGroundItems}, {"randomSquareOfTerrain", lGenRandomSquareOfTerrain},
     {"setPortalPair", lGenSetPortalPair}, {"linkNewPortal", lGenLinkNewPortal}, {"refuseSmallPlane", lGenRefuseSmallPlane},
-    {"stampPiece", lGenStampPiece}, {NULL, NULL},
+    {"stampPiece", lGenStampPiece}, {"randomMarkedSquare", lGenRandomMarkedSquare}, {"heatBlob", lGenHeatBlob}, {NULL, NULL},
 };
 
 // ---- The recipes and the generate functions -----------------------------------------------------
 static char planeRecipesKey;
 static void pushLuaTextFile(lua_State *L, const char *path, const char *chunk);
 
-// The path of CoE5SE's own file `file` (beside CoE5SE.c5m); 0 when CoE5SE's folder isn't known.
 static const char *planeRecipesPathForTests;
 static int coe5seFilePath(const char *file, char *path, size_t size) {
     if (planeRecipesPathForTests) return buildPath(path, size, __func__, "%s", planeRecipesPathForTests);
@@ -557,7 +565,6 @@ static int coe5seFilePath(const char *file, char *path, size_t size) {
     return 0;
 }
 
-// Runs the recipes file in L, under its own protected call: argument 1 its path; returns its table.
 static int lLoadPlaneRecipes(lua_State *L) {
     pushLuaTextFile(L, lua_tostring(L, 1), PLANE_RECIPES_FILE);
     lua_call(L, 0, 1);
@@ -565,7 +572,6 @@ static int lLoadPlaneRecipes(lua_State *L) {
     return 1;
 }
 
-// Loads the recipes into script state L once; 1 when they are there. `call` names what asked for them: coe5.addPlane, or a block's planelike.
 static int planeRecipesLoaded(lua_State *L, const char *mod, const char *call) {
     if (lua_rawgetp(L, LUA_REGISTRYINDEX, &planeRecipesKey) == LUA_TTABLE) {
         lua_pop(L, 1);
@@ -588,7 +594,6 @@ static int planeRecipesLoaded(lua_State *L, const char *mod, const char *call) {
     return 1;
 }
 
-// The steps CoE5SE calls in a plane's script: the recipe's build, its special squares, the generate function.
 enum { PLANE_STEP_BUILD, PLANE_STEP_SPECIAL, PLANE_STEP_GENERATE };
 typedef struct { const CustomPlane *p; int step; } PlaneStepCall;
 static int lNoPlaneStep(lua_State *L) {
@@ -596,7 +601,6 @@ static int lNoPlaneStep(lua_State *L) {
     return 0;
 }
 
-// callLuaProtected's push: the step's function, then the plane as a table.
 static int pushPlaneStep(lua_State *L, void *ctx) {
     const PlaneStepCall *c = ctx;
     const CustomPlane *p = c->p;
@@ -632,7 +636,6 @@ static int pushPlaneStep(lua_State *L, void *ctx) {
     return 1;
 }
 
-// Runs step `step` of plane p in its script, as a build of the plane.
 static void runPlaneStep(const CustomPlane *p, int step) {
     LuaScript *s = p->script;
     if (!s || s->dead || !s->L) {
@@ -649,7 +652,6 @@ static void runPlaneStep(const CustomPlane *p, int step) {
              p->recipe >= 0 ? VANILLA_PLANE_SHORT_NAMES[p->recipe] : "-", ran);
 }
 
-// Builds a placed plane: its recipe, then its generate function.
 static LuaScript *wordPlaneScript(const CustomPlane *p);
 static void clearPlacedPieces(CustomPlane *p);
 static void stampPlanePieces(CustomPlane *p);
@@ -662,7 +664,6 @@ static void buildCustomPlane(CustomPlane *p) {
 }
 
 // ---- Special squares and the way in --------------------------------------------------------------
-// Whether plane p has a portal leading in from off the plane.
 static int planeHasWayIn(const CustomPlane *p) {
     int x0 = planeField(p->index, PLANE_X), y0 = planeField(p->index, PLANE_Y);
     static unsigned char onPlane[SHRT_MAX + 1];
@@ -685,7 +686,6 @@ static int planeHasWayIn(const CustomPlane *p) {
     return 0;
 }
 
-// Whether square (x, y) can take a gateway.
 static int onPlacedPiece(const PlaneLayout *layout, int x, int y);
 static int entranceSquareFree(const PlaneLayout *layout, int x, int y) {
     int terrain = *(short *)(squareRecordAt(x, y) + SQUARE_TERRAIN_TYPE);
@@ -693,7 +693,6 @@ static int entranceSquareFree(const PlaneLayout *layout, int x, int y) {
     return apcost < TERRAIN_APCOST_WALL && !*(short *)(squareRecordAt(x, y) + SQUARE_PORTAL) && (!layout || !onPlacedPiece(layout, x, y));
 }
 
-// A random matching square of a plane that can take a gateway; 0 when none.
 static int randomFreeSquare(int index, int code, const PlaneLayout *layout, int *x, int *y) {
     for (int i = 0; i < PLANE_PORTAL_TRIES; i++) {
         if (!GAME_FN(int (*)(int, int, int *, int *), RVA_RANDOM_SQUARE_OF_TERRAIN)(index, code, x, y)) return 0;
@@ -702,7 +701,6 @@ static int randomFreeSquare(int index, int code, const PlaneLayout *layout, int 
     return 0;
 }
 
-// A random square of plane p for its gateway, water included; 0 when none.
 static int anyFreeEntranceSquare(const CustomPlane *p, int *x, int *y) {
     int x0 = planeField(p->index, PLANE_X), y0 = planeField(p->index, PLANE_Y), count = 0;
     for (int sx = x0; sx < x0 + p->w; sx++)
@@ -718,7 +716,6 @@ static int anyFreeEntranceSquare(const CustomPlane *p, int *x, int *y) {
     return 0;
 }
 
-// Gives plane p a two-way gateway from Elysium when it has no way in.
 static void addDefaultPortal(const CustomPlane *p) {
     if (planeHasWayIn(p)) {
         writeLog("plane_portal", "mod=%s name=%s result=has_way_in", p->mod, p->name);
@@ -742,7 +739,6 @@ static void addDefaultPortal(const CustomPlane *p) {
              ex, ey, n, was);
 }
 
-// After the game's special squares: each plane's recipe step, zone swaps and way in.
 static unsigned char *guardPlacedPieces(const PlaneLayout *layout);
 static void keepPlacedPieces(const CustomPlane *p, unsigned char *saved);
 static void applyZoneSwaps(const CustomPlane *p);
@@ -763,7 +759,6 @@ static void addCustomPlanesSpecialSquares(void) {
 // ---- Population and the swap --------------------------------------------------------------------
 #ifdef __APPLE__
 #define PLAYER_HORRORS 26
-// The living units of the monster named `name`, as populate_void counts them before a unique.
 static int livingUnitsNamed(const char *name) {
     int last = G32(RVA_UNIT_COUNT), n = 0;
     for (int u = 0; u <= last && u < UNIT_TABLE_MAX; u++) {
@@ -774,7 +769,6 @@ static int livingUnitsNamed(const char *name) {
     return n;
 }
 
-// Mac's populate_void, which the game only inlines there.
 typedef int (*PopulateFn)(int x, int y, const char *name, int count, int player, int commander);
 static void populateVoidPort(void) {
     int x0 = planeField(9, PLANE_X), y0 = planeField(9, PLANE_Y), w = planeField(9, PLANE_W), h = planeField(9, PLANE_H);
@@ -836,7 +830,6 @@ static PopulateTools populateTools(void) {
                            GAME_FN(int (*)(int, int, int, const char *, int), RVA_SUMMON_STRING), G32(RVA_WILDER)};
 }
 
-// Agartha's cave pool (Rock Ground).
 static void agarthaCavePool(const PopulateTools *t, int x, int y, int n) {
     const char *name;
     switch (t->random(18)) {
@@ -871,7 +864,6 @@ static void agarthaCavePool(const PopulateTools *t, int x, int y, int n) {
     t->populate(x, y, name, n, PLAYER_INDEPENDENTS, -1);
 }
 
-// Agartha's Pale One pool (the deep deposits), then holdit.
 static void agarthaPaleOnePool(const PopulateTools *t, int x, int y, int n) {
     const char *name;
     int r = t->random(24);
@@ -902,7 +894,6 @@ static void agarthaPaleOnePool(const PopulateTools *t, int x, int y, int n) {
     t->holdit(x, y, 1);
 }
 
-// Agartha's crystal pool (Crystal Forest).
 static void agarthaCrystalPool(const PopulateTools *t, int x, int y, int n) {
     const char *name;
     switch (t->random(11)) {
@@ -938,7 +929,6 @@ static void agarthaCrystalPool(const PopulateTools *t, int x, int y, int n) {
     t->populate(x, y, name, n, PLAYER_INDEPENDENTS, -1);
 }
 
-// Agartha's cave temple pool, then holdit.
 static void agarthaTemplePool(const PopulateTools *t, int x, int y, int n) {
     const char *name;
     int r = t->random(10);
@@ -961,7 +951,6 @@ static void agarthaTemplePool(const PopulateTools *t, int x, int y, int n) {
     t->holdit(x, y, 1);
 }
 
-// populate_agartha, ported for Mac: every free square of record 3 by its terrain.
 static void populateAgarthaPort(void) {
     PopulateTools t = populateTools();
     int x0 = planeField(3, PLANE_X), y0 = planeField(3, PLANE_Y), w = planeField(3, PLANE_W), h = planeField(3, PLANE_H);
@@ -1051,14 +1040,12 @@ static void populateAgarthaPort(void) {
         }
 }
 
-// A Celestial court's priests: 10% each of a Saint, Pilgrim, Templar, Paladin and Bishop.
 static void celestialPriests(const PopulateTools *t, int x, int y) {
     static const char *const PRIESTS[] = {"Saint", "Pilgrim", "Templar", "Paladin", "Bishop"};
     for (size_t i = 0; i < sizeof PRIESTS / sizeof PRIESTS[0]; i++)
         if (t->random(100) < 10) t->populate(x, y, PRIESTS[i], 1, PLAYER_CELESTIAL, -1);
 }
 
-// The Celestial Plane's forest pool (player 24).
 static void celestialForestPool(const PopulateTools *t, int x, int y, int n) {
     const char *name;
     switch (t->random(14)) {
@@ -1102,7 +1089,6 @@ static void celestialForestPool(const PopulateTools *t, int x, int y, int n) {
     t->populate(x, y, name, n, PLAYER_INDEPENDENTS, -1);
 }
 
-// The Celestial Plane's farm pool (towns and villages too), then holdit.
 static void celestialFarmPool(const PopulateTools *t, int x, int y, int n) {
     int r = t->random(4);
     if (r == 0) {
@@ -1126,7 +1112,6 @@ static void celestialFarmPool(const PopulateTools *t, int x, int y, int n) {
     t->holdit(x, y, 1);
 }
 
-// The Celestial Plane's castle pool (Castle, Bronze Castle), then holdit.
 static void celestialCastlePool(const PopulateTools *t, int x, int y, int n) {
     int r = t->random(3);
     if (r == 0) {
@@ -1158,7 +1143,6 @@ static void celestialCastlePool(const PopulateTools *t, int x, int y, int n) {
     t->holdit(x, y, 1);
 }
 
-// The square populate_celestial puts an Apocalyptic Rider on, or -1, -1.
 static void celestialRiderSquare(const PopulateTools *t, int *rx, int *ry) {
     *rx = *ry = -1;
     int depth = G32(RVA_MAP_DEPTH), mapW = G32(RVA_MAP_W), mapH = G32(RVA_MAP_H), last = G32(RVA_LAST_PLANE);
@@ -1179,7 +1163,6 @@ static void celestialRiderSquare(const PopulateTools *t, int *rx, int *ry) {
     }
 }
 
-// populate_celestial, ported for Mac: every free square of record 1 by its terrain, then the four riders.
 static void populateCelestialPort(void) {
     PopulateTools t = populateTools();
     int x0 = planeField(1, PLANE_X), y0 = planeField(1, PLANE_Y), w = planeField(1, PLANE_W), h = planeField(1, PLANE_H);
@@ -1246,7 +1229,6 @@ static void populateCelestialPort(void) {
 }
 #endif
 
-// Each vanilla plane's populate function, 0 where the build has none.
 // @platform-split plane_populate_inlined: Mac has no populate function for Celestial, Agartha and the Void (new_world holds copies), so those three run as CoE5SE's ports of the Windows functions
 static unsigned int populateFunction(int plane) {
 #ifdef __APPLE__
@@ -1263,7 +1245,6 @@ static unsigned int populateFunction(int plane) {
     return plane >= 0 && plane < PLANE_ELYSIUM2 ? FUNCTIONS[plane] : 0;
 }
 
-// The living units of unique monsters and where they stand.
 typedef struct { int unit, x, y; } UniqueSpot;
 static int listLivingUniques(UniqueSpot **out) {
     int last = G32(RVA_UNIT_COUNT), n = 0;
@@ -1284,7 +1265,6 @@ static int listLivingUniques(UniqueSpot **out) {
     return n;
 }
 
-// Puts back each unique a population run moved; returns how many.
 typedef void (*TeleportArmyFn)(int unit, int a, int b, int c, int x, int y, int flag);
 static int keepUniquesInPlace(const UniqueSpot *spots, int n, const CustomPlane *p) {
     int kept = 0;
@@ -1300,7 +1280,6 @@ static int keepUniquesInPlace(const UniqueSpot *spots, int n, const CustomPlane 
     return kept;
 }
 
-// The living units on plane p.
 static int countPlaneUnits(const CustomPlane *p) {
     int last = G32(RVA_UNIT_COUNT), n = 0, x0 = planeField(p->index, PLANE_X), y0 = planeField(p->index, PLANE_Y);
     for (int u = 0; u <= last && u < UNIT_TABLE_MAX; u++) {
@@ -1311,7 +1290,6 @@ static int countPlaneUnits(const CustomPlane *p) {
     return n;
 }
 
-// Stocks plane p with its vanilla plane's monsters.
 static void populateCustomPlane(const CustomPlane *p) {
     int k = p->populate;
     if (k < 0 || k >= PLANE_ELYSIUM2) return;
@@ -1340,7 +1318,6 @@ static void populateCustomPlane(const CustomPlane *p) {
              countPlaneUnits(p), kept);
 }
 
-// Applies plane p's terrain swap.
 static void applyPlaneSwap(const CustomPlane *p) {
     if (!p->swapCount) return;
     int last = G32(RVA_LAST_TERRAIN), changed = 0, x0 = planeField(p->index, PLANE_X), y0 = planeField(p->index, PLANE_Y);
@@ -1361,7 +1338,6 @@ static void applyPlaneSwap(const CustomPlane *p) {
     writeLog("plane_swapped", "mod=%s name=%s pairs=%d squares=%d", p->mod, p->name, p->swapCount, changed);
 }
 
-// After new_world's last population: each placed plane's population and its zones' lists, then its swap.
 static void populatePlaneWithZones(const CustomPlane *p);
 static void giveFactionsTheirPlane(const CustomPlane *p);
 static void populateCustomPlanes(void) {
@@ -1375,13 +1351,11 @@ static void populateCustomPlanes(void) {
 }
 
 // ---- coe5.addPlane's recipe fields -----------------------------------------------------------------
-// What coe5.addPlane reads past name, w, h and fill.
 typedef struct {
     int recipe, populate, swapCount;
     short swapFrom[PLANE_SWAP_MAX], swapTo[PLANE_SWAP_MAX];
 } PlaneBuildFields;
 
-// Reads like (at stack index `likeAt`), populate, and swap into f; NULL, or the refusal's reason word.
 static const char *readPlaneBuildFields(lua_State *L, int likeAt, int populateAt, int swapAt, PlaneBuildFields *f) {
     f->recipe = f->populate = -1, f->swapCount = 0;
     if (!lua_isnil(L, likeAt)) {

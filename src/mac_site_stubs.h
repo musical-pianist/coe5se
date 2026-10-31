@@ -1,4 +1,4 @@
-// Mac: CoE5SE code at one game instruction, for the faction slots.
+// @platform-split faction_sites: Mac runs single game instructions through CoE5SE from the header padding, Windows from stubs near the game
 #pragma once
 #ifdef __APPLE__
 
@@ -18,7 +18,6 @@ typedef struct {
     uint32_t word;
     unsigned char *back;
     unsigned char *exits;
-                            // skip (+0), allow (+16) and refuse (+32)
     int kind, field, arg;
 } MacSite;
 
@@ -29,7 +28,6 @@ static unsigned char *macSiteShared;
 
 void macSiteRun(MacSiteContext *c, uint32_t index);
 
-// The shared code: the context on the stack under the entry's 144 bytes, macSiteRun, then return_i.
 __asm__(
     ".text\n.p2align 2\n.globl _coe5seMacSiteCommon\n_coe5seMacSiteCommon:\n"
     "  sub sp, sp, #784\n"
@@ -60,19 +58,16 @@ __asm__(
 extern const unsigned char coe5seMacSiteCommon[];
 
 // ---- Decoding the game's instruction -------------------------------------------------------------
-// A register's value as an instruction reads it: 31 is sp for a base, the zero register otherwise.
 static uint64_t macReg(const MacSiteContext *c, int r, int isBase) { return r == 31 ? (isBase ? c->sp : 0) : c->x[r]; }
 static void macSetReg(MacSiteContext *c, int r, uint64_t v) {
     if (r != 31) c->x[r] = v;
 }
 
-// An integer load or store with an immediate (scaled or not) or register offset, no writeback.
 typedef struct {
     int load, size, signedTo, rt;
     uint64_t address;
 } MacMemOp;
 
-// The register offset of a load or store: Rm extended (UXTW, LSL, SXTW, SXTX) and shifted by the size when S.
 static uint64_t macRegOffset(const MacSiteContext *c, uint32_t w, int size) {
     uint64_t m = macReg(c, (w >> 16) & 31, 0);
     int option = (w >> 13) & 7, shift = (w >> 12) & 1 ? __builtin_ctz((unsigned)size) : 0;
@@ -81,7 +76,6 @@ static uint64_t macRegOffset(const MacSiteContext *c, uint32_t w, int size) {
     return m << shift;
 }
 
-// Decodes word `w` as an integer load or store; 0 when it is another instruction.
 static int macDecodeMemOp(const MacSiteContext *c, uint32_t w, MacMemOp *op) {
     if (((w >> 26) & 1) || ((w >> 27) & 7) != 7) return 0;
     int size = 1 << (w >> 30), opc = (w >> 22) & 3, rn = (w >> 5) & 31;
@@ -97,7 +91,6 @@ static int macDecodeMemOp(const MacSiteContext *c, uint32_t w, MacMemOp *op) {
     return 1;
 }
 
-// A 16-byte SIMD store's register, size and address; 0 for another instruction.
 static int macDecodeSimdStore(uint32_t w, int *rt, int *size, uint64_t *address, const MacSiteContext *c) {
     uint64_t base = macReg(c, (w >> 5) & 31, 1);
     if ((w & 0xffc00000) == 0x3d800000) *address = base + (uint64_t)((w >> 10) & 0xfff) * 16;
@@ -107,7 +100,6 @@ static int macDecodeSimdStore(uint32_t w, int *rt, int *size, uint64_t *address,
     return 1;
 }
 
-// Does the decoded load or store at `address` (which may differ from the op's own, for a redirect).
 static void macDoMemOp(MacSiteContext *c, const MacMemOp *op, unsigned char *address) {
     if (!op->load) {
         uint64_t v = macReg(c, op->rt, 0);
@@ -124,7 +116,6 @@ static void macDoMemOp(MacSiteContext *c, const MacMemOp *op, unsigned char *add
     macSetReg(c, op->rt, v);
 }
 
-// A compare's two values, width, condition and flags.
 typedef struct { int rn, add, wide, cond, nzcv; uint64_t operand; } MacCompare;
 
 static int macDecodeCompare(const MacSiteContext *c, uint32_t w, MacCompare *cmp) {
@@ -152,7 +143,6 @@ static int macDecodeCompare(const MacSiteContext *c, uint32_t w, MacCompare *cmp
     return 0;
 }
 
-// Whether condition `cond` holds for flags `nzcv` (N, Z, C, V in bits 31..28).
 static int macConditionHolds(uint64_t nzcv, int cond) {
     int n = (nzcv >> 31) & 1, z = (nzcv >> 30) & 1, carry = (nzcv >> 29) & 1, v = (nzcv >> 28) & 1, holds;
     switch (cond >> 1) {
@@ -168,7 +158,6 @@ static int macConditionHolds(uint64_t nzcv, int cond) {
     return cond & 1 ? !holds : holds;
 }
 
-// The flags a compare of `a` with the operand sets, as the CPU sets them (N, Z, C, V in bits 31..28).
 static uint64_t macCompareFlags(uint64_t a, const MacCompare *cmp) {
     uint64_t b = cmp->operand, r;
     int n, z, carry, v;
@@ -184,14 +173,12 @@ static uint64_t macCompareFlags(uint64_t a, const MacCompare *cmp) {
     }
     return (uint64_t)n << 31 | (uint64_t)z << 30 | (uint64_t)carry << 29 | (uint64_t)v << 28;
 }
-// The flags after the compare, from flags `before`: a conditional compare whose condition fails sets its own.
 static uint64_t macCompareFlagsAfter(uint64_t a, const MacCompare *cmp, uint64_t before) {
     if (cmp->cond >= 0 && !macConditionHolds(before, cmp->cond)) return (uint64_t)cmp->nzcv << 28;
     return macCompareFlags(a, cmp);
 }
 
 // ---- The kinds -----------------------------------------------------------------------------------
-// The side array entry a square array address names, when it is a faction slot's; NULL for a game slot's.
 static unsigned char *macFactionSquareEntry(uint64_t address, int field) {
     int size = field == SQUARE_AI_STRENGTH ? 4 : 1;
     uint64_t first = (uint64_t)(uintptr_t)(gameBase + RVA_SQUARE_RECORDS) + (uint64_t)field;
@@ -206,7 +193,6 @@ static unsigned char *macFactionSquareEntry(uint64_t address, int field) {
          : (unsigned char *)(factionSquareAiStrength + i);
 }
 
-// A mirror: the game's store set a game slot's entries of a square from `address`; its faction slots get `value` too.
 static void macMirrorFactionRow(uint64_t address, int field, unsigned char value) {
     uint64_t first = (uint64_t)(uintptr_t)(gameBase + RVA_SQUARE_RECORDS) + (uint64_t)field;
     if (address < first) return;
@@ -220,7 +206,6 @@ static int macSlotTestValue(int behaviour, int slot);
 static int macWanderGate(int slot, int plane, int value);
 static int macAvoidRefusal(int mover, int owner);
 
-// The steps the game unrolled over its 32 slots, done for the faction slots (MAC_SITE_CALLBACK's arg).
 enum { MAC_CALLBACK_CLEAR_TURN_STARTED, MAC_CALLBACK_CLEAR_INT_C_BIT0, MAC_CALLBACK_RESET_INCOME_CACHES, MAC_CALLBACK_COUNT };
 #define PLAYER_INCOME_CACHE_BYTES (14 * 4)
 static void macFactionSlotsClearIntC(unsigned int bit) {
@@ -241,7 +226,6 @@ static void macRunCallback(int which) {
             memset(playerSlotAddress(RVA_PLAYER_INCOME_CACHE, f, PLAYER_BLOCK_SIZE), 0xff, PLAYER_INCOME_CACHE_BYTES);
 }
 
-// Does site `index`'s instruction, or its faction path.
 void macSiteRun(MacSiteContext *c, uint32_t index) {
     const MacSite *s = &macSites[index];
     c->resume = (uint64_t)(uintptr_t)s->back;
@@ -305,14 +289,12 @@ static uint32_t macBranchTo(const unsigned char *at, const unsigned char *target
     return 0x14000000u | ((uint32_t)((target - at) >> 2) & 0x3ffffffu);
 }
 
-// The shared jump's 16 bytes: ldr x17, #8; br x17; .quad coe5seMacSiteCommon.
 static void macSharedCode(unsigned char out[16]) {
     static const uint32_t SHARED[2] = {0x58000051u, 0xd61f0220u};
     uint64_t target = (uint64_t)(uintptr_t)coe5seMacSiteCommon;
     memcpy(out, SHARED, 8), memcpy(out + 8, &target, 8);
 }
 
-// Site `index`'s entry and return (32 bytes at `entry`), for the game's instruction at `at`.
 static void macSiteCode(uint32_t code[8], const unsigned char *entry, const unsigned char *shared, const unsigned char *at, int index) {
     const unsigned char *back = entry + 16;
     code[0] = 0xd10243ffu;
@@ -325,7 +307,6 @@ static void macSiteCode(uint32_t code[8], const unsigned char *entry, const unsi
     code[7] = 0xd503201fu;
 }
 
-// Whether macSiteRun can do word `w` for `kind`.
 static int macSiteDecodes(uint32_t w, int kind) {
     MacSiteContext probe = {0};
     MacMemOp op;
@@ -335,7 +316,6 @@ static int macSiteDecodes(uint32_t w, int kind) {
     return macDecodeMemOp(&probe, w, &op);
 }
 
-// Puts site `at` on macSiteRun with `kind`; 1 when it is in.
 static int macSiteAdd(unsigned char *at, int kind, int field, int arg, const char *name) {
     uint32_t live;
     memcpy(&live, at, 4);
@@ -381,18 +361,14 @@ static int macSiteAdd(unsigned char *at, int kind, int field, int arg, const cha
 }
 
 // ---- The faction slots' sites -------------------------------------------------------------------
-// The game instructions CoE5SE runs for the faction slots on Mac.
 typedef struct { unsigned int rva; unsigned char kind; short field, arg; const char *name; } MacFactionSite;
 static const MacFactionSite MAC_FACTION_SITES[] = {
-    // RVA_PLAYER_TURN_START's copy of RVA_AI_REVEAL_PORTAL_EXITS: a portal square in view, then each square of its portal seen
     {MAC(0x1003929e0), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "turn_start_portal_seen"},
     {MAC(0x100392a4c), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "turn_start_exit_seen"},
     {MAC(0x100392a58), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "turn_start_exit_seen_write"},
-    // RVA_PLAY_GAME's copy of RVA_AUTO_RECRUIT's seen-mark aging: each mark up by 1 to 100, 0 on the player's squares
     {MAC(0x10038f8d8), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN_MARK, 0, "aging_mark"},
     {MAC(0x10038f8e8), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN_MARK, 0, "aging_mark_write"},
     {MAC(0x10038f914), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN_MARK, 0, "aging_mark_owned"},
-    // the readers a faction's turn reaches
     {MAC(0x10046805c), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "unit_visible_to_seen"},
     {MAC(0x100469cb8), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "random_square_seen"},
     {MAC(0x100548768), MAC_SITE_SQUARE_ARRAY, SQUARE_TRUE_TERRAIN_SEEN, 0, "wanderer_true_seen"},
@@ -405,7 +381,6 @@ static const MacFactionSite MAC_FACTION_SITES[] = {
     {MAC(0x10059be94), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "far_check_seen_at"},
     {MAC(0x10059c5bc), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "waytogo_portal_seen"},
     {MAC(0x10059cd24), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "spread_portal_seen"},
-    // RVA_EXECUTE_RITUAL for a faction caster, and its portal pair's reveal
     {MAC(0x10055f814), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "ritual_seen_write"},
     {MAC(0x1005604d0), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "ritual_seen_write_b"},
     {MAC(0x100560938), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "ritual_seen_at"},
@@ -415,7 +390,6 @@ static const MacFactionSite MAC_FACTION_SITES[] = {
     {MAC(0x10056194c), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "ritual_seen_at_e"},
     {MAC(0x1005718e8), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "portal_pair_seen"},
     {MAC(0x1005718f4), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "portal_pair_seen_write"},
-    // the ritual reveal (0x10035b2c4), with Mac's copies of RVA_REVEAL_DISC's team step
     {MAC(0x10035b528), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "terrain_reveal_seen"},
     {MAC(0x10035b654), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "terrain_reveal_team"},
     {MAC(0x10035b660), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "terrain_reveal_team_write"},
@@ -425,18 +399,15 @@ static const MacFactionSite MAC_FACTION_SITES[] = {
     {MAC(0x10035b87c), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "terrain_reveal_team_c"},
     {MAC(0x10035b888), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "terrain_reveal_team_write_c"},
     {MAC(0x10035b9ac), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN, 0, "terrain_reveal_seen_c"},
-    // RVA_AFTER_GAME_TURN's per-slot writes.
     {MAC(0x1003a58e8), MAC_SITE_SQUARE_ARRAY, SQUARE_SEEN_MARK, 0, "cloud_owner_mark"},
     {MAC(0x1003b50bc), MAC_SITE_SQUARE_MIRROR, SQUARE_SEEN, 0, "void_seen_clear"},
     {MAC(0x1003b59f4), MAC_SITE_STACK_GUARD, 4 * PLAYER_SLOTS_GAME, 0, "crash_landing_count"},
     {MAC(0x1003b6240), MAC_SITE_STACK_GUARD, 4 * PLAYER_SLOTS_GAME, 0, "land_drown_count"},
     {MAC(0x1003b65e0), MAC_SITE_STACK_GUARD, 4 * PLAYER_SLOTS_GAME, 0, "drown_count"},
     {MAC(0x1003b68b0), MAC_SITE_STACK_GUARD, 4 * PLAYER_SLOTS_GAME, 0, "drown_count_b"},
-    // RVA_DO_ALL_FIGHTS: a unit owner's entry in the int[32] of the slots in the battle (sp + 0xaf0), as Windows' guardjs
     {MAC(0x1003dc90c), MAC_SITE_STACK_GUARD, 4 * PLAYER_SLOTS_GAME, 0, "battle_slots"},
     {MAC(0x1003a1184), MAC_SITE_CALLBACK, 0, MAC_CALLBACK_CLEAR_TURN_STARTED, "month_turn_started"},
     {MAC(0x1003a2e0c), MAC_SITE_CALLBACK, 0, MAC_CALLBACK_CLEAR_INT_C_BIT0, "month_int_c_bit0"},
-    // RVA_RESET_INCOME_CACHES and its three unrolled copies: each runs the faction slots' reset at its slot 31 store
     {MAC(0x100568214), MAC_SITE_CALLBACK, 0, MAC_CALLBACK_RESET_INCOME_CACHES, "reset_income_caches"},
     {MAC(0x10037b59c), MAC_SITE_CALLBACK, 0, MAC_CALLBACK_RESET_INCOME_CACHES, "map_screen_income_caches"},
     {MAC(0x1004aaff0), MAC_SITE_CALLBACK, 0, MAC_CALLBACK_RESET_INCOME_CACHES, "conquer_income_caches"},
@@ -444,7 +415,6 @@ static const MacFactionSite MAC_FACTION_SITES[] = {
 };
 #define MAC_FACTION_SITE_COUNT (int)(sizeof MAC_FACTION_SITES / sizeof MAC_FACTION_SITES[0])
 
-// Puts each site on macSiteRun; 1 when every one is in.
 static int installMacFactionSites(void) {
     int ok = 0;
     for (int i = 0; i < MAC_FACTION_SITE_COUNT; i++) {
@@ -455,7 +425,6 @@ static int installMacFactionSites(void) {
     return ok == MAC_FACTION_SITE_COUNT;
 }
 
-// Points every branch to `rva` at `hook`; the number pointed.
 static int macRedirectCalls(unsigned int rva, void *hook, const char *name) {
     const struct mach_header_64 *mh = (const struct mach_header_64 *)gameBase;
     unsigned long size;

@@ -1,4 +1,3 @@
-// The player table move: PLAYER_SLOTS_MOVED slots instead of the game's 32, for mods' factions.
 #include <stdint.h>
 #ifndef __APPLE__
 #include "player_table_sites.h"
@@ -11,7 +10,6 @@ _Static_assert(PLAYER_SLOTS_MOVED <= 0x7f, "the Windows bounds hold it in an imm
 static int playerTableMoved;
 
 #ifndef __APPLE__
-// Each moved table: the game's address and one slot's entry size.
 static const struct { unsigned int rva; int entry; } PLAYER_TABLES[PLAYER_GROUP_COUNT] = {
     [PLAYER_GROUP_BLOCKS] = {RVA_SLOT_NAME, PLAYER_BLOCK_SIZE}, [PLAYER_GROUP_CONTROLLER] = {RVA_SLOT_CONTROLLER, 2},
     [PLAYER_GROUP_CLASS] = {RVA_SLOT_CLASS, 2},                 [PLAYER_GROUP_HOME_X] = {RVA_PLAYER_HOME_X, 2},
@@ -29,10 +27,8 @@ static const struct { unsigned int rva; int entry; } PLAYER_TABLES[PLAYER_GROUP_
 
 static unsigned char *movedPlayerTables[PLAYER_GROUP_COUNT];
 
-// The game's address of a table.
 static unsigned char *playerTableOld(int group) { return gameBase + PLAYER_TABLES[group].rva; }
 
-// The moved table holding a game address, or -1.
 static int playerTableHolding(unsigned int rva) {
     for (int g = 0; g < PLAYER_GROUP_COUNT; g++) {
         unsigned int end = PLAYER_TABLES[g].rva + (unsigned int)(PLAYER_SLOTS_GAME * PLAYER_TABLES[g].entry);
@@ -60,17 +56,14 @@ static unsigned char *playerSlotAddress(unsigned int rva0, int player, int entry
 
 static int playerSlotCount(void) { return playerTableMoved ? PLAYER_SLOTS_MOVED : PLAYER_SLOTS_GAME; }
 
-// The new value of a slot bound: 32 becomes 48, 31 becomes 47.
 static int movedPlayerBound(int game) { return game + FACTION_SLOT_TARGET; }
 
-// The entries in each int16 table and the plane-seen cache.
 #define PLAYER_SLOTS_PADDED 64
 _Static_assert(PLAYER_SLOTS_PADDED % PLAYER_SLOTS_GAME == 0 && PLAYER_SLOTS_PADDED >= PLAYER_SLOTS_MOVED, "whole steps of 32");
 #ifdef __APPLE__
 _Static_assert(PLAYER_SLOTS_PADDED * 2 <= (RVA_PLAYER_HOME_Y - RVA_PLAYER_HOME_X) + PLAYER_HOME_Y_MOVED_BY, "home_x's padded entries end before home_y");
 #endif
 
-// Copies the game's 32 entries of each table to its new place and fills the faction slots' entries.
 static void fillMovedPlayerTables(unsigned char *const tables[PLAYER_GROUP_COUNT]) {
     for (int g = 0; g < PLAYER_GROUP_COUNT; g++)
         memcpy(tables[g], playerTableOld(g), (size_t)PLAYER_SLOTS_GAME * (size_t)PLAYER_TABLES[g].entry);
@@ -99,7 +92,6 @@ static void queuePlayerWrite(unsigned char *at, int value, int size) {
     playerMoveWrites[playerMoveWriteCount++].size = size;
 }
 
-// Queues every site's new field, every bound's new imm8, every count's new imm32 and every guard.
 static int queuePlayerTableWrites(unsigned char *const tables[PLAYER_GROUP_COUNT]) {
     int matched = 0;
     playerMoveWriteCount = 0;
@@ -151,7 +143,6 @@ static int queuePlayerTableWrites(unsigned char *const tables[PLAYER_GROUP_COUNT
     return matched;
 }
 
-// Each table's place in the one block the move allocates (page-aligned for the blocks, 16 for the rest).
 #define PLAYER_BLOCKS_BYTES    ((size_t)PLAYER_SLOTS_MOVED * PLAYER_BLOCK_SIZE)
 #define PLAYER_SMALL_AT        ((PLAYER_BLOCKS_BYTES + 0xfff) & ~(size_t)0xfff)
 static const unsigned short PLAYER_SMALL_OFFSET[PLAYER_GROUP_COUNT] = {
@@ -160,7 +151,6 @@ static const unsigned short PLAYER_SMALL_OFFSET[PLAYER_GROUP_COUNT] = {
 };
 _Static_assert(PLAYER_SLOTS_PADDED * 2 <= 0x80 && PLAYER_SLOTS_MOVED * 12 <= 0x280 && PLAYER_SLOTS_PADDED * 11 <= 0x1000 - 0x480, "the tables don't overlap");
 
-// The main save's read of a player's cast counts, relative to its loop's pointer into the player blocks.
 static int saveCastReadAdjusted;
 static void adjustSaveCastCountRead(void) {
     if (saveCastReadAdjusted || !playerTableMoved || !ritualExpansionActive) return;
@@ -173,7 +163,6 @@ static void adjustSaveCastCountRead(void) {
     writeLog("save_cast_read_adjusted", "ok=%d", saveCastReadAdjusted);
 }
 
-// Moves the tables, or changes nothing.
 static int installPlayerTableMove(void) {
     if (!gameCodeMatches) {
         writeLog("player_table_not_moved", "reason=game_code_differs sites=0 of %d", PLAYER_MOVE_SITE_COUNT);
@@ -218,7 +207,6 @@ static int installPlayerTableMove(void) {
 }
 #else
 // ---- Mac: the patch ----------------------------------------------------------------------------
-// Mac's built-in sizes of the 32 slots, each with its 48-slot word.
 #define PLAYER_IMM12 (0xfffu << 10)
 #define PLAYER_IMM16 (0xffffu << 5)
 typedef struct { unsigned int rva; uint32_t mask, value; } PlayerMacWord;
@@ -247,7 +235,6 @@ static void queuePlayerWord(unsigned int rva, uint32_t word) {
     memcpy(&playerMoveWrites[playerMoveWriteCount++].old, gameBase + rva, 4);
 }
 
-// Queues every adrp's new page, every home_y use's new offset and every bound's new immediate.
 static int queuePlayerTableWrites(unsigned char *const tables[PLAYER_GROUP_COUNT]) {
     int matched = 0;
     playerMoveWriteCount = 0;
@@ -288,7 +275,6 @@ static int queuePlayerTableWrites(unsigned char *const tables[PLAYER_GROUP_COUNT
     return matched;
 }
 
-// Writes the queued words, one protection change per run of words on the same page.
 static int writePlayerWords(void) {
     int i = 0;
     while (i < playerMoveWriteCount) {
@@ -304,7 +290,6 @@ static int writePlayerWords(void) {
     return i;
 }
 
-// Moves the tables, or changes nothing.
 static int installPlayerTableMove(void) {
     if (!gameCodeMatches) {
         writeLog("player_table_not_moved", "reason=game_code_differs sites=0 of %d", PLAYER_MOVE_SITE_COUNT);
@@ -351,7 +336,6 @@ static int installPlayerTableMove(void) {
     return 1;
 }
 
-// The Ritual Expansion's three cast count stubs, relative to their loops' pointers into the player blocks.
 static int saveCastReadAdjusted;
 static void adjustSaveCastCountRead(void) {
     if (saveCastReadAdjusted || !playerTableMoved || !ritualExpansionActive) return;
@@ -368,7 +352,6 @@ static void adjustSaveCastCountRead(void) {
 }
 #endif
 
-// Moves the tables once per launch, at the first faction a mod declares.
 static int ensurePlayerTableMoved(void) {
     static int tried;
     if (playerTableMoved || tried) return playerTableMoved;

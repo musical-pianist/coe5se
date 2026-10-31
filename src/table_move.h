@@ -1,20 +1,16 @@
-// The table moves: bigger weapon, item, class and monster tables for mods.
 #include <stdint.h>
 
 enum { TABLE_FIELD_REL32, TABLE_FIELD_DISP32, TABLE_FIELD_REL32_END, TABLE_FIELD_DISP32_END };
 
-// One rewrite of an instruction that builds a table address: the 4-byte field at rva + fieldOffset.
 typedef struct {
     unsigned int rva;
     unsigned char fieldOffset, kind;
 } TableMoveSite;
 
-// A table site's field once the table moves: the distance to the new table, and for an end pointer past the
 static __attribute__((unused)) long long tableMovedField(int field, long long delta, unsigned char kind, long long growth) {
     return field + delta + (kind == TABLE_FIELD_REL32_END || kind == TABLE_FIELD_DISP32_END ? growth : 0);
 }
 
-// A rewrite whose new value isn't a distance: a bound or a size, the 4-byte field at rva + fieldOffset.
 typedef struct {
     unsigned int rva;
     int fieldOffset;
@@ -22,36 +18,30 @@ typedef struct {
     const char *name;
 } TableValueSite;
 
-// A rewrite of a field that holds no table address: `fieldSize` bytes at rva + fieldOffset set to `value`.
 typedef struct {
     unsigned int rva;
     unsigned char fieldOffset, fieldSize;
     int value;
 } TablePatchSite;
 
-// Weapons: mods' weapons take slots from 1200.
 #define FIRST_MOD_WEAPON_SLOT     1200
 #define MOD_WEAPONS_ADDED         2000
 #define LAST_MOD_WEAPON_SLOT      (WEAPON_RECORDS_GAME - 2 + MOD_WEAPONS_ADDED)
 #define WEAPON_RECORDS_MOVED      (LAST_MOD_WEAPON_SLOT + 2)
 
-// Items: mods' items take slots from 300.
 #define FIRST_MOD_ITEM_SLOT       300
 #define MOD_ITEMS_ADDED           1000
 #define LAST_MOD_ITEM_SLOT        (ITEM_TABLE_MAX - 2 + MOD_ITEMS_ADDED)
 #define ITEM_RECORDS_MOVED        (LAST_MOD_ITEM_SLOT + 2)
 
-// Classes: mods' classes take slots from 31; heroes, recruits and records grow together.
 #define FIRST_MOD_CLASS_SLOT      31
 #define MOD_CLASSES_ADDED         50
 #define LAST_MOD_CLASS_SLOT       (CLASS_TABLE_MAX - 1 + MOD_CLASSES_ADDED)
 #define CLASS_RECORDS_MOVED       (LAST_MOD_CLASS_SLOT + 1)
-// The class picker's button ids: pictures at 100 + class, info at CLASS_PICKER_INFO_BASE + class.
 #define CLASS_PICKER_PICK_BASE    100
 #define CLASS_PICKER_INFO_BASE    1000
 _Static_assert(CLASS_PICKER_PICK_BASE + LAST_MOD_CLASS_SLOT < CLASS_PICKER_INFO_BASE, "the picker's bands stay apart");
 
-// Monsters: mods' monsters take slots from 2000; the per-monster arrays grow with the table.
 #define FIRST_MOD_MONSTER_SLOT    2000
 #define MOD_MONSTERS_ADDED        1000
 #define LAST_MOD_MONSTER_SLOT     (MONSTER_TABLE_MAX - 2 + MOD_MONSTERS_ADDED)
@@ -73,13 +63,9 @@ _Static_assert(CLASS_PICKER_PICK_BASE + LAST_MOD_CLASS_SLOT < CLASS_PICKER_INFO_
 #include "battle_summons_table_sites.h"
 #include "monster_frame_sites.h"
 #else
-// A Mac site: an ADRP that builds a table address.
 typedef struct { unsigned int rva; } TableMacSite;
-// A Mac bound: a movz or cmp immediate sized by the table, and its new value.
 typedef struct { unsigned int rva; int value; } TableMacBound;
-// The table's size in bytes, built by a movz and the movk after it.
 typedef struct { unsigned int rva; } TableMacSize;
-// A Mac word the move changes that holds no table address: its immediate's bits (`mask`) set to `value`.
 typedef struct { unsigned int rva; uint32_t mask, value; } TableMacPatch;
 #include "weapon_table_sites_mac.h"
 #include "item_table_sites_mac.h"
@@ -97,12 +83,10 @@ typedef struct { unsigned int rva; uint32_t mask, value; } TableMacPatch;
 #include "monster_frame_sites_mac.h"
 #endif
 
-// One table: where the game keeps it, how big CoE5SE makes it, and what refuses an entry past it.
 typedef struct TableMove {
     const char *name;
     unsigned int rva;
     int recordSize, gameRecords, movedRecords, firstModSlot, lastModSlot;
-    // Tables that move together in one block: blockWithNext marks every one but the last.
     int blockWithNext;
     const TableMoveSite *sites;
     int siteCount;
@@ -110,7 +94,6 @@ typedef struct TableMove {
     int boundCount, valueCount;
     const TablePatchSite *patches;
     int patchCount;
-    // Queues changes past the table's own sites; returns how many matched.
     int (*queueExtra)(const struct TableMove *t);
     int extraCount;
 #ifdef __APPLE__
@@ -120,12 +103,10 @@ typedef struct TableMove {
     const TableMacPatch *macPatches;
     int macSiteCount, macBoundCount, macSizeCount, macPatchCount;
 #endif
-    // Where an entry past the last slot is refused.
     unsigned int overflowCall, overflowTarget;
     void *overflowHook;
     unsigned int countRva;
     int countSlack;
-    // The refusal's .c5m word, reason, pop-up words, and the word that names the entry.
     const char *word, *reason, *title, *opening, *header, *nameWord;
     unsigned char *moved;
     unsigned char *oldStart, *oldEnd;
@@ -290,19 +271,16 @@ static TableMove tableMoves[] = {
 #define TABLE_MOVE_COUNT ((int)(sizeof tableMoves / sizeof tableMoves[0]))
 enum { TABLE_WEAPON, TABLE_ITEM, TABLE_CLASS_HEROES, TABLE_CLASS_RECRUITS, TABLE_CLASS, TABLE_CLASS_COPY, TABLE_MONSTER };
 
-// Where the game reads a table now, and how many records it holds.
 static unsigned char *tableAddress(int table) {
     const TableMove *t = &tableMoves[table];
     return t->moved ? t->moved : gameBase + t->rva;
 }
 static int tableRecords(int table) { return tableMoves[table].moved ? tableMoves[table].movedRecords : tableMoves[table].gameRecords; }
 
-// A monster's record in the table the game reads now, or NULL for a number the table doesn't hold.
 static unsigned char *monsterRecord(int monster) {
     return monster >= 0 && monster < tableRecords(TABLE_MONSTER) ? tableAddress(TABLE_MONSTER) + (size_t)monster * MONSTER_SIZE : NULL;
 }
 
-// The table holding a game address, for records of `stride` bytes; -1 for none.
 static int tableHolding(unsigned int rva, int stride) {
     for (int i = 0; i < TABLE_MOVE_COUNT; i++)
         if (tableMoves[i].rva && rva >= tableMoves[i].rva && rva < tableMoves[i].rva + (unsigned int)tableMoves[i].recordSize &&
@@ -312,12 +290,9 @@ static int tableHolding(unsigned int rva, int stride) {
 }
 
 // ---- The refusal of an entry past a table's last slot ------------------------------------------
-// A refused entry's lines are skipped up to the next line that starts or selects something.
 static struct { int active, table, mod, line, skipped; char name[64]; } refusedTableEntry;
-// The name on the latest line that starts a table's entry, for the refusal.
 static char tableEntryLineName[64];
 
-// The mods that had entries refused in the latest pass.
 #define TABLE_LEFT_OUT_LINES 16
 #define TABLE_LEFT_OUT_ROWS  10
 static struct {
@@ -335,7 +310,6 @@ static void endRefusedTableEntry(void) {
              known ? modName(refusedTableEntry.mod) : "-", refusedTableEntry.name, refusedTableEntry.skipped);
 }
 
-// Adds mod `mod` to table `table`'s list, once.
 static void noteTableLeftOut(int table, const char *mod) {
     for (int i = 0; i < tableLeftOut[table].count; i++)
         if (!strcmp(tableLeftOut[table].mods[i], mod)) return;
@@ -345,7 +319,6 @@ static void noteTableLeftOut(int table, const char *mod) {
     snprintf(tableLeftOut[table].mods[tableLeftOut[table].count++], MOD_NAME_MAX, "%s", mod);
 }
 
-// A table's pop-up text: its opening line, then one mod per line, by its display name.
 static size_t tableLeftOutText(int table, char *text, size_t size) {
     size_t n = 0;
     char label[80];
@@ -359,7 +332,6 @@ static size_t tableLeftOutText(int table, char *text, size_t size) {
     return n;
 }
 
-// Each table's pop-up, once for each new set of mods.
 static void popupTablesLeftOut(void) {
     static char text[POPUP_TEXT_SIZE];
     endRefusedTableEntry();
@@ -378,7 +350,6 @@ static void popupTablesLeftOut(void) {
     }
 }
 
-// The CoE5SE page's box for each table whose entries were left out.
 static void drawTablesLeftOut(void) {
     char label[80], tip[256];
     for (int t = 0; t < TABLE_MOVE_COUNT; t++) {
@@ -396,7 +367,6 @@ static void drawTablesLeftOut(void) {
     }
 }
 
-// Refuses the entry the parser is starting, named `name`, for table `table`.
 static void refuseTableEntry(int table, const char *name) {
     endRefusedTableEntry();
     const TableMove *t = &tableMoves[table];
@@ -414,14 +384,12 @@ static void refuseTableEntry(int table, const char *name) {
     snprintf(refusedTableEntry.name, sizeof refusedTableEntry.name, "%s", name ? name : "");
 }
 
-// Copies a line's argument after its word, its quotes taken off, into `out`.
 static void quotedLineName(const char *args, char *out, size_t size) {
     const char *name = args + strspn(args, " \t\"");
     size_t n = strcspn(name, "\"\r\n");
     snprintf(out, size, "%.*s", (int)(n < size ? n : size - 1), name);
 }
 
-// Returns 1 for a line of a refused entry, which the game then never sees.
 static int refusedTableLine(const char *line, size_t len, int mod, int level) {
     if (level != tableLeftOutLastLevel) {
         for (int t = 0; t < TABLE_MOVE_COUNT; t++)
@@ -460,13 +428,11 @@ static int refusedTableLine(const char *line, size_t len, int mod, int level) {
 
 #ifndef __APPLE__
 // ---- Windows: the patch ------------------------------------------------------------------------
-// The weapon table's "Out of weapons '%s'" trace, where the free-slot search returns -1.
 static void weaponOutOfSlotsHook(const char *fmt, const char *name) {
     (void)fmt;
     refuseTableEntry(TABLE_WEAPON, name);
 }
 
-// Logs a read or write of an old table before the game stops on it.
 static LONG WINAPI logOldTableAccess(EXCEPTION_POINTERS *e) {
     const EXCEPTION_RECORD *r = e->ExceptionRecord;
     if (r->ExceptionCode != EXCEPTION_ACCESS_VIOLATION || r->NumberParameters < 2) return EXCEPTION_CONTINUE_SEARCH;
@@ -483,7 +449,6 @@ static LONG WINAPI logOldTableAccess(EXCEPTION_POINTERS *e) {
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
-// The changes to the game's code for one block of tables.
 #define TABLE_MOVE_MAX_WRITES 8192
 static struct { unsigned char *at; int size; unsigned char bytes[15], old[15]; } tableMoveWrites[TABLE_MOVE_MAX_WRITES];
 static int tableMoveWriteCount;
@@ -498,7 +463,6 @@ static int queueTableBytes(unsigned char *at, const void *bytes, int size) {
 }
 static int queueTableWrite(unsigned char *at, int value) { return queueTableBytes(at, &value, 4); }
 
-// Writes one queued change; 0 when the game's code there can't be written (writeGameCode logged it).
 static int writeTableMoveBytes(unsigned char *to, const unsigned char *bytes, size_t n) {
     unsigned char *text = gameBase + RVA_TEXT_SECTION, *textEnd = gameBase + RVA_RDATA_SECTION;
     if (to >= text && to + n <= textEnd) return writeGameCode(to, bytes, n);
@@ -512,11 +476,9 @@ static int writeTableMoveBytes(unsigned char *to, const unsigned char *bytes, si
     return 1;
 }
 
-// The class picker's click decode, so classes past 99 can be picked.
 static unsigned char *classPickerStub;
 #define CLASS_PICKER_STUB_BYTES 0x60
 
-// Appends a rel32 jump (`opcode`, one or two bytes) from `*at` to game RVA `target`; 0 when out of reach.
 static int stubJump(unsigned char **at, const unsigned char *opcode, int opcodeSize, unsigned int target) {
     memcpy(*at, opcode, (size_t)opcodeSize);
     long long rel = (gameBase + target) - (*at + opcodeSize + 4);
@@ -564,7 +526,6 @@ static int queueClassPickerDecode(const struct TableMove *t) {
     return queueTableBytes(decode, jump, 5);
 }
 
-// Queues every site of table `t`'s new field, for the table at `table`.
 static int queueTableMoveWrites(const TableMove *t, unsigned char *table) {
     long long delta = table - (gameBase + t->rva);
     int matched = 0;
@@ -611,12 +572,10 @@ static int queueTableMoveWrites(const TableMove *t, unsigned char *table) {
     return matched;
 }
 
-// How many sites table `t`'s move checks.
 static int tableMoveSiteCount(const TableMove *t) {
     return t->siteCount + t->boundCount + t->valueCount + t->patchCount + t->extraCount + (t->overflowCall != 0);
 }
 
-// Makes the old table's whole pages unreadable.
 static void protectOldTable(TableMove *t) {
     unsigned char *old = gameBase + t->rva;
     t->oldStart = (unsigned char *)(((uintptr_t)old + 0xfff) & ~(uintptr_t)0xfff);
@@ -628,7 +587,6 @@ static void protectOldTable(TableMove *t) {
     writeLog("table_old_protected", "table=%s ok=%d error=%lu pages=%zu", t->name, guarded, guarded ? 0UL : GetLastError(), pages);
 }
 
-// Moves the `count` tables from `first`, one block in their order, or changes nothing.
 #define TABLE_GROUP_MAX 8
 #define TABLE_BLOCK_SLACK 64
 static int installTableGroup(TableMove *first, int count, unsigned char *stubs) {
@@ -692,13 +650,11 @@ static int installTableGroup(TableMove *first, int count, unsigned char *stubs) 
 }
 #else
 // ---- Mac: the patch ----------------------------------------------------------------------------
-// The weapon table's "Out of weapons '%s'" trace, where the free-slot search returns -1.
 static void weaponOutOfSlotsHook(const char *fmt, ...) {
     (void)fmt;
     refuseTableEntry(TABLE_WEAPON, NULL);
 }
 
-// Logs a read or write of an old table before the game stops on it.
 static struct sigaction previousTableSegv, previousTableBus;
 static void logOldTableAccess(int signal, siginfo_t *info, void *context) {
     const unsigned char *target = info->si_addr;
@@ -714,7 +670,6 @@ static void logOldTableAccess(int signal, siginfo_t *info, void *context) {
     sigaction(signal, signal == SIGBUS ? &previousTableBus : &previousTableSegv, NULL);
 }
 
-// The changes to the game's code for one block of tables.
 #define TABLE_MOVE_MAX_WRITES 4096
 static struct { unsigned char *at; uint32_t word, old; } tableMoveWrites[TABLE_MOVE_MAX_WRITES];
 static int tableMoveWriteCount;
@@ -733,7 +688,6 @@ static uint32_t tableGameWord(unsigned int rva) {
     return word;
 }
 
-// A bound's new word with its immediate set to `value`; 0 when it can't hold it.
 static uint32_t tableBoundWord(uint32_t word, int value) {
     if ((word & 0x7f800000u) == 0x52800000u && value >= 0 && value <= 0xffff) return (word & ~(0xffffu << 5)) | (uint32_t)value << 5;
     if ((word & 0x7fc0001fu) == 0x7100001fu && value >= 0 && value <= 0xfff) return (word & ~(0xfffu << 10)) | (uint32_t)value << 10;
@@ -741,7 +695,6 @@ static uint32_t tableBoundWord(uint32_t word, int value) {
     return 0;
 }
 
-// The class picker's click decode, so classes past 99 can be picked.
 #define CLASS_PICKER_INFO_PATH (RVA_CLASS_PICKER_INFO_CALL - 32)
 static uint32_t a64SubImm(unsigned rd, unsigned rn, unsigned imm) { return 0x51000000u | imm << 10 | rn << 5 | rd; }
 static uint32_t a64CmpImm(unsigned rn, unsigned imm) { return 0x7100001fu | imm << 10 | rn << 5; }
@@ -778,7 +731,6 @@ static int queueClassPickerDecode(const struct TableMove *t) {
     return ok;
 }
 
-// Queues every site of table `t`'s new word, for the table at `table`.
 static int queueTableMoveWrites(const TableMove *t, unsigned char *table) {
     long long pages = ((long long)(uintptr_t)table >> ADRP_PAGE_SHIFT) - ((long long)(uintptr_t)(gameBase + t->rva) >> ADRP_PAGE_SHIFT);
     int matched = 0;
@@ -828,12 +780,10 @@ static int queueTableMoveWrites(const TableMove *t, unsigned char *table) {
     return matched;
 }
 
-// How many sites table `t`'s move checks.
 static int tableMoveSiteCount(const TableMove *t) {
     return t->macSiteCount + t->macBoundCount + t->macSizeCount + t->macPatchCount + t->extraCount + (t->overflowCall != 0);
 }
 
-// Makes the old table's whole 16 KB pages unreadable.
 static void protectOldTable(TableMove *t) {
     unsigned char *old = gameBase + t->rva;
     t->oldStart = (unsigned char *)(((uintptr_t)old + MAC_PAGE_MASK) & ~(uintptr_t)MAC_PAGE_MASK);
@@ -845,7 +795,6 @@ static void protectOldTable(TableMove *t) {
     writeLog("table_old_protected", "table=%s ok=%d error=%d pages=%zu", t->name, !error, error, pages);
 }
 
-// Moves the `count` tables from `first`, one block in their order, or changes nothing.
 #define TABLE_GROUP_MAX 8
 static int installTableGroup(TableMove *first, int count) {
     size_t at[TABLE_GROUP_MAX], total = 0;
@@ -902,7 +851,6 @@ static int installTableGroup(TableMove *first, int count) {
 }
 #endif
 
-// Moves every table.
 static void tableMovesInit(void) {
     int moved = 0;
 #ifndef __APPLE__

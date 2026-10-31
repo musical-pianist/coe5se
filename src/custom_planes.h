@@ -1,5 +1,3 @@
-// Mods' planes: up to CUSTOM_PLANE_TARGET new planes beside the game's, at indices CoE5SE hands out.
-
 #define PLANE_FILES_DIR           "planes"
 #define SAVE_MAGIC_GAME           0x6eb65
 #define SAVE_MAGIC_CUSTOM_PLANES  SAVE_TAG('C', '5', 'P', 'L')
@@ -59,14 +57,12 @@ static CustomPlane *findCustomPlane(const char *name) {
     return NULL;
 }
 
-// The number of planes declared now.
 static int declaredCustomPlaneCount(void) {
     int count = 0;
     for (int i = 0; i < customPlaneCount; i++) count += customPlanes[i].fromWords != PLANE_FROM_EARLIER_PASS;
     return count;
 }
 
-// Makes room for a new plane when the earlier pass's blocks fill the list.
 static void dropEarlierPassPlane(void) {
     for (int i = customPlaneCount - 1; i >= 0; i--) {
         if (customPlanes[i].fromWords != PLANE_FROM_EARLIER_PASS) continue;
@@ -78,7 +74,6 @@ static void dropEarlierPassPlane(void) {
     }
 }
 
-// Declares a mod's plane; NULL when it is taken, or else the refusal's reason word.
 static const char *declareCustomPlane(const char *mod, const char *name, int w, int h, int fill, const char *icon) {
     if (!name[0] || strlen(name) >= PLANE_NAME_SIZE) return "bad_name";
     for (int i = 0; i < PLANE_RECORDS_GAME; i++)
@@ -105,14 +100,12 @@ static const char *declareCustomPlane(const char *mod, const char *name, int w, 
     return NULL;
 }
 
-// The index of a declared plane in this world, or -1.
 static int customPlaneIndex(const char *name) {
     const CustomPlane *p = findCustomPlane(name);
     return p ? p->index : -1;
 }
 
 // ---- Placement ----------------------------------------------------------------------------------
-// Fills a placed plane's squares with its terrain, then the game's ground and temperature passes.
 typedef void (*SetRectFn)(int x, int y, int w, int h);
 typedef void (*SetGroundRectFn)(int x, int y, int w, int h, int terrain);
 static void fillCustomPlane(const CustomPlane *p, int x, int y) {
@@ -129,7 +122,6 @@ static void fillCustomPlane(const CustomPlane *p, int x, int y) {
     GAME_FN(SetRectFn, RVA_SET_TEMPERATURE_RECT)(x, y, p->w, p->h);
 }
 
-// Each mod's plane's first camera: its centre, as RVA_VIEW_PLANE fills planes 0 to 10.
 static void setCustomPlaneCameras(void) {
     if (!planeTableMoved) return;
     for (int index = PLANE_ELYSIUM2 + 1; index <= G32(RVA_LAST_PLANE) && index < PLANE_RECORDS_MOVED; index++) {
@@ -140,7 +132,6 @@ static void setCustomPlaneCameras(void) {
     }
 }
 
-// Writes record `index`: the plane's name and rectangle, the rest zero, as addplane leaves a record.
 static void writeCustomPlaneRecord(int index, const char *name, int x, int y, int w, int h) {
     unsigned char *record = planeRecord(index);
     memset(record, 0, PLANE_SIZE);
@@ -151,7 +142,6 @@ static void writeCustomPlaneRecord(int index, const char *name, int x, int y, in
     setPlaneField(index, PLANE_H, h);
 }
 
-// Decides where each declared plane goes; returns the width of the planes beside the others.
 static int planCustomPlanes(int placeX[], int placeY[], int host[]) {
     int elysium2X = planeField(PLANE_ELYSIUM2, PLANE_X), elysium2W = planeField(PLANE_ELYSIUM2, PLANE_W);
     int freeColumns = MAP_COLUMNS_MAX - (elysium2X + elysium2W), besideWidth = 0;
@@ -184,21 +174,17 @@ static int planCustomPlanes(int placeX[], int placeY[], int host[]) {
     return besideWidth;
 }
 
-// The vanilla planes the game builds at Elysium's size.
 #define PLANE_SKY      2
 #define PLANE_AGARTHA  3
 #define PLANE_INFERNO  4
 #define PLANE_HADES    5
 #define PLANE_INFERNO_FRAME 4
-// The smallest size a plane declared without one gets.
 #define PLANE_LIKE_SIZE_MIN 32
 
-// What vanilla plane `like` adds to Elysium's size, or -1.
 static int likePlaneSizeExtra(int like) {
     return like == PLANE_INFERNO ? PLANE_INFERNO_FRAME : like == PLANE_SKY || like == PLANE_AGARTHA || like == PLANE_HADES ? 0 : -1;
 }
 
-// Gives each plane declared without a size its like plane's size in this world.
 static void sizeLikePlanes(void) {
     int elysiumW = planeField(0, PLANE_W), elysiumH = planeField(0, PLANE_H);
     for (int i = 0; i < customPlaneCount; i++) {
@@ -212,7 +198,6 @@ static void sizeLikePlanes(void) {
     }
 }
 
-// Adds every declared plane to the world the game just built.
 static void placeCustomPlanes(void) {
     for (int i = 0; i < customPlaneCount; i++) customPlanes[i].index = -1, customPlanes[i].skipped = 0;
     if (!customPlaneCount) return;
@@ -255,21 +240,19 @@ static void placeCustomPlanes(void) {
     resetCustomPlaneImages();
 }
 
-// RVA_CREATE_EXTRA_PLANES(w, h), then the mods' planes.
 typedef void (*CreateExtraPlanesFn)(int w, int h);
 static void createExtraPlanesHook(int w, int h) {
     GAME_FN(CreateExtraPlanesFn, RVA_CREATE_EXTRA_PLANES)(w, h);
     placeCustomPlanes();
 }
 
-// RVA_PLANE_SPECIAL_TERRAIN(no_planes), then each mod's plane's special squares and its way in.
 typedef void (*SpecialTerrainFn)(int noPlanes);
 static void specialTerrainHook(int noPlanes) {
     GAME_FN(SpecialTerrainFn, RVA_PLANE_SPECIAL_TERRAIN)(noPlanes);
     if (!noPlanes) addCustomPlanesSpecialSquares();
 }
 
-// new_world's population, then the mods' planes': right after the Void's, the game's last.
+// @platform-split custom_plane_population_call: Windows hooks new_world's call of populate_void; Mac inlined that function, so the hook is the spell check call right after its copy
 #ifndef __APPLE__
 #define POPULATE_AFTER_VOID_TARGET RVA_POPULATE_VOID
 static void populateAfterVoidHook(void) {
@@ -286,14 +269,12 @@ static void populateAfterVoidHook(const char *text, int level) {
 }
 #endif
 
-// setplane -1's draw: RVA_RANDOM(11) in the game, every plane of this world here (mods' planes included).
 typedef int (*RandomFn)(int n);
 static int setplaneRandomHook(int n) {
     (void)n;
     return GAME_FN(RandomFn, RVA_RANDOM)(G32(RVA_LAST_PLANE) + 1);
 }
 
-// The CoE5SE page's "Planes" box: a mod's plane the last world had no room for.
 static void drawCustomPlaneProblems(void) {
     int skipped = 0;
     for (int i = 0; i < customPlaneCount; i++) skipped += customPlanes[i].skipped;
@@ -311,7 +292,6 @@ static void drawCustomPlaneProblems(void) {
 }
 
 // ---- Saves --------------------------------------------------------------------------------------
-// Adds PLNS: each mod's plane in this world, by index, with its name, mod, and rectangle.
 static void addCustomPlanesChunk(SaveList *list) {
     int last = G32(RVA_LAST_PLANE);
     if (!planeTableMoved || last <= PLANE_ELYSIUM2) return;
@@ -335,10 +315,8 @@ static void addCustomPlanesChunk(SaveList *list) {
     saveListAdd(list, SAVE_TAG_PLNS, &b);
 }
 
-// Whether the save being loaded may pass the magic check.
 static int loadedSavePlanesAccepted, loadedSavePlanesPresent;
 
-// The accepted save's planes by name and index.
 static struct {
     int pending, count;
     char names[CUSTOM_PLANE_TARGET][PLANE_NAME_SIZE];
@@ -346,7 +324,6 @@ static struct {
     int indices[CUSTOM_PLANE_TARGET];
 } loadedSavePlanes;
 
-// Whether loading this save turns on mod `mod`, so the load's mod pass reads its planes' blocks.
 static int loadTurnsModOn(const char *mod) {
     int m = mod[0] ? modIndexExact(mod) : -1;
     if (m < 0 || modEnabled(m) || strcmp(savedMods.result, "found")) return 0;
@@ -357,7 +334,6 @@ static int loadTurnsModOn(const char *mod) {
     return entry && !(entry->flags & MOD_ADDED_NO_CONTENT) && scanMod(m, &scan) && !scan.contentFree;
 }
 
-// Adds "name(mod)" to a comma list, kept only while it fits.
 static void addMissingPlaneName(char *list, size_t size, const char *name, const char *mod) {
     char one[80];
     snprintf(one, sizeof one, "%.31s(%.40s)", name, mod[0] ? mod : "?");
@@ -367,7 +343,6 @@ static void addMissingPlaneName(char *list, size_t size, const char *name, const
     memcpy(list + used, one, length + 1);
 }
 
-// Reads PLNS from the end of the save at `path`, when it has one, and decides whether it loads.
 static void readLoadedSavePlanes(const char *path) {
     loadedSavePlanesAccepted = loadedSavePlanesPresent = 0;
     loadedSavePlanes.pending = 0;
@@ -443,7 +418,6 @@ static void readLoadedSavePlanes(const char *path) {
 
 static void finishPlaneBlock(void);
 
-// After the load's mod pass: every plane of the save takes its saved index.
 static void applyLoadedSavePlanes(int level) {
     if (level != 2 || !loadedSavePlanes.pending) return;
     loadedSavePlanes.pending = 0;
@@ -473,21 +447,17 @@ static void applyLoadedSavePlanes(int level) {
 }
 
 // ---- The hooks ----------------------------------------------------------------------------------
-// Whether this world holds a mod's plane, so its save takes SAVE_MAGIC_CUSTOM_PLANES.
 static int customPlanesInWorld(void) { return planeTableMoved && G32(RVA_LAST_PLANE) > PLANE_ELYSIUM2; }
 
-// Whether this world holds what a game without CoE5SE can't read: a mod's plane or a mod's faction.
 static int factionsInWorld(void);
 static int saveNeedsCoe5se(void) { return customPlanesInWorld() || factionsInWorld(); }
 
-// Whether the save being loaded may pass the magic check: what its PLNS and FCTN name is here, and it has one.
 static int loadedSaveFactionsDecision(void);
 static int loadedSaveMagicAccepted(void) {
     int factions = loadedSaveFactionsDecision();
     return (loadedSavePlanesPresent || factions >= 0) && (!loadedSavePlanesPresent || loadedSavePlanesAccepted) && factions != 0;
 }
 
-// save_game's fwrite of the magic.
 typedef size_t (*GameFileFn)(void *data, size_t size, size_t count, void *file);
 static size_t writeSaveMagicHook(void *data, size_t size, size_t count, void *file) {
     int magic;
@@ -499,7 +469,6 @@ static size_t writeSaveMagicHook(void *data, size_t size, size_t count, void *fi
     return GAME_FN(GameFileFn, RVA_FWRITE)(data, size, count, file);
 }
 
-// load_game's fread of the magic: a save with a mod's plane passes only when readLoadedSavePlanes accepted it.
 static size_t readSaveMagicHook(void *data, size_t size, size_t count, void *file) {
     size_t read = GAME_FN(GameFileFn, RVA_FREAD)(data, size, count, file);
     int magic, game = SAVE_MAGIC_GAME;
@@ -508,7 +477,6 @@ static size_t readSaveMagicHook(void *data, size_t size, size_t count, void *fil
     return read;
 }
 
-// The Load Game list's count of saves: a save with a mod's plane counts.
 static size_t countSaveMagicHook(void *data, size_t size, size_t count, void *file) {
     size_t read = GAME_FN(GameFileFn, RVA_FREAD)(data, size, count, file);
     int magic, game = SAVE_MAGIC_GAME;
@@ -518,7 +486,6 @@ static size_t countSaveMagicHook(void *data, size_t size, size_t count, void *fi
 }
 
 #ifndef __APPLE__
-// The server screen's copy of save_game writes the magic with write_int(0x6eb65, file).
 typedef int (*GameWriteIntFn)(int value, void *file);
 static int writeServerSaveMagicHook(int value, void *file) {
     if (saveNeedsCoe5se() && value == SAVE_MAGIC_GAME) value = SAVE_MAGIC_CUSTOM_PLANES;
@@ -556,7 +523,6 @@ static int pointCustomPlaneCall(unsigned int callRva, unsigned int targetRva, vo
 }
 #endif
 
-// Points the save and load's magic at the hooks above, once; 1 when all are in.
 static int saveMagicHooksState;
 static int installSaveMagicHooks(void) {
     static const struct { unsigned int callRva, targetRva; void *hook; const char *name; } CALLS[] = {
@@ -574,7 +540,6 @@ static int installSaveMagicHooks(void) {
     return saveMagicHooksState > 0;
 }
 
-// Points new_world's last population call at populateAfterVoidHook, once; 1 when it is in.
 static int populateAfterVoidState;
 static int installPopulateAfterVoidHook(void) {
     if (!populateAfterVoidState)
@@ -583,7 +548,7 @@ static int installPopulateAfterVoidHook(void) {
     return populateAfterVoidState > 0;
 }
 
-// Installs the world build, setplane and save hooks, at the first plane a mod declares.
+// @platform-split custom_plane_hooks: Mac's server calls save_game, so it has no server magic write of its own
 static int installCustomPlaneHooks(void) {
     static const struct { unsigned int callRva, targetRva; void *hook; const char *name; } CALLS[] = {
         {RVA_NEW_GAME_EXTRA_PLANES_CALL,  RVA_CREATE_EXTRA_PLANES, (void *)createExtraPlanesHook, "new_game_extra_planes"},
@@ -604,7 +569,6 @@ static int installCustomPlaneHooks(void) {
     return ok == wanted;
 }
 
-// Installs the Load Game count's hook at startup, before the main menu first counts the saves.
 static void installSaveCountHook(void) {
     writeLog("save_count_hook_installed", "ok=%d of 1",
              pointCustomPlaneCall(RVA_COUNT_SAVES_MAGIC_READ, RVA_FREAD, (void *)countSaveMagicHook, "count_saves_magic"));

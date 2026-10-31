@@ -1,4 +1,3 @@
-// The SHA-256 of the game's code section in memory, the check every patch of game code stands on.
 #pragma once
 #ifdef __APPLE__
 #include <CommonCrypto/CommonDigest.h>
@@ -9,7 +8,6 @@
 
 #define GAME_CODE_SHA256_HEX_LEN 64
 
-// The game's code section: its start in memory and its size.
 static int findGameCode(const unsigned char *image, const unsigned char **code, size_t *size) {
 #ifdef __APPLE__
     const struct mach_header_64 *header = (const struct mach_header_64 *)image;
@@ -40,7 +38,6 @@ static int findGameCode(const unsigned char *image, const unsigned char **code, 
 #endif
 }
 
-// Writes the SHA-256 of `size` bytes at `data` to `hex` as lowercase hex.
 static int hashMemorySha256(const void *data, size_t size, char hex[GAME_CODE_SHA256_HEX_LEN + 1]) {
     unsigned char digest[32];
 #ifdef __APPLE__

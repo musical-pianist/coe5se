@@ -1,9 +1,8 @@
 // ---- The map editor: scripts' toolbox lines, the map view, and drawing over the map --------------
-// Scripts' lines in the map editor's toolbox, and drawing over its map.
+#pragma once
 #include <math.h>
 
 // ---- Toolbox lines --------------------------------------------------------------------------------
-// Line n gets the id MAP_EDITOR_FREE_ID_FIRST + n.
 #define MAP_EDITOR_LINE_LABEL_MAX 63
 #define MAP_EDITOR_LINE_TIP_MAX   255
 typedef struct {
@@ -13,13 +12,11 @@ typedef struct {
 static MapEditorLine *mapEditorLines;
 static int mapEditorLineCount, mapEditorLineCapacity;
 
-// The id of toolbox line `index`, or -1 past the editor's free ids.
 static int mapEditorLineId(int index) {
     if (index < 0 || index > MAP_EDITOR_FREE_ID_LAST - MAP_EDITOR_FREE_ID_FIRST) return -1;
     return MAP_EDITOR_FREE_ID_FIRST + index;
 }
 
-// The index of the toolbox line with this id, or -1 for an id that is none of them.
 static int mapEditorLineIndex(int id) {
     if (id < MAP_EDITOR_FREE_ID_FIRST || id - MAP_EDITOR_FREE_ID_FIRST >= mapEditorLineCount) return -1;
     return id - MAP_EDITOR_FREE_ID_FIRST;
@@ -34,7 +31,6 @@ static int (*nextMapScreenFrame)(int, int);
 static int mapScreenWaiting;
 static int mapDrawing;
 
-// The game's "Create Fancy Terrain" line, then each shown script line, in the order they were added.
 static u64 drawMapEditorToolboxLines(int id, const char *text) {
     u64 result = nextToolboxLine(id, text);
     for (int i = 0; i < mapEditorLineCount; i++) {
@@ -45,7 +41,6 @@ static u64 drawMapEditorToolboxLines(int id, const char *text) {
     return result;
 }
 
-// CoE5SE's outermost wrapper of the editor's frame wait.
 static int dispatchMapEditorLineClick(int a, int b) {
     mapEditorWaiting++;
     int id = nextMapEditorWait(a, b);
@@ -57,7 +52,6 @@ static int dispatchMapEditorLineClick(int a, int b) {
     return id;
 }
 
-// The innermost wrapper of the map screen's frame wait: marks its draw pass as the map's frame.
 static int markMapScreenFrame(int a, int b) {
     mapScreenWaiting++;
     int id = nextMapScreenFrame(a, b);
@@ -65,7 +59,6 @@ static int markMapScreenFrame(int a, int b) {
     return id;
 }
 
-// MAP_EDITOR_DRAW's gate: the site's wrappers run only in the editor's map frames, MAP_DRAW's in the map screen's.
 static void gateMapEditorDraw(void) {
     if (mapEditorWaiting <= 0) {
         void *game = siteGameTarget(SITE_MAP_EDITOR_DRAW);
@@ -83,7 +76,6 @@ static void gateMapEditorDraw(void) {
     mapEditorDrawing--;
 }
 
-// Adds a toolbox line for the script whose callback is `lua`.
 static int addMapEditorLineFor(void *caller, const char *label, const char *tip, int lua) {
     if (!label || !label[0]) {
         refuseApiCall(caller, "addMapEditorLine", "no_label", "tooltip=%s", tip ? tip : "");
@@ -114,7 +106,6 @@ static int addMapEditorLineFor(void *caller, const char *label, const char *tip,
     return id;
 }
 
-// CoE5SE's outermost wrapper of the whole editor.
 static void (*nextMapEditor)(void);
 static void loadScriptsBeforeMapEditor(void) {
     if (!startupFinished) {
@@ -124,7 +115,6 @@ static void loadScriptsBeforeMapEditor(void) {
     nextMapEditor();
 }
 
-// At startup: the toolbox line site and CoE5SE's editor wrappers.
 static void installMapEditorHooks(void) {
     char owner[64];
     moduleFileName((void *)gateMapEditorDraw, owner, sizeof owner);
@@ -139,13 +129,11 @@ static void installMapEditorHooks(void) {
 }
 
 // ---- The map view ---------------------------------------------------------------------------------
-// Where the map's squares are on the screen, in UI units.
 typedef struct {
     double zoom, cameraX, cameraY, originX, originY;
     int screenW, screenH, plane, planeX, planeY, planeW, planeH, firstX, lastX, firstY, lastY;
 } MapView;
 
-// The view for these numbers. Returns 0 for a zoom or screen size the game never has (0 or below).
 static int mapViewFor(double zoom, double cameraX, double cameraY, int screenW, int screenH, int planeX, int planeY,
                       int planeW, int planeH, MapView *out) {
     if (!(zoom > 0) || !isfinite(zoom) || !isfinite(cameraX) || !isfinite(cameraY) || screenW <= 0 || screenH <= 0) return 0;
@@ -163,7 +151,6 @@ static int mapViewFor(double zoom, double cameraX, double cameraY, int screenW, 
     return 1;
 }
 
-// The game's map view now. Returns 0 when the shown plane isn't one of the game's planes.
 static int currentMapView(MapView *out) {
     int plane = G32(RVA_MAP_VIEW_PLANE), last = G32(RVA_LAST_PLANE);
     if (plane < 0 || plane > last || plane >= planeTableRecords()) return 0;
@@ -176,7 +163,6 @@ static int currentMapView(MapView *out) {
 }
 
 // ---- Drawing at UI coordinates ----------------------------------------------------------------------
-// Draws with the GUI's own calls, as the game's line and text helpers do.
 static void *glImport(uintptr_t rva) {
 #ifdef __APPLE__
     return GAME_PTR(rva);
@@ -190,11 +176,9 @@ static void *glImport(uintptr_t rva) {
 #define GL_LINES_MODE   1
 #define GL_TRIANGLE_FAN_MODE 6
 
-// UI units to window pixels, along x and along y.
 static float uiScaleX(void) { return G32(RVA_SCREEN_W) > 0 ? (float)G32(RVA_WINDOW_W) / (float)G32(RVA_SCREEN_W) : 1.0f; }
 static float uiScaleY(void) { return G32(RVA_SCREEN_H) > 0 ? (float)G32(RVA_WINDOW_H) / (float)G32(RVA_SCREEN_H) : 1.0f; }
 
-// A straight line as up to three filled boxes on whole pixels; returns the count, 0 for a slanted line.
 #define STRAIGHT_LINE_BOXES 3
 static int straightLineBoxes(float x1, float y1, float x2, float y2, float width,
                              float corners[STRAIGHT_LINE_BOXES][8], float shares[STRAIGHT_LINE_BOXES]) {
@@ -220,7 +204,6 @@ static int straightLineBoxes(float x1, float y1, float x2, float y2, float width
     return n;
 }
 
-// One line from (x1, y1) to (x2, y2), `width` pixels wide, in r, g, b at `alpha`.
 static void drawUiLine(float x1, float y1, float x2, float y2, float r, float g, float b, float alpha, float width) {
     float sx = uiScaleX(), sy = uiScaleY();
     float points[4] = {x1 * sx, y1 * sy, x2 * sx, y2 * sy};
@@ -242,7 +225,6 @@ static void drawUiLine(float x1, float y1, float x2, float y2, float r, float g,
     GL_IMPORT(void (*)(unsigned), RVA_GL_DISABLE_CLIENT_STATE)(GL_VERTEX_ARRAY);
 }
 
-// A filled rectangle with its bottom left corner at (x, y), in r, g, b at `alpha`.
 static void drawUiRect(float x, float y, float w, float h, float r, float g, float b, float alpha) {
     float sx = uiScaleX(), sy = uiScaleY();
     float corners[8] = {x * sx, y * sy, (x + w) * sx, y * sy, (x + w) * sx, (y + h) * sy, x * sx, (y + h) * sy};
@@ -254,7 +236,6 @@ static void drawUiRect(float x, float y, float w, float h, float r, float g, flo
     GL_IMPORT(void (*)(unsigned), RVA_GL_DISABLE_CLIENT_STATE)(GL_VERTEX_ARRAY);
 }
 
-// One line of text with its start at (x, y), `size` UI units high, in the GUI font.
 static void drawUiText(float x, float y, float size, const char *text, float r, float g, float b, float alpha) {
     float sx = uiScaleX(), sy = uiScaleY();
     GAME_FN(void (*)(const char *, float, float, float, int, float, float, float, float, const char *), RVA_RENDER_TEXT)(

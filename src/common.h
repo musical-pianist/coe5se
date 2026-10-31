@@ -1,4 +1,3 @@
-// Code every plugin shares: logging, game memory, and the game's screen functions.
 #pragma once
 #ifdef _WIN32
 #include <windows.h>
@@ -16,7 +15,6 @@
 
 #define UNUSED __attribute__((unused))
 
-// jazzy_api.h's PRINTF_FORMAT.
 #ifndef PRINTF_FORMAT
 #if defined(__MINGW32__) && !defined(__clang__)
 #define PRINTF_FORMAT(fmtIndex, firstArg) __attribute__((format(gnu_printf, fmtIndex, firstArg)))
@@ -27,7 +25,6 @@
 
 #ifdef COE5SE_RAW_ADDRESSES
 #include "game_addresses.h"
-// Read or write a byte, short, int, or float of game memory, or call a game function, by name.
 #define GAME_PTR(rva) (gameBase + (rva))
 #define G8(rva) (*(unsigned char *)(gameBase + (rva)))
 #define G16(rva) (*(short *)(gameBase + (rva)))
@@ -46,21 +43,18 @@
 #define PLUGIN_SUFFIX ".c5plugin.dll"
 #endif
 
-// The printf-style end of a game function's prototype.
 #ifdef __APPLE__
 #define FMT_ARGS const char *, ...
 #else
 #define FMT_ARGS const char *, const char *
 #endif
 
-// The key code the game binds to Cancel for Escape.
 #ifndef __APPLE__
 #define ESCAPE_KEY()         G16(RVA_ESCAPE_KEY)
 #else
 #define ESCAPE_KEY()         (G8(RVA_ESCAPE_ON) ? 0x1b : 0)
 #endif
 
-// wait_for_click(block, mode): block 1 waits for a click, 0 returns every frame.
 typedef int (*WaitForClickFn)(int, int);
 #define WAIT_UNTIL_CLICK 1
 #define WAIT_MODE_MENU   10
@@ -73,7 +67,6 @@ static unsigned char *gameBase;
 static char logPath[MAX_PATH];
 static const char *pluginName;
 
-// coe5mod.log stays open from this DLL's first line on.
 #ifdef _WIN32
 static HANDLE logFile = INVALID_HANDLE_VALUE;
 #define LOG_LINE_END "\r\n"
@@ -83,7 +76,6 @@ static int logFile = -1;
 #endif
 static char logFileFor[MAX_PATH];
 
-// Opens logPath for appending, or keeps the file open while logPath is the same.
 static UNUSED int openLogFile(void) {
 #ifdef _WIN32
     if (logFile != INVALID_HANDLE_VALUE) {
@@ -105,7 +97,6 @@ static UNUSED int openLogFile(void) {
     return 1;
 }
 
-// Writes `length` bytes at the end of the open log, in one write.
 static UNUSED void appendLogText(const char *text, size_t length) {
 #ifdef _WIN32
     DWORD written;
@@ -123,7 +114,6 @@ static UNUSED void appendLogText(const char *text, size_t length) {
 
 // ---- The log's rotation at LOG_FILE_MAX (log_files.h) --------------------------------------------
 // @platform-split log_rollover: Windows asks GetFileSizeEx and GetFileInformationByHandle, a Mac fstat and stat
-// Every writer checks the size of the file its handle has before each line.
 static UNUSED void closeLogFile(void) {
 #ifdef _WIN32
     if (logFile != INVALID_HANDLE_VALUE) CloseHandle(logFile);
@@ -134,7 +124,6 @@ static UNUSED void closeLogFile(void) {
 #endif
     logFileFor[0] = '\0';
 }
-// The bytes of the file the open log handle has, or 0 when that can't be read.
 static UNUSED long long logFileBytes(void) {
 #ifdef _WIN32
     LARGE_INTEGER size;
@@ -144,7 +133,6 @@ static UNUSED long long logFileBytes(void) {
     return fstat(logFile, &st) ? 0 : (long long)st.st_size;
 #endif
 }
-// 1 when the open log handle's file is still the one at logPath.
 static UNUSED int logFileIsPath(void) {
 #ifdef _WIN32
     BY_HANDLE_FILE_INFORMATION open, named;
@@ -167,7 +155,6 @@ static int logRolling;
 static long long logRollFailedAt;
 static UNUSED PRINTF_FORMAT(2, 3) void writeLog(const char *event, const char *fmt, ...);
 
-// Copies the launch's header lines from log file `from` to the open log.
 static UNUSED void copyLogHeader(const char *from) {
     FILE *f = fopen(from, "rb");
     if (!f) return;
@@ -189,7 +176,6 @@ static UNUSED void copyLogHeader(const char *from) {
     }
 }
 
-// Moves to the next log file when the open one has reached LOG_FILE_MAX.
 static UNUSED void rollLogOverIfFull(void) {
     long long bytes = logFileBytes();
     if (logRolling || bytes < LOG_FILE_MAX || (logRollFailedAt && bytes < logRollFailedAt + 1024 * 1024)) return;
@@ -214,7 +200,6 @@ static UNUSED void rollLogOverIfFull(void) {
     logRolling = 0;
 }
 
-// Formats a line into out[size], cut to fit, and returns its whole length, or -1 on a format error.
 static UNUSED PRINTF_FORMAT(4, 0) int formatLogLine(char *out, size_t size, const SYSTEMTIME *t, const char *event,
                                                     const char *fmt, va_list ap) {
     int head = snprintf(out, size, "%02d:%02d:%02d.%03d plugin=%s event=%s ", t->wHour, t->wMinute, t->wSecond,
@@ -225,7 +210,6 @@ static UNUSED PRINTF_FORMAT(4, 0) int formatLogLine(char *out, size_t size, cons
     return body < 0 ? -1 : head + body;
 }
 
-// Appends one line to coe5mod.log: the time, plugin=<name>, event=<event>, then the fields.
 static UNUSED PRINTF_FORMAT(2, 3) void writeLog(const char *event, const char *fmt, ...) {
     if (!logPath[0] || !openLogFile()) return;
     rollLogOverIfFull();
@@ -269,7 +253,6 @@ static UNUSED PRINTF_FORMAT(2, 3) void writeLog(const char *event, const char *f
     free(heap);
 }
 
-// Sets the plugin's name for the log, gameBase, and the log path, then logs that the plugin attached.
 static UNUSED void commonInit(const char *name) {
     pluginName = name;
     gameBase = (unsigned char *)GetModuleHandleA(NULL);
@@ -282,7 +265,6 @@ static UNUSED void commonInit(const char *name) {
 }
 
 #ifdef _WIN32
-// Writes `size` bytes of code at `address`: the game's code, or a stub page made read-execute.
 static UNUSED unsigned char *gameCodeOpenFrom, *gameCodeOpenTo;
 static UNUSED DWORD gameCodeOpenProtection;
 static UNUSED int writeGameCode(void *address, const void *bytes, size_t size) {
@@ -308,7 +290,6 @@ static UNUSED int writeGameCode(void *address, const void *bytes, size_t size) {
     return 1;
 }
 
-// Opens `size` bytes of the game's code for a run of writeGameCode calls, until closeGameCode.
 static UNUSED int openGameCode(void *address, size_t size) {
     if (gameCodeOpenFrom || !VirtualProtect(address, size, PAGE_EXECUTE_READWRITE, &gameCodeOpenProtection)) {
         writeLog("code_unwritable", "address=%p bytes=%zu error=%lu", address, size, gameCodeOpenFrom ? 0UL : GetLastError());
@@ -319,7 +300,6 @@ static UNUSED int openGameCode(void *address, size_t size) {
     return 1;
 }
 
-// Puts back the protection openGameCode found, and clears the instruction cache for the range.
 static UNUSED void closeGameCode(void) {
     if (!gameCodeOpenFrom) return;
     DWORD ignored;
@@ -330,7 +310,6 @@ static UNUSED void closeGameCode(void) {
     gameCodeOpenFrom = gameCodeOpenTo = NULL;
 }
 
-// Sets pages of code that were just written read-execute, and clears the instruction cache.
 static UNUSED int makePagesReadExecute(void *address, size_t size) {
     DWORD old;
     FlushInstructionCache(GetCurrentProcess(), address, size);
@@ -339,7 +318,6 @@ static UNUSED int makePagesReadExecute(void *address, size_t size) {
     return 0;
 }
 
-// Sets pages of data that sit next to code read-write, not executable.
 static UNUSED int makePagesReadWrite(void *address, size_t size) {
     DWORD old;
     if (VirtualProtect(address, size, PAGE_READWRITE, &old)) return 1;
@@ -348,7 +326,6 @@ static UNUSED int makePagesReadWrite(void *address, size_t size) {
 }
 #endif
 
-// Builds redirectCall's stub, to run at `stub`, in `code` (0x20 bytes); returns its length.
 static UNUSED size_t buildRedirectCallStub(unsigned char *code, const unsigned char *stub, const void *hook, const uintptr_t *rspSlot) {
     unsigned char *p = code;
     if (rspSlot) {
@@ -363,7 +340,6 @@ static UNUSED size_t buildRedirectCallStub(unsigned char *code, const unsigned c
 }
 
 #if !defined(__aarch64__) && defined(COE5SE_RAW_ADDRESSES)
-// Allocates `bytes` of executable memory within 2 GB of `target`.
 static UNUSED unsigned char *allocNearBytes(unsigned char *target, size_t bytes) {
     SYSTEM_INFO si;
     GetSystemInfo(&si);
@@ -377,10 +353,8 @@ static UNUSED unsigned char *allocNearBytes(unsigned char *target, size_t bytes)
     }
     return NULL;
 }
-// One page: allocNearBytes(target, 0x1000).
 static UNUSED unsigned char *allocNear(unsigned char *target) { return allocNearBytes(target, 0x1000); }
 
-// Points the call or tail jump to `targetRva` at `siteRva` to `hook`, through a 0x20-byte stub at `stub`.
 static UNUSED int redirectCall(unsigned int siteRva, unsigned int targetRva, unsigned char *stub, void *hook,
                                 const char *label, uintptr_t *rspSlot) {
     unsigned char *site = gameBase + siteRva;
@@ -401,14 +375,12 @@ static UNUSED int redirectCall(unsigned int siteRva, unsigned int targetRva, uns
 }
 #endif
 
-// Runs the game's .c5m translation lookup on `text`.
 #define TRANSLATED_SIZE      5000
 static UNUSED const char *translateText(const char *text, char *out, int size) {
     GAME_FN(void (*)(const char *, char *, int), RVA_TRANSLATE_FORMAT)(text, out, size);
     return out;
 }
 #ifdef __APPLE__
-// On Mac, the stores the game's callers make right after screen_begin.
 #define LAYOUT_TOP_MARGIN 75.0
 static UNUSED void screenBegin(void) {
     GAME_FN(void (*)(void), RVA_SCREEN_BEGIN)();
@@ -430,9 +402,7 @@ static UNUSED void screenTitle(const char *t) {
 
 #ifdef __APPLE__
 // ---- Mac: helpers the game inlined ------------------------------------------------------------
-// Mac copies of the game's layout helpers, writing what the inlined copies write.
 
-// Takes a new element from the game's layout table, or NULL if the table is full.
 static UNUSED unsigned char *layoutNew(void) {
     int i = GAME_FN(int (*)(void), RVA_LAYOUT_NEW)();
     return i < 0 ? NULL : GAME_PTR(RVA_LAYOUT_TABLE) + (size_t)i * LAYOUT_STRIDE;
@@ -442,12 +412,10 @@ static UNUSED unsigned char *layoutNew(void) {
 #define LAYOUT_TYPE(e)   (*(short *)((e) + LAYOUT_ELEMENT_TYPE))
 #define LAYOUT_ENDS(e)   (*(unsigned char *)((e) + LAYOUT_ELEMENT_LINE_END))
 
-// Ends the current line of the layout.
 static UNUSED void closeLine(void) {
     if (GF(RVA_WIDEST_LINE) <= GF(RVA_LINE_WIDTH)) GF(RVA_WIDEST_LINE) = GF(RVA_LINE_WIDTH);
     GF(RVA_LINE_WIDTH) = 0.0f;
 }
-// The game's line-width update after an element.
 static UNUSED void layoutAdvance(void) {
     int last = G32(RVA_LAYOUT_LAST);
     if (last < 0) return;
@@ -456,7 +424,6 @@ static UNUSED void layoutAdvance(void) {
     GF(RVA_LINE_WIDTH) += LAYOUT_F(e, LAYOUT_ELEMENT_WIDTH) + LAYOUT_F(e, LAYOUT_ELEMENT_COLUMN_X) * 0.1f;
     if (LAYOUT_ENDS(e)) closeLine();
 }
-// Mac copies of the game's screen_width, button_row, column_x, list_gap, row_area, and row_begin.
 static UNUSED void screenWidth(float w) {
     float max = (float)G32(RVA_SCREEN_W);
     if (w > max) w = max;
@@ -518,7 +485,6 @@ static UNUSED void radioOption(int id, int selected, const char *text) {
 static UNUSED void textButton(int id, const char *text) {
     GAME_FN(void (*)(int, FMT_ARGS), RVA_TEXT_BUTTON)(id, "%s", text);
 }
-// Draws a checkbox (□/√).
 static UNUSED void checkbox(int id, int *value, const char *label) {
     GAME_FN(int (*)(int, int *, FMT_ARGS), RVA_CHECKBOX)(id, value, "%s", label);
 }
@@ -526,7 +492,6 @@ static UNUSED void tooltip(const char *text) {
     GAME_FN(unsigned long long (*)(FMT_ARGS), RVA_TOOLTIP)("%s", text);
 }
 static UNUSED void bindHotkey(int id, int key) { GAME_FN(void (*)(int, int), RVA_BIND_HOTKEY)(id, key); }
-// The game's message box: `title`, `text`, and up to two buttons.
 #define POPUP_TEXT_SIZE 4000
 static UNUSED int messageBox(const char *title, const char *text, const char *button1, const char *button2, int cancel,
                              int key1, int key2) {
@@ -535,26 +500,21 @@ static UNUSED int messageBox(const char *title, const char *text, const char *bu
 }
 #ifdef __APPLE__
 static UNUSED void buttonRow(void) { buttonRowStyle(LAYOUT_TYPE_BUTTON_ROW); }
-// Does nothing on Mac.
 static UNUSED void screenMusic(void) {}
 
-// Ends the frame the way vanilla setup screens do and returns the clicked id.
 static UNUSED int screenWait(void) {
     GAME_FN(void (*)(int, float, float), RVA_LAYOUT_PASS)(-1, -1.0f, -1.0f);
     return GAME_FN(WaitForClickFn, RVA_WAIT_FOR_CLICK)(WAIT_UNTIL_CLICK, WAIT_MODE_MENU);
 }
 
-// The width Random Map Settings uses: its scale times its unit width.
 #define SETUP_WIDTH_UNIT_MAC 300.0f
 static UNUSED float setupScreenWidth(void) {
     return (float)(int)(GF(RVA_SETUP_WIDTH_SCALE) * SETUP_WIDTH_UNIT_MAC);
 }
 
-// Mac copies of the rest of the name box's calls.
 static UNUSED void listStyle(short type) { buttonRowStyle(type); }
 static UNUSED void rowOpen(void) { rowBegin(1); }
 static UNUSED void rowClose(void) { rowBegin(0); }
-// The layout marks the name box puts its picture between.
 #define LAYOUT_MARK_OPEN  -998.0f
 #define LAYOUT_MARK_CLOSE -999.0f
 static UNUSED void layoutMark(float which) {
@@ -565,12 +525,10 @@ static UNUSED void layoutMark(float which) {
 }
 static UNUSED void layoutMarkOpen(void) { layoutMark(LAYOUT_MARK_OPEN); }
 static UNUSED void layoutMarkClose(void) { layoutMark(LAYOUT_MARK_CLOSE); }
-// A monster's picture at size 30.
 #define DRAW_SPRITE_30_SIZE 30
 static UNUSED void drawSprite30(int id, int kind, int sprite) {
     GAME_FN(void (*)(int, int, int, int), RVA_DRAW_SPRITE)(id, kind, sprite, DRAW_SPRITE_30_SIZE);
 }
-// screen_layout(-1, -1), which the Mac build inlined into a call of the layout pass.
 static UNUSED void screenLayout(void) { GAME_FN(void (*)(int, float, float), RVA_LAYOUT_PASS)(-1, -1.0f, -1.0f); }
 static UNUSED void textInputStart(void) {}
 static UNUSED void textInputStop(void) {}
@@ -578,7 +536,6 @@ static UNUSED void textInputStop(void) {}
 static UNUSED void buttonRow(void) { GAME_FN(unsigned long long (*)(short), RVA_BUTTON_ROW)(LAYOUT_TYPE_BUTTON_ROW); }
 static UNUSED void screenMusic(void) { GAME_FN(void (*)(void), RVA_SCREEN_MUSIC)(); }
 
-// Ends the frame the way vanilla setup screens do and returns the clicked id.
 static UNUSED int screenWait(void) {
     GAME_FN(void (*)(float, float), RVA_SCREEN_LAYOUT)(-1.0f, -1.0f);
     int id = GAME_FN(WaitForClickFn, RVA_WAIT_FOR_CLICK)(WAIT_UNTIL_CLICK, WAIT_MODE_MENU);
@@ -586,12 +543,10 @@ static UNUSED int screenWait(void) {
     return id;
 }
 
-// The width Random Map Settings uses: its scale times its unit width.
 static UNUSED float setupScreenWidth(void) {
     return (float)(int)(GF(RVA_SETUP_WIDTH_SCALE) * GF(RVA_SETUP_WIDTH_UNIT));
 }
 
-// The game's own layout helpers, under the names the Mac copies above have.
 static UNUSED void listStyle(short type) { GAME_FN(unsigned long long (*)(short), RVA_LIST_STYLE)(type); }
 static UNUSED void listGap(float g) { GAME_FN(void (*)(float), RVA_LIST_GAP)(g); }
 static UNUSED void columnX(float x) { GAME_FN(void (*)(float), RVA_COLUMN_X)(x); }
@@ -599,17 +554,14 @@ static UNUSED void rowOpen(void) { GAME_FN(void (*)(int), RVA_ROW_BEGIN)(0); }
 static UNUSED void rowClose(void) { GAME_FN(void (*)(int), RVA_ROW_BEGIN)(1); }
 static UNUSED void layoutMarkOpen(void) { GAME_FN(void (*)(void), RVA_LAYOUT_MARK_OPEN)(); }
 static UNUSED void layoutMarkClose(void) { GAME_FN(void (*)(void), RVA_LAYOUT_MARK_CLOSE)(); }
-// A monster's picture at size 30, with the flags (4) the name box passes.
 static UNUSED void drawSprite30(int id, int kind, int sprite) {
     GAME_FN(void (*)(int, int, int, int), RVA_DRAW_SPRITE_30)(id, kind, sprite, 4);
 }
 static UNUSED void screenLayout(void) { GAME_FN(void (*)(float, float), RVA_SCREEN_LAYOUT)(-1.0f, -1.0f); }
-// The Steam Deck keyboard: text dialogs open it before their loop and close it after.
 static UNUSED void textInputStart(void) { GAME_FN(void (*)(void), RVA_TEXT_INPUT_START)(); }
 static UNUSED void textInputStop(void) { GAME_FN(void (*)(void), RVA_TEXT_INPUT_STOP)(); }
 #endif
 
-// The game's name box: title, monster picture, text field, Ok, and Cancel when allowed.
 #define NAME_BOX_WIDTH       400.0f
 #define NAME_BOX_TOP_GAP     5.0f
 #define NAME_BOX_BUTTON_GAP  3.0f

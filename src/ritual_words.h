@@ -1,4 +1,3 @@
-// Ritual effect words: CoE5SE's words for effects the game's rituals carry but no game word sets.
 #pragma once
 
 #define RITUAL_FX_RANDOM_EQUIP        1093
@@ -9,13 +8,11 @@
 #define RANDARTIFACT_WORD             "randartifact"
 #define ITEM_GROUP_MASK_MAX           31
 
-// The item groups' names randartifact takes, each for its bit.
 static const struct {
     const char *name;
     int bit;
 } ITEM_GROUP_NAMES[] = {{"fire", 1}, {"water", 2}, {"air", 4}, {"earth", 8}, {"books", 16}};
 
-// One randomequip line of this pass: its ritual, to check once every mod has added its strings.
 typedef struct {
     int record, line;
     char mod[64];
@@ -28,12 +25,10 @@ static unsigned char *ritualWordRecord(int record) {
     return gameBase + ritualTableRva() + (size_t)record * RITUAL_SIZE;
 }
 
-// The effect at `slot` of the ritual record: its id, then its int64 value.
 static long long *ritualWordEffect(unsigned char *record, int slot) {
     return (long long *)(record + RITUAL_FX + (size_t)slot * RITUAL_FX_SIZE);
 }
 
-// Adds the effect to the ritual, as the game's words do.
 static int addRitualWordEffect(int record, int id, long long value) {
     unsigned char *r = ritualWordRecord(record);
     for (int s = 0; s < RITUAL_FX_MAX; s++) {
@@ -47,7 +42,6 @@ static int addRitualWordEffect(int record, int id, long long value) {
     return 0;
 }
 
-// Takes every effect `id` off the ritual, moving the later ones up.
 static int dropRitualWordEffect(int record, int id) {
     unsigned char *r = ritualWordRecord(record);
     int kept = 0, dropped = 0;
@@ -65,7 +59,6 @@ static int dropRitualWordEffect(int record, int id) {
     return dropped;
 }
 
-// What is wrong with the ritual's "|" lines for randomequip, or NULL.
 static const char *randomEquipProblem(int record, int *at) {
     const char *strings = (const char *)ritualWordRecord(record) + RITUAL_STRINGS;
     int picks = 0, firstOther = -1;
@@ -86,7 +79,6 @@ static const char *randomEquipProblem(int record, int *at) {
     return picks ? NULL : "no_pick_lines";
 }
 
-// randomequip: adds the effect to the current ritual, and keeps the line to check after the pass.
 static void randomequipLine(const char *args, int mod, int level) {
     if (level != 2) return;
     const char *p = args;
@@ -115,7 +107,6 @@ static void randomequipLine(const char *args, int mod, int level) {
     snprintf(e->mod, sizeof e->mod, "%s", spellModName(mod));
 }
 
-// Reads one item group's name from *p into *out, its bit, and moves past it; 0 for any other text.
 static int readItemGroupName(const char **p, long long *out) {
     size_t len = strcspn(*p, " \t\r\n");
     for (size_t i = 0; i < sizeof ITEM_GROUP_NAMES / sizeof ITEM_GROUP_NAMES[0]; i++) {
@@ -127,7 +118,6 @@ static int readItemGroupName(const char **p, long long *out) {
     return 0;
 }
 
-// randartifact: adds the effect to the current ritual, with the item group number, a group's bit, or 0.
 static void randartifactLine(const char *args, int mod, int level) {
     if (level != 2) return;
     const char *p = args;
@@ -148,7 +138,6 @@ static void randartifactLine(const char *args, int mod, int level) {
                       (const char *)ritualWordRecord(record), RITUAL_FX_MAX);
 }
 
-// After a level-2 mod pass: takes randomequip off each ritual whose "|" lines don't come first.
 static void ritualWordsAfterPass(int level) {
     if (level != 2) return;
     for (int i = 0; i < randomEquipLineCount; i++) {
@@ -166,7 +155,6 @@ static void ritualWordsAfterPass(int level) {
     randomEquipLineCount = 0;
 }
 
-// Adds randomequip and randartifact.
 static void ritualWordsInit(void) {
     int words = apiAddModCommand("randomequip", randomequipLine) + apiAddModCommand("randartifact", randartifactLine);
     writeLog("ritual_words_installed", "words=%d of 2", words);

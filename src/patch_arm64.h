@@ -1,4 +1,4 @@
-// CoE5SE's call-site patching for the Mac build (coe5_mac, arm64).
+#pragma once
 #include <libkern/OSCacheControl.h>
 #include <mach-o/getsect.h>
 #include <mach/mach.h>
@@ -7,11 +7,9 @@
 #define MAX_STUBS 96
 _Static_assert(SITE_COUNT <= MAX_STUBS, "one stub per site");
 
-// One per site: the head the stub jumps to, and the sp, d8, and d9 the stub saw at the call.
 typedef struct { void *head; uintptr_t sp; double d8, d9; } StubData;
 __attribute__((used)) StubData coe5seStubData[MAX_STUBS];
 
-// MAX_STUBS stubs of 9 instructions each.
 __asm__(
     ".text\n.p2align 2\n.globl _coe5seSiteStubs\n_coe5seSiteStubs:\n"
     ".set stubIndex, 0\n"
@@ -34,7 +32,6 @@ static void **siteHead(CallSite site) { return &coe5seStubData[site].head; }
 
 #define MAC_PAGE_MASK 0x3fff
 
-// Writes code into the game's read-only __TEXT.
 static int writeGameCode(void *address, const void *bytes, size_t size) {
     mach_vm_address_t page = (mach_vm_address_t)address & ~(mach_vm_address_t)MAC_PAGE_MASK;
     mach_vm_size_t length = ((mach_vm_address_t)address + size - page + MAC_PAGE_MASK) & ~(mach_vm_size_t)MAC_PAGE_MASK;
@@ -45,10 +42,8 @@ static int writeGameCode(void *address, const void *bytes, size_t size) {
     return 1;
 }
 
-// The game's instruction word `live` with the bits of `mask` set to `value`: a new immediate.
 static uint32_t patchedWord(uint32_t live, uint32_t mask, uint32_t value) { return (live & ~mask) | (value & mask); }
 
-// Makes game data in __DATA_CONST writable.
 static int makeGameDataWritable(void *address, size_t size) {
     mach_vm_address_t page = (mach_vm_address_t)address & ~(mach_vm_address_t)MAC_PAGE_MASK;
     mach_vm_size_t length = ((mach_vm_address_t)address + size - page + MAC_PAGE_MASK) & ~(mach_vm_size_t)MAC_PAGE_MASK;
@@ -56,7 +51,6 @@ static int makeGameDataWritable(void *address, size_t size) {
     return !mach_vm_protect(mach_task_self(), page, length, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY);
 }
 
-// Returns where the `bl` at `at` goes, or NULL if the instruction isn't a `bl`.
 static unsigned char *blTarget(const unsigned char *at) {
     uint32_t insn;
     memcpy(&insn, at, 4);
@@ -65,14 +59,20 @@ static unsigned char *blTarget(const unsigned char *at) {
     return (unsigned char *)at + (intptr_t)imm * 4;
 }
 
-// Encodes a `bl` at `at` that calls `target`.
+static unsigned char *bTarget(const unsigned char *at) {
+    uint32_t insn;
+    memcpy(&insn, at, 4);
+    if ((insn & 0xfc000000u) != 0x14000000u) return NULL;
+    int32_t imm = (int32_t)(insn << 6) >> 6;
+    return (unsigned char *)at + (intptr_t)imm * 4;
+}
+
 static uint32_t blTo(const unsigned char *at, const unsigned char *target) {
     return 0x94000000u | ((uint32_t)((target - at) >> 2) & 0x3ffffffu);
 }
 
 static unsigned char *paddingNext, *paddingEnd;
 
-// The next free spot of the header padding, or NULL when there is no room.
 static unsigned char *takePadding(size_t size) {
     if (!paddingNext) {
         const struct mach_header_64 *mh = (const struct mach_header_64 *)gameBase;
@@ -90,13 +90,11 @@ static unsigned char *takePadding(size_t size) {
     return spot;
 }
 
-// The header padding's bytes no spot has taken yet, logged at the end of startup.
 static long paddingLeft(void) {
     if (!paddingNext) takePadding(0);
     return (long)(paddingEnd - paddingNext);
 }
 
-// Writes a 16-byte trampoline to `target` into the header padding.
 static unsigned char *newTrampoline(void *target) {
     unsigned char *t = takePadding(16);
     if (!t) return NULL;
@@ -107,7 +105,6 @@ static unsigned char *newTrampoline(void *target) {
 
 // ---- Inlined button rows ------------------------------------------------------------------------
 // @platform-split participants_button_row: Mac runs CoE5SE's copy of button_row at the inlined copies
-// The sites whose calls are an inlined button_row's layout_new end their chain in button_row.
 static uint64_t buttonRowMac(short style) {
     int index = ((int (*)(void))(gameBase + RVA_LAYOUT_NEW))();
     if (index < 0) return (uint64_t)(int64_t)index;
@@ -119,12 +116,10 @@ static uint64_t buttonRowMac(short style) {
 }
 
 // @platform-split square_info_button_row: Mac runs CoE5SE's copy of button_row at the inlined copy
-// The function at the inner end of the site's chain.
 static int sealEventStandInMac(int slot, int seal);
 static void initParticipantsMac(int mode);
 static u64 splitStepGame(void);
 static int installSplitSiteMac(CallSite site);
-// The sites whose step Mac copied into its caller, whose Lua wraps run split at next() (lua_split_chain.h).
 static int isSplitSite(CallSite site) {
     switch (site) {
     case SITE_AI_GATHER_TROOPS:
@@ -207,7 +202,6 @@ extern const unsigned char coe5seStepHookCall[];
 #define STEP_LOAD_X16 0xf85f83f0u
 #define STEP_NOP 0xd503201fu
 
-// Fills the entry stub, placed at `stub`, for `hook`.
 static void writeStepStubMac(uint32_t code[STEP_STUB_WORDS], uint64_t hook, uint64_t routine) {
     code[0] = 0xa9bf47f0u;
     code[1] = 0x58000070u;
@@ -216,15 +210,12 @@ static void writeStepStubMac(uint32_t code[STEP_STUB_WORDS], uint64_t hook, uint
     memcpy(&code[4], &hook, 8);
     memcpy(&code[6], &routine, 8);
 }
-// Whether `insn` is an adrp, which a trampoline turns into a load of the page it computes.
 static int isAdrp(uint32_t insn) { return (insn & 0x9f000000u) == 0x90000000u; }
-// The page an adrp at `at` computes.
 static uint64_t adrpPage(uint32_t insn, const unsigned char *at) {
     int64_t imm = (int64_t)((((insn >> 5) & 0x7ffffu) << 2) | ((insn >> 29) & 3u));
     if (imm & (1 << 20)) imm -= 1 << 21;
     return ((uint64_t)(uintptr_t)at & ~(uint64_t)0xfff) + (uint64_t)(imm << 12);
 }
-// Fills a hook's trampoline, placed at `tramp`, for the instruction `moved` at `at`.
 static void writeStepTrampolineMac(uint32_t code[STEP_TRAMPOLINE_WORDS], const unsigned char *tramp, const unsigned char *at, uint32_t moved) {
     uint64_t page = 0;
     code[0] = STEP_LOAD_X16;
@@ -237,7 +228,6 @@ static void writeStepTrampolineMac(uint32_t code[STEP_TRAMPOLINE_WORDS], const u
     code[3] = STEP_NOP;
     memcpy(&code[4], &page, 8);
 }
-// Whether `insn` may run from a trampoline: not PC-relative (adr, a branch, a literal load), but an adrp.
 static int stepInstructionMovable(uint32_t insn) {
     if (isAdrp(insn)) return 1;
     if ((insn & 0x9f000000u) == 0x10000000u) return 0;
@@ -249,7 +239,6 @@ static int stepInstructionMovable(uint32_t insn) {
     return 1;
 }
 
-// Puts a step hook at `rva` with `hook`'s handler: writes its trampoline and stub, then the `b`.
 static int putStepHookMac(unsigned int rva, StepHook *hook, const char *name, int replace) {
     unsigned char *at = gameBase + rva;
     uint32_t moved;
@@ -288,7 +277,6 @@ static const unsigned int MASTERY_READ_RVAS[MASTERY_COST_READS] = {
     RVA_MASTERY_COST_READ_5, RVA_MASTERY_COST_READ_6, RVA_MASTERY_COST_READ_7, RVA_MASTERY_COST_READ_8,
     RVA_MASTERY_COST_READ_9, RVA_MASTERY_COST_READ_10, RVA_MASTERY_COST_READ_11};
 
-// The gold of the Mastery cost whose slot is at byte `offset` of its page (0x4d8, 0x4dc, 0x4e0), or -1.
 static int masteryGoldAt(unsigned offset) {
     unsigned page = RVA_CEREMONY_COST_ARCH_BISHOP_SET & 0xfff;
     return offset == page ? CEREMONY_COST_ARCH_BISHOP_GOLD
@@ -299,7 +287,6 @@ static int masteryGoldAt(unsigned offset) {
 static uint32_t movzW16(int value) { return 0x52800010u | ((uint32_t)value << 5); }
 static uint32_t strW16(unsigned base, unsigned offset) { return 0xb9000010u | ((offset / 4) << 10) | (base << 5); }
 
-// A fill's strb of a flag, rewritten to store the gold; returns 0 for code that isn't that.
 static int rewriteMasteryFill(uint32_t code[2], int strbFirst) {
     uint32_t strb = code[strbFirst ? 0 : 1], other = code[strbFirst ? 1 : 0];
     if ((strb & 0xffc00000u) != 0x39000000u || other != 0xd503201fu) return 0;
@@ -311,7 +298,6 @@ static int rewriteMasteryFill(uint32_t code[2], int strbFirst) {
     return 1;
 }
 
-// A reader's four instructions, rewritten to load the cost as an int; returns 0 for code that isn't that.
 static int rewriteMasteryRead(uint32_t code[4]) {
     uint32_t ldrb = code[0], mov = 0, cmp = 0, csel = code[3];
     int negative = 0;
@@ -338,13 +324,11 @@ static int rewriteMasteryRead(uint32_t code[4]) {
     return 1;
 }
 
-// The Ceremonies screen's call of RVA_SCREEN_BEGIN: runs the site's chain for its commander first.
 __attribute__((used)) static uint64_t ceremonyScreenCostsMac(int commander) {
     ((void (*)(int))(coe5seSiteStubs + SITE_CEREMONY_COSTS * STUB_CODE_SIZE))(commander);
     return ((uint64_t (*)(void))(gameBase + RVA_SCREEN_BEGIN))();
 }
 
-// Puts the Mastery cost patches and the screen's call in, before the site's own calls.
 static int installCeremonyCostsMac(void) {
     if (!gameCodeMatches) {
         writeLog("site_skipped", "site=ceremony_costs reason=game_code_differs");
@@ -413,7 +397,6 @@ __attribute__((used)) int coe5seSealEventAsk(int seal) {
     return ((int (*)(int, int))(coe5seSiteStubs + SITE_SEAL_EVENT * STUB_CODE_SIZE))(-1, seal);
 }
 
-// Calls coe5seSealEventAsk(w9) with every register the call could change kept.
 __asm__(
     ".text\n.p2align 2\n.globl _coe5seSealEventCall\n_coe5seSealEventCall:\n"
     "  sub sp, sp, #0x2c0\n"
@@ -447,7 +430,6 @@ extern const unsigned char coe5seSealEventCall[];
 #define SEAL_EVENT_STUB_WORDS 16
 #define SEAL_EVENT_SWITCH_INSN 0x51000908u
 
-// Fills the stub for the switch at `at`, placed at `stub`, with the no-event path `none`.
 static void writeSealEventStubMac(uint32_t code[SEAL_EVENT_STUB_WORDS], const unsigned char *stub, const unsigned char *at,
                                   const unsigned char *none, uint32_t moved, uint64_t routine) {
     code[0] = 0xd10243ffu;
@@ -467,7 +449,6 @@ static void writeSealEventStubMac(uint32_t code[SEAL_EVENT_STUB_WORDS], const un
     memcpy(&code[14], &routine, 8);
 }
 
-// Puts the stub in and the site's chain behind it, once.
 static int installSealEventMac(void) {
     unsigned char *at = gameBase + RVA_SEAL_EVENT_SWITCH;
     uint32_t moved;
@@ -514,7 +495,6 @@ static void initParticipantsMac(int mode) {
     }
 }
 
-// The stub's call: the site's chain for new_world's call init_participants(0).
 __attribute__((used)) void coe5seParticipantsInit(uintptr_t worldSp, uint64_t d8, uint64_t d9);
 __attribute__((used)) void coe5seParticipantsInit(uintptr_t worldSp, uint64_t d8, uint64_t d9) {
     StubData *data = &coe5seStubData[SITE_NEW_WORLD_INIT_PARTICIPANTS];
@@ -524,7 +504,6 @@ __attribute__((used)) void coe5seParticipantsInit(uintptr_t worldSp, uint64_t d8
     ((void (*)(int))data->head)(0);
 }
 
-// Calls the function in x17 with x0 the stub's entry sp, x1 and x2 d8 and d9, and registers kept.
 __asm__(
     ".text\n.p2align 2\n.globl _coe5seKeptFrameCall\n_coe5seKeptFrameCall:\n"
     "  sub sp, sp, #0x2c0\n"
@@ -557,7 +536,6 @@ extern const unsigned char coe5seKeptFrameCall[];
 #define FRAME_CALL_STUB_WORDS 16
 #define PARTICIPANTS_COPY_INSN 0x90000000u
 
-// Fills the stub that replaces code from `at` to `join` with a call of `function`, placed at `stub`.
 static void writeFrameCallStubMac(uint32_t code[FRAME_CALL_STUB_WORDS], const unsigned char *stub, const unsigned char *join,
                                   uint64_t routine, uint64_t function) {
     code[0] = 0xd10243ffu;
@@ -576,7 +554,6 @@ static void writeFrameCallStubMac(uint32_t code[FRAME_CALL_STUB_WORDS], const un
     memcpy(&code[14], &function, 8);
 }
 
-// Puts the stub in and the site's chain behind it, once.
 static int installParticipantsMac(void) {
     unsigned char *at = gameBase + RVA_INIT_PARTICIPANTS_COPY;
     uint32_t first;
@@ -603,7 +580,6 @@ static int installParticipantsMac(void) {
     return 1;
 }
 
-// Points every call listed for `site` at one trampoline to the site's stub.
 static int installSite(CallSite site) {
     const SiteInfo *info = &SITES[site];
     if (site == SITE_SEAL_EVENT) return installSealEventMac();
@@ -615,7 +591,7 @@ static int installSite(CallSite site) {
     }
     for (int i = 0; i < MAX_SITE_CALLS && info->rvas[i]; i++) {
         unsigned char *call = gameBase + info->rvas[i];
-        if (blTarget(call) != gameBase + info->targetRva) {
+        if (blTarget(call) != gameBase + info->targetRva && bTarget(call) != gameBase + info->targetRva) {
             writeLog("site_skipped", "site=%s reason=not_the_expected_call address=%p", info->name, call);
             return 0;
         }
@@ -629,7 +605,7 @@ static int installSite(CallSite site) {
     }
     for (int i = 0; i < MAX_SITE_CALLS && info->rvas[i]; i++) {
         unsigned char *call = gameBase + info->rvas[i];
-        uint32_t insn = blTo(call, trampoline);
+        uint32_t insn = blTarget(call) ? blTo(call, trampoline) : 0x14000000u | ((uint32_t)((trampoline - call) >> 2) & 0x3ffffffu);
         if (!writeGameCode(call, &insn, 4)) {
             writeLog("site_failed", "site=%s reason=write address=%p", info->name, call);
             return 0;
@@ -640,7 +616,6 @@ static int installSite(CallSite site) {
 }
 
 // ---- Multiplayer gate ---------------------------------------------------------------------------
-// Every plugin wrapper is entered through a gate, which skips it in network games.
 #include <sys/mman.h>
 #define MAX_GATES 4096
 typedef struct { void *hook, *next; } GatePair;
@@ -650,7 +625,6 @@ static int gateCount;
 static int isNetworkGame(void);
 __attribute__((used)) int coe5seGateIsNetwork(void) { return isNetworkGame(); }
 
-// Fixed gate g puts g in x17 and jumps to the common code, which turns it into its pair in x16.
 __asm__(
     ".text\n.p2align 2\n.globl _coe5seGates\n_coe5seGates:\n"
     ".set gateIndex, 0\n"
@@ -686,7 +660,6 @@ __asm__(
 extern const unsigned char coe5seGates[], coe5seGateEnter[];
 #define GATE_CODE_SIZE 8
 
-// A run-time gate is 32 bytes.
 #define RUN_GATE_SIZE      32
 #define RUN_GATE_PAIR      16
 #define RUN_GATE_PAGE      (MAC_PAGE_MASK + 1)
@@ -695,7 +668,6 @@ typedef struct { void *hook, *next, *gate; } RunGatePair;
 static RunGatePair *runGatePairs;
 static int runGatesUsed = RUN_GATES_PER_PAGE;
 
-// Makes a page of run-time gates.
 static int newRunGatePage(void) {
     RunGatePair *pairs = calloc(RUN_GATES_PER_PAGE, sizeof *pairs);
     unsigned char *page = mmap(NULL, RUN_GATE_PAGE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
@@ -727,7 +699,6 @@ static int isFixedGate(const void *gate) {
     return g >= first && g < first + GATE_CODE_SIZE * MAX_GATES;
 }
 
-// Returns a new gate for `hook` and `next`: a fixed one while any is left, then a run-time one.
 static void *makeGate(void *hook, void *next) {
     if (gateCount < MAX_GATES) {
         coe5seGateData[gateCount].hook = hook;
@@ -752,7 +723,6 @@ static void setGateNext(void *gate, void *next) {
     pair->next = next;
 }
 
-// The gate that entered the wrapper running now, as makeGate returned it.
 static void *enteredGate(void) {
     const void *pair = coe5seGateEntered;
     if (!pair) return NULL;
@@ -762,5 +732,4 @@ static void *enteredGate(void) {
     return (void *)(coe5seGates + GATE_CODE_SIZE * g);
 }
 
-// The caller's sp at the site's call.
 static uintptr_t siteCallerSp(CallSite site) { return coe5seStubData[site].sp; }

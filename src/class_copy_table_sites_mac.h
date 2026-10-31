@@ -1,4 +1,3 @@
-// Every ADRP in coe5_mac that builds an address in the game's class_copy table, and its bounds.
 #pragma once
 
 #define CLASS_COPY_MAC_SITE_COUNT 3

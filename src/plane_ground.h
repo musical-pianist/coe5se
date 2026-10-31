@@ -1,8 +1,5 @@
-// The ground of a mod's plane that is `like` a vanilla plane: that plane's ground rules.
-
 static int planeGroundAs[PLANE_RECORDS_MOVED];
 
-// Fills the table for this world's planes: each plane itself, a mod's `like` plane its vanilla plane.
 static void setPlaneGroundLikes(void) {
     for (int plane = 0; plane < PLANE_RECORDS_MOVED; plane++) planeGroundAs[plane] = plane;
     for (int i = 0; i < customPlaneCount; i++) {
@@ -13,7 +10,6 @@ static void setPlaneGroundLikes(void) {
 }
 
 #ifndef __APPLE__
-// Writes the Windows stub for the match at `at` into `stub`; returns its length.
 static size_t writePlaneGroundStubWin(unsigned char *stub, const unsigned char *at, const unsigned char *other) {
     unsigned char *p = stub;
     *p++ = 0x48; *p++ = 0xb8;
@@ -58,7 +54,6 @@ static int patchPlaneGroundLike(void) {
     return 1;
 }
 #else
-// Fills the Mac stub for the match at `at`, placed at `stub`.
 static void writePlaneGroundStubMac(uint32_t code[8], const unsigned char *stub, const unsigned char *at, uint64_t table) {
     memcpy(&code[0], at, 4);
     code[1] = 0x580000adu;
@@ -91,7 +86,7 @@ static int patchPlaneGroundLike(void) {
 }
 #endif
 
-// Installs the ground pass's patch, with the planes' other hooks.
+// @platform-split plane_ground: Windows jumps to a stub in a near page, Mac branches to one in the header padding
 static int installPlaneGroundHooks(void) {
     setPlaneGroundLikes();
     int ok = patchPlaneGroundLike();

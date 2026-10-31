@@ -1,11 +1,9 @@
-// The Ritual Expansion: a ritual table of RITUAL_SLOT_CAP slots instead of the game's 3000.
 #include <stdint.h>
 #ifndef __APPLE__
 #include "ritual_expansion_sites.h"
 #endif
 
 #define EXPAND_RITUAL_TABLE_WORD  "expand_ritual_table"
-// Mods get MOD_RITUAL_TARGET rituals, slots 750 to LAST_MOD_RITUAL_SLOT.
 #define FIRST_MOD_RITUAL_SLOT     750
 #define MOD_RITUAL_TARGET         10000
 #define LAST_MOD_RITUAL_SLOT      (FIRST_MOD_RITUAL_SLOT + MOD_RITUAL_TARGET - 1)
@@ -17,7 +15,6 @@ _Static_assert(RITUAL_TABLE_SLOTS <= 0xffff, "the Mac's bounds hold the table's 
 #define EXTRA_RITUAL_SLOTS        (RITUAL_COUNTED_SLOTS - VANILLA_RITUAL_SLOTS)
 #define RITUAL_RITPOW_OFFSET      0x30
 #define RITUAL_LEVEL_OFFSET       0x34
-// The ritual screen's row ids.
 #define RITUAL_ROW_CASTABLE_BASE  1000
 #define RITUAL_ROW_GREYED_BASE    0x3000
 _Static_assert(RITUAL_ROW_GREYED_BASE == RITUAL_ROW_GREYED && RITUAL_ROW_CASTABLE_BASE == RITUAL_ROW_CASTABLE,
@@ -25,22 +22,18 @@ _Static_assert(RITUAL_ROW_GREYED_BASE == RITUAL_ROW_GREYED && RITUAL_ROW_CASTABL
 _Static_assert(RITUAL_ROW_GREYED_BASE - RITUAL_ROW_CASTABLE_BASE > LAST_MOD_RITUAL_SLOT &&
                RITUAL_ROW_GREYED_BASE - 0x1000 <= LAST_MOD_RITUAL_SLOT + RITUAL_ROW_CASTABLE_BASE,
                "greyed row ids start at the first multiple of 0x1000 past the castable ones");
-// CoE5SE's copy of the player blocks keeps every player's cast counts.
 _Static_assert(RITUAL_COUNTED_SLOTS * 2 + 0x38 <= PLAYER_BLOCK_SIZE, "each player's cast counts must fit in one player block's stride");
-// The player blocks start with the player's name, and the cast counts follow.
 #define PLAYER_BLOCKS_RVA         RVA_SLOT_NAME
 #define CAST_COUNTS_OFFSET        0x38
 _Static_assert(RVA_CAST_COUNTS - PLAYER_BLOCKS_RVA == CAST_COUNTS_OFFSET, "the cast counts sit at + 0x38 in each player block");
 #define PLAYER_BLOCKS_SIZE        (PLAYER_SLOTS_MOVED * PLAYER_BLOCK_SIZE)
 #define CAST_COUNTS_BYTES         PLAYER_BLOCKS_SIZE
 
-// The block of extra cast counts after a save or turn file's last marker.
 #define EXTRA_CASTS_MAGIC         0x31435852
 #define EXTRA_CASTS_MAX_SLOTS     EXTRA_RITUAL_SLOTS
 #define SAVE_END_MARKER           0x69
 #define TURN_END_MARKER           0x6f
 
-// The Windows bounds: each is a 32-bit field the expansion sets to `value`.
 #ifdef __APPLE__
 #define WINDOWS_RVA(rva) 0u
 #else
@@ -70,13 +63,11 @@ static const RitualWindowsBound RITUAL_WINDOWS_BOUNDS[] __attribute__((unused)) 
 static int ritualExpansionActive;
 static unsigned char *ritualTable;
 
-// The table's RVA and slot count: the game's own, or the moved table's.
 static unsigned int ritualTableRva(void) {
     return ritualExpansionActive ? (unsigned int)(ritualTable - gameBase) : RVA_RITUAL_TABLE;
 }
 static int ritualSlotCount(void) { return ritualExpansionActive ? RITUAL_SLOT_CAP : VANILLA_RITUAL_SLOTS; }
 
-// The .c5m line expand_ritual_table, kept so mods that carry it still load.
 static void expandRitualTableLine(const char *args, int mod, int level) {
     (void)level;
     if (!args[strspn(args, " \t\r\n")]) return;
@@ -106,12 +97,10 @@ static unsigned char *oldTableStart, *oldTableEnd;
 static int turnFilePlayer = -1;
 #else
 // ---- Mac: the patch ----------------------------------------------------------------------------
-// The Mac side, with arm64 instructions.
 #include "ritual_expansion_sites_mac.h"
 #include <signal.h>
 #include <sys/ucontext.h>
 
-// The game's file helpers are inlined on Mac.
 static void countWritten(size_t bytes) { *(long long *)(gameBase + RVA_FILE_BYTES_WRITTEN) += (long long)bytes; }
 static int macReadInt(void *file) {
     int value = 0;
@@ -140,7 +129,6 @@ static unsigned char *oldTableStart, *oldTableEnd;
 static int turnFilePlayer = -1;
 #endif
 
-// Returns the moved cast counts for a pointer to a player's first count in the game's own.
 static void *movedCastCounts(void *counts, int *player) {
     ptrdiff_t offset = (unsigned char *)counts - (gameBase + RVA_CAST_COUNTS);
     if (offset < 0 || offset >= (ptrdiff_t)PLAYER_SLOTS * PLAYER_BLOCK_SIZE) offset = (unsigned char *)counts - playerTableAddress(RVA_CAST_COUNTS);
@@ -152,7 +140,6 @@ static void *movedCastCounts(void *counts, int *player) {
     return castCounts + offset;
 }
 
-// Player 0's first cast count, where the game counts now.
 static unsigned char *castCountsBase(void) { return ritualExpansionActive && castCounts ? castCounts : gameBase + RVA_CAST_COUNTS; }
 
 static short *extraCastCounts(int player) {
@@ -166,7 +153,6 @@ static int hasExtraCastCounts(int player) {
 }
 
 #ifndef __APPLE__
-// The game's reads of one player's 3000 counts, read into the moved counts.
 static size_t readCastCounts(void *counts, size_t size, size_t count, void *file) {
     int player = -1;
     void *moved = movedCastCounts(counts, &player);
@@ -174,7 +160,6 @@ static size_t readCastCounts(void *counts, size_t size, size_t count, void *file
     return GAME_FN(FreadFn, RVA_FREAD)(moved, size, count, file);
 }
 
-// The turn file writer's save_player_block(player, file).
 static void saveTurnPlayerBlock(int player, void *file) {
     turnFilePlayer = player;
     if (player >= 0 && player < PLAYER_SLOTS)
@@ -184,7 +169,6 @@ static void saveTurnPlayerBlock(int player, void *file) {
 }
 #endif
 
-// Writes the extra counts block.
 static void writeExtraCastCounts(void *file, int onlyPlayer, const char *kind) {
     int inBlock[PLAYER_SLOTS], players = 0;
     for (int p = 0; p < PLAYER_SLOTS; p++) {
@@ -204,7 +188,6 @@ static void writeExtraCastCounts(void *file, int onlyPlayer, const char *kind) {
     writeLog("ritual_cast_counts_written", "file=%s players=%d slots=%d", kind, players, EXTRA_RITUAL_SLOTS);
 }
 
-// Reads the extra counts block after the file's last marker, if the file has one.
 static int readExtraCastCounts(void *file, int onlyPlayer, const char *kind) {
     for (int p = 0; ritualExpansionActive && p < PLAYER_SLOTS; p++)
         if (onlyPlayer < 0 || p == onlyPlayer) memset(extraCastCounts(p), 0, EXTRA_RITUAL_SLOTS * sizeof(short));
@@ -237,7 +220,6 @@ static int readExtraCastCounts(void *file, int onlyPlayer, const char *kind) {
     return ok ? 1 : -1;
 }
 
-// The game's clears and moves of the player blocks.
 static void mirrorPlayerBlocks(const unsigned char *dst, const unsigned char *src, size_t size, int value) {
     const unsigned char *blocks = playerTableAddress(PLAYER_BLOCKS_RVA);
     size_t span = (size_t)playerSlotCount() * PLAYER_BLOCK_SIZE;
@@ -264,7 +246,6 @@ static void *movePlayerBlock(void *dst, const void *src, size_t size) {
 }
 #endif
 
-// random_ritual(ritpow, level): a random slot whose ritpow and level match, or 0.
 static int randomRitual(int ritpow, int level) {
     static int matches[RITUAL_SLOT_CAP];
     int count = 0;
@@ -277,7 +258,6 @@ static int randomRitual(int ritpow, int level) {
     return matches[GAME_FN(int (*)(int), RVA_RANDOM)(count)];
 }
 
-// newritual's "Out of rituals: %s" when alloc_ritual has no slot left.
 static struct { int active, mod, line, skipped; char name[RITUAL_NAME_SIZE]; } refusedRitual;
 
 static void endRefusedRitual(void) {
@@ -288,7 +268,6 @@ static void endRefusedRitual(void) {
              refusedRitual.skipped);
 }
 
-// The mods that had rituals refused in the latest pass.
 #define RITUALS_LEFT_OUT_LINES 16
 #define RITUALS_LEFT_OUT_ROWS  10
 static struct {
@@ -297,7 +276,6 @@ static struct {
     int level, lastLevel;
 } ritualsLeftOut = {NULL, 0, 0, -1, -1};
 
-// Adds mod `mod` to the list, once.
 static void noteRitualsLeftOut(const char *mod) {
     for (int i = 0; i < ritualsLeftOut.count; i++)
         if (!strcmp(ritualsLeftOut.mods[i], mod)) return;
@@ -306,7 +284,6 @@ static void noteRitualsLeftOut(const char *mod) {
     snprintf(ritualsLeftOut.mods[ritualsLeftOut.count++], MOD_NAME_MAX, "%s", mod);
 }
 
-// The pop-up's text: its opening line, then one mod per line, by its display name.
 static size_t ritualsLeftOutText(char *text, size_t size) {
     size_t n = 0;
     char label[80];
@@ -320,7 +297,6 @@ static size_t ritualsLeftOutText(char *text, size_t size) {
     return n;
 }
 
-// The pop-up, once for each new set of mods.
 static void popupRitualsLeftOut(void) {
     static unsigned int shownHash;
     static char text[POPUP_TEXT_SIZE];
@@ -337,7 +313,6 @@ static void popupRitualsLeftOut(void) {
     okBox("CoE5SE: Rituals left out", text);
 }
 
-// The CoE5SE page's "Rituals left out" box, drawn only when a mod's rituals were left out.
 static void drawRitualsLeftOut(void) {
     if (!ritualsLeftOut.count) return;
     sectionBegin();
@@ -368,7 +343,6 @@ static void refuseOutOfRituals(const char *name) {
     snprintf(refusedRitual.name, sizeof refusedRitual.name, "%s", name ? name : "");
 }
 
-// Returns 1 for a line of a refused ritual, which the game then never sees.
 static int refusedRitualLine(const char *line, size_t len, int mod, int level) {
     if (level != ritualsLeftOut.lastLevel) {
         if (level == ritualsLeftOut.level) ritualsLeftOut.count = 0;
@@ -391,7 +365,6 @@ static void outOfRitualsHook(const char *fmt, const char *name) {
     refuseOutOfRituals(name);
 }
 #else
-// On Mac the word after the game's call starts selectritual's block.
 __attribute__((used)) void *ritualOutOfRitualsExit;
 __attribute__((used)) void ritualOutOfRitualsRefuse(const char *name);
 __attribute__((used)) void ritualOutOfRitualsRefuse(const char *name) { refuseOutOfRituals(name); }
@@ -404,7 +377,6 @@ extern const unsigned char ritualOutOfRitualsStub[] __asm__("_ritualOutOfRituals
 #endif
 
 #ifndef __APPLE__
-// Logs a read or write of the old table before the game stops on it.
 static LONG WINAPI logOldRitualTableAccess(EXCEPTION_POINTERS *e) {
     const EXCEPTION_RECORD *r = e->ExceptionRecord;
     if (r->ExceptionCode != EXCEPTION_ACCESS_VIOLATION || r->NumberParameters < 2) return EXCEPTION_CONTINUE_SEARCH;
@@ -418,7 +390,6 @@ static LONG WINAPI logOldRitualTableAccess(EXCEPTION_POINTERS *e) {
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
-// The changes to the game's code, queued while checking and written once all are checked.
 #define MAX_RITUAL_WRITES (RITUAL_TABLE_SITE_COUNT + RITUAL_CAST_SITE_COUNT + RITUAL_NAMED_SITE_COUNT + 64)
 static struct { unsigned char *at; int size; unsigned char bytes[16], old[16]; } ritualWrites[MAX_RITUAL_WRITES];
 static int ritualWriteCount, ritualWritesOverflowed;
@@ -434,7 +405,6 @@ static void queueWrite(unsigned char *at, const void *bytes, int size) {
     memcpy(ritualWrites[ritualWriteCount++].bytes, bytes, (size_t)size);
 }
 
-// Queues a generated site's field's new value.
 static int queueSite(const RitualPatchSite *s, const char *group, long long delta, int value) {
     unsigned char *at = gameBase + s->rva;
     int field;
@@ -449,7 +419,6 @@ static int queueSite(const RitualPatchSite *s, const char *group, long long delt
     return 1;
 }
 
-// Checks that the instruction at `callRva` calls `targetRva`, and queues its redirect.
 static int queueCall(int stub, unsigned int callRva, unsigned int targetRva, void *hook, const char *name) {
     unsigned char *call = gameBase + callRva, *at = ritualStubs + STUB_BYTES * stub;
     int rel;
@@ -470,7 +439,6 @@ static int queueCall(int stub, unsigned int callRva, unsigned int targetRva, voi
     return 1;
 }
 
-// Finds and allocates a free block of `size` bytes within 2 GB above the image base.
 static unsigned char *allocNearImage(size_t size) {
     const IMAGE_NT_HEADERS64 *nt = (const IMAGE_NT_HEADERS64 *)(gameBase + ((const IMAGE_DOS_HEADER *)gameBase)->e_lfanew);
     uintptr_t granularity = 0x10000;
@@ -489,12 +457,10 @@ static unsigned char *allocNearImage(size_t size) {
     return NULL;
 }
 
-// A redirected call: the call instruction, the function it calls, and CoE5SE's hook.
 typedef struct { unsigned int callRva, targetRva; void *hook; const char *name; } RitualCall;
 
 #define WIN_PAGE_MASK 0xfff
 
-// Checks every instruction the expansion changes, and queues its new bytes.
 static int queueRitualWrites(unsigned char *memory, size_t castsAt, int *callCount) {
     unsigned char *oldTable = gameBase + RVA_RITUAL_TABLE;
     size_t tableSize = (size_t)RITUAL_SLOT_CAP * RITUAL_SIZE;
@@ -548,7 +514,6 @@ static int queueRitualWrites(unsigned char *memory, size_t castsAt, int *callCou
     return ok;
 }
 
-// Makes the old table's whole pages unreadable.
 static void protectOldRitualTable(unsigned char *oldTable) {
     oldTableStart = (unsigned char *)(((uintptr_t)oldTable + WIN_PAGE_MASK) & ~(uintptr_t)WIN_PAGE_MASK);
     oldTableEnd = (unsigned char *)(((uintptr_t)oldTable + (size_t)VANILLA_RITUAL_SLOTS * RITUAL_SIZE) & ~(uintptr_t)WIN_PAGE_MASK);
@@ -559,7 +524,6 @@ static void protectOldRitualTable(unsigned char *oldTable) {
              guarded ? 0UL : GetLastError());
 }
 
-// Moves the table and turns every part of the expansion on, or changes nothing.
 static void adjustSaveCastCountRead(void);
 static int installRitualExpansion(void) {
     if (!gameCodeMatches) {
@@ -619,7 +583,6 @@ static int installRitualExpansion(void) {
     return 1;
 }
 #else
-// The hooks on the game's libc calls.
 static size_t readCastCounts(void *counts, size_t size, size_t count, FILE *file) {
     int player = -1;
     void *moved = movedCastCounts(counts, &player);
@@ -627,7 +590,6 @@ static size_t readCastCounts(void *counts, size_t size, size_t count, FILE *file
     return fread(moved, size, count, file);
 }
 
-// The game clears all player blocks with bzero, and moves one down with memcpy.
 static void clearPlayerBlocks(void *dst, size_t size) {
     bzero(dst, size);
     mirrorPlayerBlocks(dst, NULL, size, 0);
@@ -639,7 +601,6 @@ static void *movePlayerBlock(void *dst, const void *src, size_t size) {
     return result;
 }
 
-// random_ritual's inlined copies branch to these stubs (RVA_RANDOM_RITUAL_*_ENTRY).
 __attribute__((used)) void *ritualRandomResume[5];
 __attribute__((used)) int *ritualRandomIndex;
 __attribute__((used)) int ritualRandomDraw(int ritpow, int level);
@@ -679,7 +640,6 @@ extern const unsigned char ritualRandomStub2a[] __asm__("_ritualRandomStub2a");
 extern const unsigned char ritualRandomStub2b[] __asm__("_ritualRandomStub2b");
 extern const unsigned char ritualRandomStub3[] __asm__("_ritualRandomStub3");
 
-// Logs a read or write of the old table before the game stops on it.
 static struct sigaction previousSegv, previousBus;
 static void logOldRitualTableAccess(int signal, siginfo_t *info, void *context) {
     const unsigned char *target = info->si_addr;
@@ -693,7 +653,6 @@ static void logOldRitualTableAccess(int signal, siginfo_t *info, void *context) 
     sigaction(signal, signal == SIGBUS ? &previousBus : &previousSegv, NULL);
 }
 
-// The changes to the game's code, queued while checking and written only once all are checked.
 #define MAX_RITUAL_WRITES (RITUAL_MAC_TABLE_SITE_COUNT + RITUAL_MAC_CAST_SITE_COUNT + 2 * RITUAL_MAC_NAMED_SITE_COUNT + 32)
 static struct { unsigned char *at; uint32_t word, old; } ritualWrites[MAX_RITUAL_WRITES];
 static int ritualWriteCount, ritualWritesOverflowed;
@@ -714,7 +673,6 @@ static uint32_t gameWord(unsigned int rva) {
     return word;
 }
 
-// Queues the game's ADRP at a site moved by `pages` 4 KB pages.
 static int queueAdrp(const RitualMacSite *s, long long pages, const char *group) {
     uint32_t word = gameWord(s->rva);
     long long imm = (long long)((word >> 5) & 0x7ffff) << 2 | (word >> 29 & 3);
@@ -728,7 +686,6 @@ static int queueAdrp(const RitualMacSite *s, long long pages, const char *group)
     return 1;
 }
 
-// The named site at `rva`, or NULL when ritual_expansion_sites_mac.h doesn't list it.
 static const RitualMacNamedSite *namedSite(unsigned int rva) {
     for (int i = 0; i < RITUAL_MAC_NAMED_SITE_COUNT; i++)
         if (RITUAL_MAC_NAMED_SITES[i].rva == rva) return &RITUAL_MAC_NAMED_SITES[i];
@@ -736,7 +693,6 @@ static const RitualMacNamedSite *namedSite(unsigned int rva) {
     return NULL;
 }
 
-// A compare's 12-bit immediate set to `value`.
 static int queueImm12(unsigned int rva, unsigned int value) {
     if (!namedSite(rva)) return 0;
     uint32_t shift = 0;
@@ -749,7 +705,6 @@ static int queueImm12(unsigned int rva, unsigned int value) {
     return 1;
 }
 
-// A movz or movn's 16-bit immediate set to `value`, and for a size pair its movk to `high`.
 static int queueMovWide(unsigned int rva, unsigned int value, unsigned int high) {
     const RitualMacNamedSite *s = namedSite(rva);
     if (!s) return 0;
@@ -758,12 +713,10 @@ static int queueMovWide(unsigned int rva, unsigned int value, unsigned int high)
     return 1;
 }
 
-// A `b` (op 0x14000000) or `bl` (0x94000000) at `at` to `to`.
 static uint32_t branchWord(uint32_t op, const unsigned char *at, const unsigned char *to) {
     return op | ((uint32_t)((to - at) >> 2) & 0x3ffffffu);
 }
 
-// Writes `words` into the header padding and queues a `b` to it from the named site at `rva`.
 static unsigned char *queueBranchToCode(unsigned int rva, uint32_t *words, int count, int back, const char *name) {
     if (!namedSite(rva)) return NULL;
     size_t size = ((size_t)count * 4 + 15) & ~(size_t)15;
@@ -781,7 +734,6 @@ static unsigned char *queueBranchToCode(unsigned int rva, uint32_t *words, int c
     return code;
 }
 
-// The code a compare branches to when its value doesn't fit the 12-bit field.
 static void ritualCompareStubWords(uint32_t compare, unsigned int value, unsigned int reg, uint32_t words[4]) {
     words[0] = (compare & 0x80000000u) | 0x52800000u | (value & 0xffffu) << 5 | reg;
     words[1] = (compare & 0xe00003ffu) | 0x0b000000u | reg << 16;
@@ -789,7 +741,6 @@ static void ritualCompareStubWords(uint32_t compare, unsigned int value, unsigne
     words[3] = 0xd503201fu;
 }
 
-// The Mac bounds, each a compare with an immediate set to `value`.
 typedef struct { unsigned int rva; unsigned int value; int reg; const char *name; } RitualMacBound;
 static const RitualMacBound RITUAL_MAC_BOUNDS[] = {
     {RVA_INIT_RITUALS_BOUND,             RITUAL_TABLE_SLOTS,       12, "init_rituals"},
@@ -809,10 +760,8 @@ static const RitualMacBound RITUAL_MAC_BOUNDS[] = {
 };
 #define RITUAL_MAC_BOUND_COUNT ((int)(sizeof RITUAL_MAC_BOUNDS / sizeof RITUAL_MAC_BOUNDS[0]))
 
-// Whether a compare's 12-bit immediate holds `value`, shifted or not.
 static int fitsCompareImmediate(unsigned int value) { return value <= 0xfff || (!(value & 0xfff) && value >> 12 <= 0xfff); }
 
-// Queues one bound: in place, or a branch to its stub.
 static int queueRitualMacBound(const RitualMacBound *b) {
     if (fitsCompareImmediate(b->value)) return queueImm12(b->rva, b->value);
     if (!namedSite(b->rva)) return 0;
@@ -825,7 +774,6 @@ static int queueRitualMacBound(const RitualMacBound *b) {
     return queueBranchToCode(b->rva, words, 4, 2, b->name) != NULL;
 }
 
-// Checks that the `bl` at `callRva` calls `targetRva`, and queues its redirect.
 static int queueCall(unsigned int callRva, unsigned int targetRva, void *hook, const char *name) {
     if (blTarget(gameBase + callRva) != gameBase + targetRva) {
         writeLog("ritual_expansion_site_mismatch", "group=call name=%s va=0x%llx", name, callRva + 0x100000000ULL);
@@ -840,7 +788,6 @@ static int queueCall(unsigned int callRva, unsigned int targetRva, void *hook, c
     return 1;
 }
 
-// The first address past the game's image: its segments' end, less __PAGEZERO.
 static uintptr_t imageEnd(void) {
     const struct mach_header_64 *mh = (const struct mach_header_64 *)gameBase;
     const struct load_command *lc = (const struct load_command *)(mh + 1);
@@ -853,7 +800,6 @@ static uintptr_t imageEnd(void) {
     return (uintptr_t)gameBase + (uintptr_t)(end - 0x100000000ULL);
 }
 
-// Allocates `size` bytes past the game's image, within reach of its ADRPs.
 static unsigned char *allocAfterImage(size_t size) {
     uintptr_t at = (imageEnd() + 0xffffff) & ~(uintptr_t)0xffffff;
     for (; at + size <= (uintptr_t)gameBase + 0xf0000000; at += 0x1000000) {
@@ -863,14 +809,12 @@ static unsigned char *allocAfterImage(size_t size) {
     return NULL;
 }
 
-// The three stubs that add the distance to the expansion's cast counts, each with that distance as its literal at +16.
 #define CAST_DELTA_CODES 3
 static unsigned char *castDeltaCode[CAST_DELTA_CODES];
 
 #define ADRP_PAGE_SHIFT 12
 #define ADRP_PAGE_MASK  ((1u << ADRP_PAGE_SHIFT) - 1)
 
-// Checks every instruction the expansion changes, and queues its new words.
 static int queueRitualWrites(unsigned char *table, unsigned char *blocks) {
     unsigned char *oldTable = gameBase + RVA_RITUAL_TABLE, *oldBlocks = gameBase + PLAYER_BLOCKS_RVA;
     long long tablePages = (table - oldTable) >> ADRP_PAGE_SHIFT, blockPages = (blocks - oldBlocks) >> ADRP_PAGE_SHIFT;
@@ -935,7 +879,6 @@ static int queueRitualWrites(unsigned char *table, unsigned char *blocks) {
     return ok;
 }
 
-// Makes the old table's whole 16 KB pages unreadable.
 static void protectOldRitualTable(unsigned char *oldTable) {
     oldTableStart = (unsigned char *)(((uintptr_t)oldTable + MAC_PAGE_MASK) & ~(uintptr_t)MAC_PAGE_MASK);
     oldTableEnd = (unsigned char *)(((uintptr_t)oldTable + (size_t)VANILLA_RITUAL_SLOTS * RITUAL_SIZE) & ~(uintptr_t)MAC_PAGE_MASK);
@@ -953,7 +896,6 @@ static void protectOldRitualTable(unsigned char *oldTable) {
     writeLog("ritual_old_table_protected", "ok=%d from=%p to=%p error=%d", !error, (void *)oldTableStart, (void *)oldTableEnd, error);
 }
 
-// Moves the table and turns every part of the expansion on, or changes nothing.
 static void adjustSaveCastCountRead(void);
 static int installRitualExpansion(void) {
     if (!gameCodeMatches) {
@@ -1005,7 +947,6 @@ static int installRitualExpansion(void) {
 }
 #endif
 
-// Registers the .c5m line and moves the table.
 static void ritualExpansionInit(void) {
     int word = api->addModCommand("expand_ritual_table", expandRitualTableLine);
 #ifndef __APPLE__

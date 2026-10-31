@@ -1,7 +1,6 @@
-// The Game Menu: mods' lines, restartGame and loadGame, play_game's wrappers, the inlined button rows, and the bounds on screens' waits.
+#pragma once
 
 // ---- Game Menu lines -------------------------------------------------------------------------
-// A Game Menu line: a plugin's C callbacks, or a script's Lua callback.
 #define MENU_LINE_FIRST_ID  9000
 #define MENU_SECTION_NAMED  2
 typedef struct {
@@ -18,7 +17,6 @@ static int (*nextGameMenuWait)(int, int);
 static int menuLineClicking;
 
 // ---- Restarting a game (restartGame) ---------------------------------------------------------
-// A mod asks from its Game Menu line's onClick.
 static int restartPhase;
 static int restartAsked;
 static char restartAskedBy[64];
@@ -26,7 +24,6 @@ static int playGameEntries;
 static unsigned playGameSerial;
 static u64 (*nextPlayGame)(int);
 
-// Names the plugin DLL or script that made an API call.
 static void nameApiCaller(void *caller, char *out, size_t size) {
     HMODULE m = callingPlugin(caller);
     const char *luaMod = m && isCoe5seCode((void *)m) ? runningLuaMod() : NULL;
@@ -34,7 +31,6 @@ static void nameApiCaller(void *caller, char *out, size_t size) {
     else moduleFileName(m ? (const void *)m : caller, out, size);
 }
 
-// The human players in the game: slots whose controller is CONTROLLER_HUMAN.
 static int humanPlayerCount(void) {
     int humans = 0;
     for (int i = 0; i < PLAYER_SLOTS; i++) humans += PG16(RVA_SLOT_CONTROLLER + 2 * i) == CONTROLLER_HUMAN;
@@ -55,7 +51,6 @@ static int apiRestartGame(void) {
 static int apiRestartPhase(void) { return restartPhase; }
 
 // ---- Loading a save from the Game Menu (coe5.loadGame) ---------------------------------------
-// A script's Game Menu line shows the game's Load Game list in the middle of a game.
 #define LOAD_PATH_SIZE 2500
 static char loadPath[LOAD_PATH_SIZE];
 static int loadAsked;
@@ -66,7 +61,6 @@ typedef int (*FileBrowserFn)(const char *title, int a, int mode, int b, int c, c
                              const char *name, char *path, int pathSize);
 typedef u64 (*LoadGameFn)(const char *path, int arg);
 
-// Load Game's list, as main_menu shows it.
 static int pickSaveToLoad(char *path) {
     static const char *const skips[] = {".", "END"};
     FileBrowserFn browse = (FileBrowserFn)siteEntry(SITE_LOAD_GAME_BROWSER, GAME_PTR(RVA_FILE_BROWSER));
@@ -100,7 +94,6 @@ static int apiLoadGame(void) {
     return 1;
 }
 
-// Ends a game for loadGame, answering each screen the resign waits on.
 #define WARN_OK        1
 #define GAME_OVER_EXIT 1
 #define MESSAGES_OK    1
@@ -145,7 +138,6 @@ static u64 watchTurnMessages(int player) {
     return result;
 }
 
-// The loaded turn's number, so a later turn's Messages aren't answered.
 static int answerMessagesWait(int block, int mode) {
     if (!inTurnMessages) return nextMessagesWait(block, mode);
     if (isEndingForLoad()) {
@@ -159,7 +151,6 @@ static int answerMessagesWait(int block, int mode) {
     return MESSAGES_OK;
 }
 
-// main_menu's Load Game, with the save picked during the game that just ended.
 static int loadPickedSave(void) {
     char path[LOAD_PATH_SIZE];
     snprintf(path, sizeof path, "%s", loadPath);
@@ -186,7 +177,6 @@ static int loadPickedSave(void) {
     return 1;
 }
 
-// The loaded-game flag: an int on Windows, a byte on Mac.
 static int isLoadedGame(void) {
 #ifdef __APPLE__
     return G8(RVA_LOADED_GAME) != 0;
@@ -205,7 +195,6 @@ static void clearLoadedGame(void) {
 
 static int askAboutChangedSpells(void);
 
-// CoE5SE's outermost play_game wrapper.
 static u64 playGameHook(int arg) {
     restartPhase = RESTART_NONE;
     loadedTurn = -1;
@@ -233,7 +222,6 @@ static u64 playGameHook(int arg) {
     return result;
 }
 
-// CoE5SE's innermost play_game wrapper.
 static void clearBattleReportSeat(void);
 static u64 (*nextPlayGameInner)(int);
 static u64 playGameInnermost(int arg) {
@@ -248,7 +236,6 @@ static u64 playGameInnermost(int arg) {
     return nextPlayGameInner(arg);
 }
 
-// A line shows when its `visible` says so.
 static int isMenuLineShown(int i) {
     if (menuLines[i].lua >= 0) return runLuaVisible(menuLines[i].lua);
     if (isNetworkGame() && !runsInNetworkGames((void *)menuLines[i].onClick)) return 0;
@@ -260,7 +247,6 @@ static void drawMenuLine(int i) {
     if (menuLines[i].tip[0]) tooltip(menuLines[i].tip);
 }
 
-// Draws the shown lines of one section, in the order they were added.
 static void drawSectionLines(int section) {
     for (int i = 0; i < menuLineCount; i++) {
         if (menuLines[i].section != section || !isMenuLineShown(i)) continue;
@@ -268,13 +254,11 @@ static void drawSectionLines(int section) {
     }
 }
 
-// 1 when lines i and j are in the same named section: names match whatever their case.
 static int isSameNamedSection(int i, int j) {
     return menuLines[i].section == MENU_SECTION_NAMED && menuLines[j].section == MENU_SECTION_NAMED &&
            !_stricmp(menuLines[i].sectionName, menuLines[j].sectionName);
 }
 
-// Draws the scripts' named sections after "Saving & Exiting".
 static void drawNamedSections(void) {
     for (int i = 0; i < menuLineCount; i++) {
         if (menuLines[i].section != MENU_SECTION_NAMED) continue;
@@ -295,7 +279,6 @@ static void drawNamedSections(void) {
     }
 }
 
-// Draws the lines at the end of the Game Menu's "Saving & Exiting" section, then the named sections.
 static int drawMenuLines(void) {
     drawSectionLines(GAME_MENU_SECTION_SAVING);
     int result = nextMenuSectionEnd();
@@ -303,13 +286,11 @@ static int drawMenuLines(void) {
     return result;
 }
 
-// Draws the lines at the end of the Game Menu's "Settings" section.
 static int drawSettingsMenuLines(void) {
     drawSectionLines(GAME_MENU_SECTION_SETTINGS);
     return nextSettingsSectionEnd();
 }
 
-// CoE5SE's outermost Game Menu wrapper.
 static int dispatchMenuLineClick(int a, int b) {
     loadedTurn = -1;
     if (restartPhase == RESTART_ENDING) {
@@ -335,7 +316,6 @@ static int dispatchMenuLineClick(int a, int b) {
     return GAME_MENU_RESIGN;
 }
 
-// Wraps the Game Menu's three sites and play_game, at startup.
 static int installGameMenuHooks(void) {
     char owner[64];
     moduleFileName((void *)drawMenuLines, owner, sizeof owner);
@@ -358,7 +338,6 @@ static int installGameMenuHooks(void) {
 }
 
 // ---- Inlined button rows ------------------------------------------------------------------------
-// Setup Participants and the square info window start their Ok row with an inlined button_row(9).
 static uint64_t (*nextParticipantsRowInlined)(short style);
 static int participantsRowInlined(void) {
     nextParticipantsRowInlined(LAYOUT_TYPE_BUTTON_ROW);
@@ -371,7 +350,6 @@ static int squareInfoRowInlined(void) {
     return -1;
 }
 
-// CoE5SE's outermost wrapper of each, so every other wrapper sees a button_row(9) call.
 static void installInlinedButtonRows(void) {
     char owner[64];
     moduleFileName((void *)participantsRowInlined, owner, sizeof owner);
@@ -384,7 +362,6 @@ static void installInlinedButtonRows(void) {
 }
 
 // ---- The file browser's rows ------------------------------------------------------------------
-// The browser lists rows 0 to RVA_FILE_BROWSER_LAST and gives row n the id FILE_BROWSER_ROW_FIRST + n.
 static const char *siteResultMod[SITE_COUNT];
 
 static int isRowPastList(int id, int last) {
@@ -409,7 +386,6 @@ static int boundFileBrowserWait(int a, int b) {
     return id;
 }
 
-// At startup.
 static void installFileBrowserBounds(void) {
     char owner[64];
     moduleFileName((void *)boundFileBrowserWait, owner, sizeof owner);
@@ -418,7 +394,6 @@ static void installFileBrowserBounds(void) {
     writeLog("file_browser_bounds_installed", "wait=%d", wait);
 }
 
-// The other screens whose wait's id indexes a game table with no upper bound.
 #define UNIT_LIST_UNIT_ID 100000
 #define MAP_COMMANDER_ID  20000
 
@@ -461,12 +436,11 @@ static int boundMapScreenWait(int a, int b) {
         refuseLuaCall(mod ? mod : "?", "MAP_SCREEN_WAIT", "commander_past_table", "id=%d last=%d", id, last);
         return 0;
     }
-    if (dispatchCommanderLineClick(id)) return 0;   // Logged by dispatchCommanderLineClick
+    if (dispatchCommanderLineClick(id)) return 0;
     if (!id) showLuaNotices();
     return id;
 }
 
-// At startup.
 static void installWaitIdBounds(void) {
     char owner[64];
     moduleFileName((void *)boundUnitListWait, owner, sizeof owner);
@@ -476,7 +450,6 @@ static void installWaitIdBounds(void) {
     writeLog("wait_id_bounds_installed", "unit_list=%d map_screen=%d", unitList, mapScreen);
 }
 
-// Adds a Game Menu line to `section` for the plugin or script that called.
 static int addGameMenuLineFor(void *caller, const char *label, const char *tip, int (*visible)(void), int (*onClick)(void), int lua,
                               int section, const char *sectionName) {
     if (!label || !label[0]) {

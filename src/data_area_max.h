@@ -1,4 +1,3 @@
-// maxdata <megabytes>: a mod's .c5se sets its own data area's cap, 1 to 100 MB.
 #pragma once
 #include "mod_storage.h"
 
@@ -12,26 +11,22 @@ typedef struct {
 static DataAreaMax *dataAreaMaxes;
 static int dataAreaMaxCount, dataAreaMaxCapacity;
 
-// The level-2 reading going on: whose, and what its sidecar declared so far.
 static struct {
     int mod;
     int lines;
     int megabytes;
 } maxdataReading = {-1, 0, 0};
 
-// The cap of mod `mod`'s area in MB: its latest reading's maxdata, or the default.
 static int storageAreaMegabytes(const char *mod) {
     for (int i = 0; i < dataAreaMaxCount; i++)
         if (!_stricmp(dataAreaMaxes[i].mod, mod)) return dataAreaMaxes[i].megabytes;
     return STORAGE_AREA_DEFAULT_MB;
 }
 
-// The same in bytes.
 static long long storageAreaMax(const char *mod) {
     return (long long)storageAreaMegabytes(mod) * 1024 * 1024;
 }
 
-// Keeps `megabytes` as mod `mod`'s cap (0: the default) and logs data_area_max when it changed.
 static void setStorageAreaMegabytes(const char *mod, int megabytes) {
     int i = 0, was = storageAreaMegabytes(mod), now = megabytes ? megabytes : STORAGE_AREA_DEFAULT_MB;
     while (i < dataAreaMaxCount && _stricmp(dataAreaMaxes[i].mod, mod)) i++;
@@ -49,7 +44,6 @@ static void setStorageAreaMegabytes(const char *mod, int megabytes) {
     if (now != was) writeLog("data_area_max", "mod=%s mb=%d", mod, now);
 }
 
-// Called around the reading of mod `mod`'s .c5m and sidecar at level 2.
 static void maxdataReadingAt(int mod, int start) {
     if (start == 1) {
         maxdataReading.mod = mod;
@@ -64,7 +58,6 @@ static void maxdataReadingAt(int mod, int start) {
     maxdataReading.mod = -1;
 }
 
-// Parses maxdata's argument into *megabytes, or returns the reason word it can't.
 static const char *maxdataProblem(const char *args, int *megabytes) {
     const char *p = args;
     skipSpaces(&p);
@@ -80,7 +73,6 @@ static const char *maxdataProblem(const char *args, int *megabytes) {
     return NULL;
 }
 
-// maxdata <megabytes>, at level 2 in the sidecar: the mod's area cap.
 static void maxdataLine(const char *args, int mod, int level) {
     if (level != 2) return;
     const char *name = spellModName(mod);
@@ -102,7 +94,6 @@ static void maxdataLine(const char *args, int mod, int level) {
     maxdataReading.megabytes = megabytes;
 }
 
-// Adds maxdata.
 static void maxdataWordInit(void) {
     int ok = apiAddModCommand("maxdata", maxdataLine);
     writeLog("maxdata_word_installed", "ok=%d", ok);

@@ -1,4 +1,3 @@
-// Every ADRP in coe5_mac that builds an address in the game's item table, and its bounds.
 #pragma once
 
 #define ITEM_MAC_SITE_COUNT 129
@@ -134,7 +133,6 @@ static const TableMacSite ITEM_MAC_SITES[ITEM_MAC_SITE_COUNT] = {
     {0x57ea28},
 };
 
-// The compares of a record number against the game's 1000, or the mov that holds it: each becomes the moved size.
 #define ITEM_MAC_BOUND_COUNT 6
 static const TableMacBound ITEM_MAC_BOUNDS[ITEM_MAC_BOUND_COUNT] = {
     {0x4e4ab8, ITEM_RECORDS_MOVED},
@@ -145,7 +143,6 @@ static const TableMacBound ITEM_MAC_BOUNDS[ITEM_MAC_BOUND_COUNT] = {
     {0x533fa8, ITEM_RECORDS_MOVED - 3},
 };
 
-// The table's size in bytes, 1000 records, built by a movz and a movk (the copies' and clears' sizes): each becomes the moved size.
 #define ITEM_MAC_SIZE_COUNT 3
 static const TableMacSize ITEM_MAC_SIZES[ITEM_MAC_SIZE_COUNT] = {
     {0x3327a0},

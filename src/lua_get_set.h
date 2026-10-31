@@ -1,26 +1,22 @@
-// coe5.get and coe5.set: the values they work out (move flags, incomes, garrisons, ritual rules, ceremonies), and the calls.
+#pragma once
 
 // ---- Move flags, flag words, ritual and spell levels, library levels ----------------------------
-// A unit's move flags or flag words, into *out.
 static int unitFlagsOf(int unit, int words, unsigned long long *out) {
     if (G16(RVA_UNIT_MONSTER + (size_t)unit * UNIT_SIZE) < 0) return -1;
     *out = GAME_FN(unsigned long long (*)(int), words ? RVA_UNIT_RESISTANCES : RVA_UNIT_FLAGS)(unit);
     return 0;
 }
 
-// The commander's unit when it is in the table and alive, else -1.
 static int livingCommanderUnit(int commander) {
     int unit = G32(RVA_COMMANDERS + (size_t)commander * COMMANDER_SIZE);
     if (unit < 0 || unit >= UNIT_TABLE_MAX || G16(RVA_UNIT_HP + (size_t)unit * UNIT_SIZE) <= 0) return -1;
     return unit;
 }
 
-// The move flags of the commander's army as the AI's routes test them.
 static unsigned long long commanderMoveFlags(int commander) {
     return GAME_FN(unsigned long long (*)(int), RVA_ARMY_MOVE_FLAGS)(commander);
 }
 
-// The commander's school and level, as RVA_COMMANDER_RITPOW works them out.
 static int commanderRitpowOf(int commander, int *level) {
     *level = 0;
     int unit = livingCommanderUnit(commander);
@@ -36,7 +32,6 @@ static int commanderRitpowOf(int commander, int *level) {
     return 0;
 }
 
-// Square (x, y)'s library level as the AI's conquest scores it.
 #define LIBRARY_ENCHANT_KIND 0x484
 static int squareLibraryLevel(int x, int y) {
     if (x < 0 || y < 0 || x >= G32(RVA_MAP_DEPTH) || y >= G32(RVA_MAP_H) || x >= G32(RVA_MAP_W)) return 0;
@@ -50,7 +45,6 @@ static int squareLibraryLevel(int x, int y) {
     return enchant + ((flags >> 35) & 1 ? base + 2 : base);
 }
 
-// Whether square (x, y) has a fort, as the game's AI buy asks it for an aihold monster.
 #define FORT_PART_FORT 0x200
 #define FORT_PARTS_LEVEL_2 0x11800
 static int squareHasFort(int x, int y) {
@@ -58,15 +52,27 @@ static int squareHasFort(int x, int y) {
     return (GAME_FN(unsigned (*)(int, int), RVA_SQUARE_FORT_PARTS)(x, y) & FORT_PART_FORT) != 0;
 }
 
+static int squareWaterlike(int x, int y) { return GAME_FN(int (*)(int, int), RVA_SQUARE_WATERLIKE)(x, y) != 0; }
+
+#define TERRAIN_FLAG_WATER     0x4
+#define TERRAIN_FLAG_NOSTART   (1ULL << 18)
+static int squareOpenLand(int x, int y) {
+    if (x < 0 || y < 0 || x >= G32(RVA_MAP_W) || y >= G32(RVA_MAP_H) || x >= MAP_COLUMNS_MAX || y >= MAP_COLUMN_SQUARES) return 0;
+    size_t square = ((size_t)x * MAP_COLUMN_SQUARES + (size_t)y) * SQUARE_SIZE;
+    int terrain = (short)G16(RVA_SQUARE_RECORDS + square + SQUARE_TERRAIN_TYPE);
+    if (terrain < 0 || terrain >= TERRAIN_TABLE_MAX || squareWaterlike(x, y)) return 0;
+    unsigned long long flags = *(const unsigned long long *)GAME_PTR(RVA_TERRAIN_TABLE + (size_t)terrain * TERRAIN_SIZE + TERRAIN_FLAGS);
+    if (flags & (TERRAIN_FLAG_WATER | TERRAIN_FLAG_NOSTART)) return 0;
+    return !(G32(RVA_SQUARE_FLAGS + square) & SQUARE_FLAG_FLOODED);
+}
+
 // ---- Incomes: slotIncome and terrainIncome ---------------------------------------------------------
-// The field of a terrain record that holds its income of `resource`, or -1.
 static int terrainIncomeField(int resource) {
     static const int FIELDS[RESOURCE_COUNT] = {TERRAIN_GOLD,  TERRAIN_IRON, TERRAIN_HERBS, TERRAIN_FUNGUS, TERRAIN_SACRIFICES,
                                                TERRAIN_HANDS, TERRAIN_WEED, -1, -1, -1, -1, TERRAIN_TRADE, -1, -1};
     return resource >= 0 && resource < RESOURCE_COUNT ? FIELDS[resource] : -1;
 }
 
-// The percent player_turn_start pays a player's income of `resource` at.
 static int incomePercent(int controller, int bonus, int resource, int anySpecial) {
     if (controller == CONTROLLER_HUMAN) return 100;
     if (controller != CONTROLLER_AI) return 0;
@@ -75,12 +81,10 @@ static int incomePercent(int controller, int bonus, int resource, int anySpecial
     return 100 + bonus - (anySpecial ? quarter : 0);
 }
 
-// An income paid at `percent`, rounded as player_turn_start rounds it.
 static int scaledIncome(int raw, int percent) {
     return (int)(((long long)raw * percent + 50) / 100);
 }
 
-// What player `slot` gets of `resource` at its next turn start.
 static int anyCommanderGathers(int slot, unsigned int check) {
     int last = G32(RVA_LAST_COMMANDER);
     for (int c = 0; c <= last && c < COMMANDER_TABLE_MAX; c++) {
@@ -119,7 +123,6 @@ static int rawIncome(int slot, int resource) {
     default: return GAME_FN(int (*)(int, int), RVA_PLAYER_GEM_INCOME)(resource - 7, slot);
     }
 }
-// What player `slot` gets of `resource` at its next turn start; with `asAi`, what it would get as an AI.
 static int slotIncomeAs(int slot, int resource, int asAi) {
     int controller = (*(short *)playerSlotAddress(RVA_SLOT_CONTROLLER, slot, 2));
     if (asAi && controller == CONTROLLER_HUMAN) controller = CONTROLLER_AI;
@@ -139,7 +142,6 @@ static int slotIncomeAs(int slot, int resource, int asAi) {
 static int slotIncome(int slot, int resource) { return slotIncomeAs(slot, resource, 0); }
 
 // ---- The trade step of the turn start: slotAiTrade ----------------------------------------------
-// What a player's trade type buys or sells, and its rate in tenths of a gold piece per unit.
 #define TRADE_TYPE_RANDOM_GEM 23
 #define TRADE_TYPE_SELL_GEMS  24
 static const struct { signed char resource, rate; } TRADE_GOODS[TRADE_TYPE_SELL_GEMS + 1] = {
@@ -147,7 +149,6 @@ static const struct { signed char resource, rate; } TRADE_GOODS[TRADE_TYPE_SELL_
     {7, 20}, {7, 20}, {8, 20}, {8, 20}, {9, 20}, {9, 20}, {10, 20}, {10, 20}, {12, 30}, {12, 30}, {-1, 20}, {-1, 20},
 };
 
-// What the trade step changes of each resource, into change[RESOURCE_COUNT]; the trade points' own fall included.
 static int tradeStepChange(int type, int mode, int points, const int stocks[RESOURCE_COUNT], int faction,
                            int change[RESOURCE_COUNT], int *randomGem) {
     memset(change, 0, RESOURCE_COUNT * sizeof change[0]);
@@ -187,7 +188,6 @@ static int tradeStepChange(int type, int mode, int points, const int stocks[RESO
     return drawAdds;
 }
 
-// What the trade step of player `slot`'s next turn start changes of `resource`, as the turn start pays it as an AI.
 static int slotAiTrade(int slot, int resource) {
     if (resource < 0 || resource >= RESOURCE_COUNT) return 0;
     int type = (*(short *)playerSlotAddress(RVA_PLAYER_TRADE_TYPE, slot, PLAYER_BLOCK_SIZE));
@@ -205,12 +205,10 @@ static int slotAiTrade(int slot, int resource) {
 }
 
 // ---- What stays home: commanderGarrisonLeft --------------------------------------------------------
-// The strength that stays on a commander's square when it leaves with its army.
 enum { GARRISON_GAME, GARRISON_JOINED, GARRISON_DROPPED };
 static unsigned char garrisonState[UNIT_TABLE_MAX];
 static unsigned long long garrisonUnitFlags[UNIT_TABLE_MAX];
 
-// Unit u's leader after the mirrored joins and drops of commander c's gather.
 static int garrisonLeader(int c, int u) {
     if (garrisonState[u] == GARRISON_JOINED) return c;
     if (garrisonState[u] == GARRISON_DROPPED) return -1;
@@ -218,7 +216,6 @@ static int garrisonLeader(int c, int u) {
 }
 static unsigned long long garrisonUnitFlagsOf(int u) { return GAME_FN(unsigned long long (*)(int), RVA_UNIT_FLAGS)(u); }
 
-// The game's small unit and square reads the gather makes, as the game works them out.
 static int garrisonUnitStrength(int u) {
     if (u < 0 || u >= UNIT_TABLE_MAX) return 0;
     return GAME_FN(int (*)(int, int, int), RVA_UNIT_STRENGTH_CORE)(u, -1, (short)G16(RVA_UNIT_HP + (size_t)u * UNIT_SIZE));
@@ -246,7 +243,6 @@ static int garrisonFortLevel(int x, int y) {
     return (GAME_FN(unsigned (*)(int, int), RVA_SQUARE_FORT_PARTS)(x, y) & FORT_PARTS_LEVEL_2) ? 2 : 1;
 }
 
-// RVA_COMMANDER_STRENGTH (flags 0) or RVA_COMMANDER_FLAGGED_STRENGTH, on the mirrored leaders.
 static int garrisonArmyStrength(int c, int last, unsigned long long flags) {
     int sum = 0;
     for (int u = 0; u <= last; u++)
@@ -255,7 +251,6 @@ static int garrisonArmyStrength(int c, int last, unsigned long long flags) {
     return sum + garrisonUnitStrength(unit);
 }
 
-// RVA_AI_REFORMS_HERE with what it changes put back: the random sequence and each unit's int64 at +8.
 static int garrisonReformsHere(int player, int x, int y, int last) {
     int randomIndex = G32(RVA_RANDOM_INDEX), randomShift = G32(RVA_RANDOM_SHIFT), randomXor = G32(RVA_RANDOM_XOR);
     for (int u = 0; u <= last; u++) garrisonUnitFlags[u] = *(unsigned long long *)(gameBase + RVA_UNITS + (size_t)u * UNIT_SIZE + 8);
@@ -265,7 +260,6 @@ static int garrisonReformsHere(int player, int x, int y, int last) {
     return here;
 }
 
-// Whether unit u may join in the gather's pick-up passes.
 static int garrisonMayJoin(int c, int u, int player, int x, int y, int kind) {
     if (garrisonUnitX(u) != x || garrisonUnitY(u) != y) return 0;
     if (garrisonUnitHp(u) <= 0 || garrisonLeader(c, u) != -1) return 0;
@@ -273,7 +267,6 @@ static int garrisonMayJoin(int c, int u, int player, int x, int y, int kind) {
     return GAME_FN(int (*)(int, int), RVA_AI_UNIT_JOIN_KIND)(c, u) >= kind;
 }
 
-// Drops every follower of c for which `drop` holds.
 static void garrisonDropFollowers(int c, int last, int (*drop)(int u)) {
     for (int u = 0; u <= last; u++)
         if (garrisonLeader(c, u) == c && drop(u)) garrisonState[u] = GARRISON_DROPPED;
@@ -283,7 +276,6 @@ static int garrisonLacks10(int u) { return !(garrisonUnitFlagsOf(u) & 0x10); }
 static int garrisonLacks2(int u) { return !(garrisonUnitFlagsOf(u) & 2); }
 static int garrisonHas8(int u) { return (garrisonUnitFlagsOf(u) & 8) != 0; }
 
-// RVA_AI_GATHER_TROOPS for commander c, on the mirrored leaders.
 static void garrisonGather(int c, int unit, int player, int x, int y, int last) {
     if ((garrisonUnitFlagsOf(unit) >> MONSTER_FLAG_NO_COMMANDER) & 1) return;
     if ((GAME_FN(unsigned long long (*)(int), RVA_UNIT_RESISTANCES)(unit) >> UNIT_RESISTANCE_NOLEADER) & 1) return;
@@ -339,7 +331,6 @@ static void garrisonGather(int c, int unit, int player, int x, int y, int last) 
     }
 }
 
-// Whether unit u leaves with commander c.
 static int garrisonLeaves(int c, int cUnit, int u) {
     if (u == cUnit) return 1;
     int leader = garrisonLeader(c, u);
@@ -352,7 +343,6 @@ static int garrisonLeaves(int c, int cUnit, int u) {
     return 0;
 }
 
-// The strength that stays on commander c's square when c leaves, or -1.
 static int commanderGarrisonLeft(int c) {
     int unit = G32(RVA_COMMANDERS + (size_t)c * COMMANDER_SIZE);
     if (unit < 0 || unit >= UNIT_TABLE_MAX || G16(RVA_UNIT_HP + (size_t)unit * UNIT_SIZE) <= 0) return -1;
@@ -377,32 +367,27 @@ static int commanderGarrisonLeft(int c) {
     return sum < INT_MAX ? (int)sum : INT_MAX;
 }
 
-// A player's remembered strength of square (x, y).
 static int rememberedStrength(const int *memo, int x, int y, int (*measure)(int, int, int)) {
     if (x >= G32(RVA_MAP_DEPTH) || y >= G32(RVA_MAP_H)) return 0;
     return *memo >= 0 ? *memo : measure(-1, x, y);
 }
 
-// Where a ritual's rules are judged.
 typedef struct {
     const unsigned char *record;
     int commander, unit, player, x, y;
 } RitualCaster;
 
-// Effect i's value as the game's effect lookups read it: the int64 cut to an int.
 static int ritualFxValue(const unsigned char *record, int i) {
     return (int)*(const long long *)(record + RITUAL_FX + (size_t)i * RITUAL_FX_SIZE + RITUAL_FX_VALUE);
 }
 static int ritualFxId(const unsigned char *record, int i) { return *(const int *)(record + RITUAL_FX + (size_t)i * RITUAL_FX_SIZE); }
 
-// The value of the record's first effect `id`, or `none` without one.
 static int ritualFirstFx(const unsigned char *record, int id, int none) {
     for (int i = 0; i < RITUAL_FX_MAX && ritualFxId(record, i) >= 1; i++)
         if (ritualFxId(record, i) == id) return ritualFxValue(record, i);
     return none;
 }
 
-// One RITUAL_STRINGS line as the game reads it.
 static void ritualStringDecode(const char *line, char *name, size_t size, int *kind) {
     char text[RITUAL_STRING_SIZE + 1];
     size_t len = strnlen(line, RITUAL_STRING_SIZE);
@@ -423,7 +408,6 @@ static void ritualStringDecode(const char *line, char *name, size_t size, int *k
     snprintf(name, size, "%.*s", (int)(size - 1), star ? star + 1 : text);
 }
 
-// How many living units named `name` have their home at (x, y).
 static int monstersHomeAt(int x, int y, const char *name) {
     int count = 0, last = G32(RVA_UNIT_COUNT);
     for (int u = 0; u <= last && u < UNIT_TABLE_MAX; u++) {
@@ -435,7 +419,6 @@ static int monstersHomeAt(int x, int y, const char *name) {
     return count;
 }
 
-// How the unit rules count a line's monster.
 enum { COUNT_HERE, COUNT_HOME_HERE, COUNT_WORLD, COUNT_PLAYER, COUNT_ELYSIUM };
 static int ritualMonsterCount(const RitualCaster *c, int how, const char *name) {
     int (*at)(int, int, const char *) = GAME_FN(int (*)(int, int, const char *), RVA_COUNT_MONSTERS_AT);
@@ -449,7 +432,6 @@ static int ritualMonsterCount(const RitualCaster *c, int how, const char *name) 
     }
 }
 
-// The unit rules.
 static int ritualUnitRuleMet(const RitualCaster *c, int id, int value) {
     const char *strings = (const char *)c->record + RITUAL_STRINGS;
     char name[100] = "";
@@ -506,7 +488,6 @@ static int ritualUnitRuleMet(const RitualCaster *c, int id, int value) {
     }
 }
 
-// Whether a unit on (x, y) has an ability total of 1..999999.
 static int unitWithAbilityAt(int x, int y, int ability) {
     if (x < 0 || y < 0 || x >= G32(RVA_MAP_DEPTH) || y >= G32(RVA_MAP_H) || x >= MAP_COLUMNS_MAX || y >= MAP_COLUMN_SQUARES) return 0;
     if (!G16(RVA_SQUARE_ARMY + ((size_t)x * MAP_COLUMN_SQUARES + (size_t)y) * 2)) return 0;
@@ -520,13 +501,11 @@ static int unitWithAbilityAt(int x, int y, int ability) {
     return 0;
 }
 
-// The square's SQUARE_PORTAL, 0 off the world.
 static int portalAt(int x, int y) {
     if (x < 0 || y < 0 || x >= G32(RVA_MAP_DEPTH) || y >= G32(RVA_MAP_H) || x >= MAP_COLUMNS_MAX || y >= MAP_COLUMN_SQUARES) return 0;
     return G16(RVA_SQUARE_RECORDS + ((size_t)x * MAP_COLUMN_SQUARES + (size_t)y) * SQUARE_SIZE + SQUARE_PORTAL);
 }
 
-// The caster's and its square's rules.
 static int ritualCasterRuleMet(const RitualCaster *c, int id, int v) {
     switch (id) {
     case RITUAL_FX_LEVELREQ: {
@@ -594,7 +573,6 @@ static int ritualCasterRuleMet(const RitualCaster *c, int id, int v) {
     }
 }
 
-// Whether the rule of effect i of a ritual record holds for commander `commander`.
 static int ritualEffectMetAt(const unsigned char *record, int i, int commander) {
     static const int RADII[] = {1, 3, 5, 7, 99};
     int unit = G32(RVA_COMMANDERS + (size_t)commander * COMMANDER_SIZE);
@@ -612,11 +590,9 @@ static int ritualEffectMetAt(const unsigned char *record, int i, int commander) 
     return rule < 5 ? count == 0 : count > 0;
 }
 
-// Fort part words, read once from the game's terrain reader.
 static const char *fortPartWords[FORT_PART_BITS];
 static int fortPartWordsRead;
 
-// The bit number of a value with one bit set, or -1.
 static int singleBitIndex(uint32_t value) {
     if (!value || (value & (value - 1))) return -1;
     int n = 0;
@@ -624,7 +600,6 @@ static int singleBitIndex(uint32_t value) {
     return n;
 }
 
-// Windows: reads the fort part words from the terrain reader's code; returns how many.
 static __attribute__((unused)) int readFortWordsX64(const unsigned char *code, size_t size, uintptr_t at, uintptr_t match, const char **words) {
     int found = 0;
     for (size_t i = 20; i + 5 <= size; i++) {
@@ -644,7 +619,6 @@ static __attribute__((unused)) int readFortWordsX64(const unsigned char *code, s
     return found;
 }
 
-// Mac: each `adrp x0, page / add x0, x0, #low / mov w1, #bit / bl match` in code[0..size), at `at`.
 static __attribute__((unused)) int readFortWordsArm64(const unsigned char *code, size_t size, uintptr_t at, uintptr_t match, const char **words) {
     int found = 0;
     for (size_t i = 12; i + 4 <= size; i += 4) {
@@ -667,7 +641,6 @@ static __attribute__((unused)) int readFortWordsArm64(const unsigned char *code,
     return found;
 }
 
-// The terrain word for fort part bit `bit`, or NULL for a bit no word sets.
 static const char *fortPartWord(int bit) {
     if (!fortPartWordsRead) {
         fortPartWordsRead = 1;
@@ -682,7 +655,6 @@ static const char *fortPartWord(int bit) {
     return bit >= 0 && bit < FORT_PART_BITS ? fortPartWords[bit] : NULL;
 }
 
-// The game's own name for Voice of El ceremony `ceremony`.
 static unsigned int ceremonyNameRva(int ceremony) {
     switch (ceremony) {
     case CEREMONY_CONVERT: return RVA_STR_CEREMONY_CONVERT;
@@ -698,7 +670,6 @@ static unsigned int ceremonyNameRva(int ceremony) {
     }
 }
 
-// Where ceremony `ceremony`'s cost is, as an offset from the row's address.
 #define CEREMONY_COST_ENTRY(name) (int)RVA_CEREMONY_COST_##name
 #ifdef __APPLE__
 #define CEREMONY_MASTERY_ENTRY(name) (int)RVA_CEREMONY_COST_##name##_SET
@@ -720,10 +691,8 @@ static int ceremonyCostAt(int ceremony, int *also) {
     default: return -1;
     }
 }
-// The most a script may set a ceremony's cost to.
 #define CEREMONY_COST_MAX 100000
 
-// coe5.set("ceremonyCost", ceremony, value).
 static int setCeremonyCost(lua_State *L, unsigned char *table, int arg) {
     lua_Integer ceremony = lua_tointeger(L, 2), value = luaL_checkinteger(L, arg);
     int also, at = ceremonyCostAt((int)ceremony, &also);
@@ -743,14 +712,12 @@ static int setCeremonyCost(lua_State *L, unsigned char *table, int arg) {
 }
 
 // ---- Content records by their .c5m words: coe5.get("monster", m, "hp") -----------------------------
-// The record_words.h row of `word` in a block of kind `record`, or NULL.
 static const RecordWord *recordWordRow(int record, const char *word) {
     for (size_t i = 0; i < sizeof RECORD_WORDS / sizeof RECORD_WORDS[0]; i++)
         if (RECORD_WORDS[i].record == record && !strcmp(RECORD_WORDS[i].word, word)) return &RECORD_WORDS[i];
     return NULL;
 }
 
-// The value of ability `id` among a record's (ability, value) pairs: the first match, 0 for none.
 static long long abilityPairValue(const unsigned char *pairs, int count, int width, int id) {
     for (int i = 0; i < count; i++) {
         const unsigned char *pair = pairs + (size_t)i * 2 * width;
@@ -761,7 +728,6 @@ static long long abilityPairValue(const unsigned char *pairs, int count, int wid
     return 0;
 }
 
-// Pushes record `record`'s value of .c5m word `word` of its block (kind `kind`).
 static void pushRecordWord(lua_State *L, const char *name, int kind, const unsigned char *record, const char *word) {
     const RecordWord *row = recordWordRow(kind, word);
     long long ability = row && row->kind == WORD_ABILITY ? (long long)row->value : -1;
@@ -787,7 +753,6 @@ static void pushRecordWord(lua_State *L, const char *name, int kind, const unsig
     }
 }
 
-// coe5.get(name[, index]).
 static int lGet(lua_State *L) {
     const GameVar *v;
     int arg = 2;
@@ -941,6 +906,10 @@ static int lGet(lua_State *L) {
     }
     case T_SQUARE_LIBRARY_LEVEL: lua_pushinteger(L, squareLibraryLevel((int)lua_tointeger(L, 2), (int)lua_tointeger(L, 3))); break;
     case T_SQUARE_HAS_FORT: lua_pushboolean(L, squareHasFort((int)lua_tointeger(L, 2), (int)lua_tointeger(L, 3))); break;
+    case T_SQUARE_WATERLIKE: lua_pushboolean(L, squareWaterlike((int)lua_tointeger(L, 2), (int)lua_tointeger(L, 3))); break;
+    case T_SQUARE_OPEN_LAND: lua_pushboolean(L, squareOpenLand((int)lua_tointeger(L, 2), (int)lua_tointeger(L, 3))); break;
+    case T_KEY_HELD: lua_pushboolean(L, keyCodeHeld((int)lua_tointeger(L, 2))); break;
+    case T_SLOT_CITADELS: lua_pushinteger(L, GAME_FN(int (*)(int), RVA_AI_COUNT_CITADELS)((int)lua_tointeger(L, 2))); break;
     case T_RECORD_WORD: pushRecordWord(L, v->name, v->size, p, luaL_checkstring(L, arg)); break;
     case T_AI_ATTACK_MARGIN: lua_pushinteger(L, AI_ATTACK_MARGIN); break;
     case T_SLOT_ABILITY:
@@ -983,7 +952,6 @@ static int lGet(lua_State *L) {
     return 1;
 }
 
-// The values coe5.set takes for a variable the game indexes a fixed table by.
 static const struct { const char *name; lua_Integer min, max; } GAME_VAR_RANGES[] = {
     {"mapW", INT_MIN, MAP_COLUMNS_MAX}, {"mapH", INT_MIN, MAP_COLUMN_SQUARES}, {"mapDepth", INT_MIN, MAP_COLUMNS_MAX},
     {"cliMapW", INT_MIN, MAP_COLUMNS_MAX}, {"cliMapH", INT_MIN, MAP_COLUMN_SQUARES},
@@ -992,21 +960,20 @@ static const struct { const char *name; lua_Integer min, max; } GAME_VAR_RANGES[
     {"slotAi", INT_MIN, AI_LEVEL_TABLE_MAX - 1},
     {"startDefault", 0, 2}, {"northPart", -1, 100}, {"southPart", -1, 100}, {"wilder", 0, 2},
     {"mouseButtons", 0, 7},
+    {"fullscreen", 0, 2}, {"battleGrid", 0, 1},
+    {"aiMoveDelay", 0, 10000},
     {"traceLevel", 0, 3},
     {"slotTradeType", 0, 24},
     {"squareCorpses", 0, SHRT_MAX},
 };
 
-// A slot's colour range.
 #define SLOT_COLOUR_MIN -8421505.0f
 #define SLOT_COLOUR_MAX 8421504.0f
 
-// Returns 1 for a float variable the game keeps within the slot colour's range.
 static int isSlotColour(const GameVar *v) {
     return v->type == T_F32 && v->addr >= RVA_SLOT_COLOUR && v->addr <= RVA_SLOT_COLOUR + 8;
 }
 
-// The values coe5.set takes for integer variable v.
 static void gameVarRange(const GameVar *v, lua_Integer *min, lua_Integer *max) {
     if (v->type == T_U8) *min = SCHAR_MIN, *max = UCHAR_MAX;
     else if (v->type == T_I16) *min = SHRT_MIN, *max = USHRT_MAX;
@@ -1019,7 +986,6 @@ static void gameVarRange(const GameVar *v, lua_Integer *min, lua_Integer *max) {
     if (!strcmp(v->name, "slotClass") && tableRecords(TABLE_CLASS) - 1 < *max) *max = tableRecords(TABLE_CLASS) - 1;
 }
 
-// Resets a commander's cached army action points.
 static void flushCommanderCache(int commander) {
     if (commander < 0 || commander >= COMMANDER_TABLE_MAX) return;
     int unit = G32(RVA_COMMANDERS + (size_t)commander * COMMANDER_SIZE);
@@ -1034,7 +1000,6 @@ static void flushCommanderCache(int commander) {
     G32(RVA_COMMANDER_CACHE_INTS + (size_t)commander * 4) = -1;
 }
 
-// After a write of unitApUsed: resets the commander caches the game resets.
 static void flushArmyApCaches(int unit) {
     int last = G32(RVA_LAST_COMMANDER);
     for (int c = 0; c <= last && c < COMMANDER_TABLE_MAX; c++) {
@@ -1046,12 +1011,10 @@ static void flushArmyApCaches(int unit) {
     flushCommanderCache(G32(RVA_UNITS + (size_t)unit * UNIT_SIZE + UNIT_COMMANDER));
 }
 
-// World building: the squares a script may write.
 typedef struct { int x, y, w, h; } SquareRect;
 static int worldBuildingDepth;
 static SquareRect worldBuildingArea;
 
-// Marks world building in progress on `area`; returns the area it replaces.
 static __attribute__((unused)) SquareRect startWorldBuilding(SquareRect area) {
     SquareRect previous = worldBuildingArea;
     worldBuildingArea = area;
@@ -1059,13 +1022,11 @@ static __attribute__((unused)) SquareRect startWorldBuilding(SquareRect area) {
     return previous;
 }
 
-// Ends the startWorldBuilding call that returned `previous`.
 static __attribute__((unused)) void stopWorldBuilding(SquareRect previous) {
     worldBuildingArea = previous;
     if (worldBuildingDepth > 0) worldBuildingDepth--;
 }
 
-// 1 and the area being built while the world is built, else 0.
 static int worldBuildingAreaNow(SquareRect *area) {
     if (worldBuildingDepth > 0) {
         *area = worldBuildingArea;
@@ -1077,21 +1038,18 @@ static int worldBuildingAreaNow(SquareRect *area) {
     return 1;
 }
 
-// Why a write to square (x, y) is refused, or NULL.
 static const char *squareWriteRefusal(int building, SquareRect area, lua_Integer x, lua_Integer y) {
     if (!building) return "not_world_building";
     if (x < area.x || y < area.y || x >= (lua_Integer)area.x + area.w || y >= (lua_Integer)area.y + area.h) return "outside_plane";
     return NULL;
 }
 
-// The values a square write takes: what the game itself stores there.
 static void squareValueRange(const char *name, int lastTerrain, lua_Integer *min, lua_Integer *max) {
     *min = SHRT_MIN, *max = SHRT_MAX;
     if (!strcmp(name, "squareTerrain")) *min = 0, *max = lastTerrain;
     else if (!strcmp(name, "squareGround")) *min = 0, *max = SQUARE_GROUND_LAST;
 }
 
-// coe5.set for a square value, only inside the area being built.
 static int setSquareValue(lua_State *L, const GameVar *v, unsigned char *p, int arg) {
     LuaScript *s = luaScriptOf(L);
     const char *mod = s ? s->mod : "?";
@@ -1119,7 +1077,6 @@ static int setSquareValue(lua_State *L, const GameVar *v, unsigned char *p, int 
     return 0;
 }
 
-// coe5.set(name, [index,] value).
 static int lSet(lua_State *L) {
     const GameVar *v;
     int arg = 2;

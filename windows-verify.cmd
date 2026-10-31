@@ -1,13 +1,5 @@
 @echo off
-rem Checks that every DLL and dylib in this mod was built from the code in its src folder:
-rem glu32.dll, coe5se_loader.dll, coe5se.c5plugin.dll, coe5se.dylib, coe5se_loader.dylib, coe5se.c5plugin.dylib.
-rem It downloads the two compilers they were built with (llvm-mingw for the DLLs, zig for the dylibs,
-rem each one pinned archive checked by its SHA-256), builds src into a temporary folder, and compares
-rem each rebuilt file with the one in this folder: OK means byte-identical. Nothing is installed, and
-rem the temporary folder is deleted at the end. mac-verify.command does the same on a Mac, with the
-rem same compilers' Mac builds, which give the same bytes. Needs Windows 10 (1803) or later, for
-rem curl.exe and tar.exe.
-rem Run it by double-clicking, or from a command prompt: windows-verify.cmd [nopause]
+rem Rebuilds every DLL and dylib in this mod from src\ and checks each matches byte for byte (SECURITY.md).
 setlocal EnableExtensions
 set "MOD=%~dp0"
 set "TC_URL=https://github.com/mstorsjo/llvm-mingw/releases/download/20260922/llvm-mingw-20260922-ucrt-x86_64.zip"
@@ -24,9 +16,6 @@ set "OUT=%WORK%\out"
 set "BUILD_FAILED="
 set "FAILED="
 set "PAUSE_AT_END="
-rem A double-click runs "cmd.exe /c ...": pause at the end then, so the window stays open. The
-rem command line is read with delayed expansion, so quotes and parentheses in it (a path under
-rem "Program Files (x86)") can't break the parse.
 if /i "%~1"=="nopause" goto :start
 setlocal EnableDelayedExpansion
 set "CMDLINE=!CMDCMDLINE!"
@@ -49,7 +38,6 @@ tar.exe -xf "%WORK%\zig.zip" -C "%WORK%" || goto :error
 set "CC=%WORK%\%TC_DIR%\bin\x86_64-w64-mingw32-clang.exe"
 set "WINDRES=%WORK%\%TC_DIR%\bin\x86_64-w64-mingw32-windres.exe"
 set "ZIG=%WORK%\%ZIG_DIR%\zig.exe"
-rem zig keeps its cache in the temporary folder too, so nothing stays behind.
 set "ZIG_GLOBAL_CACHE_DIR=%WORK%\zig-cache"
 set "ZIG_LOCAL_CACHE_DIR=%WORK%\zig-cache"
 
@@ -101,15 +89,12 @@ echo Step 4 of 4: compare each shipped file with its rebuild and with SHA256.txt
 for %%D in (glu32.dll coe5se_loader.dll coe5se.c5plugin.dll coe5se.dylib coe5se_loader.dylib coe5se.c5plugin.dylib) do call :compare %%D
 goto :done
 
-rem Compares the shipped file %1 with its rebuild and with its line in SHA256.txt: OK only when all
-rem three name the same SHA-256.
 :compare
 set "HASH_FILE=%MOD%%1"
 call :hash SHIPPED
 set "HASH_FILE=%OUT%\%1"
 call :hash REBUILT
 set "LISTED=no"
-rem /l /b, not /x: SHA256.txt has LF line ends, and findstr's /x expects CRLF.
 if defined SHIPPED findstr /l /b /c:"%SHIPPED%  %1" "%MOD%SHA256.txt" >nul 2>nul && set "LISTED=yes"
 if defined SHIPPED if /i "%SHIPPED%"=="%REBUILT%" if "%LISTED%"=="yes" (
   echo   OK    %1  %REBUILT%
@@ -122,7 +107,6 @@ echo         rebuilt:            %REBUILT%
 echo         listed in SHA256.txt: %LISTED%
 exit /b
 
-rem Prints the first line the command %* writes, indented.
 :firstline
 for /f "delims=" %%V in ('call %*') do (
   echo     %%V
@@ -130,8 +114,6 @@ for /f "delims=" %%V in ('call %*') do (
 )
 exit /b
 
-rem Downloads the URL %2 into the file %3 and checks it against the SHA-256 %4; %1 names the
-rem compiler. Exits 1 when the download fails or gives another file.
 :fetch
 echo     from:      %~2
 echo     expected:  %4
@@ -152,9 +134,6 @@ if /i not "%DL_HASH%"=="%4" (
 echo     got:       %DL_HASH%  OK
 exit /b 0
 
-rem Sets the variable named %1 to the SHA-256 of the file in HASH_FILE (lowercase, as SHA256.txt
-rem and mac-verify.command print it), or to nothing if it's missing. The path goes through the
-rem environment, so spaces, parentheses, and quotes in it are safe.
 :hash
 set "%1="
 for /f "usebackq delims=" %%H in (`powershell -NoProfile -Command "if (Test-Path -LiteralPath $env:HASH_FILE) { (Get-FileHash -Algorithm SHA256 -LiteralPath $env:HASH_FILE).Hash.ToLower() }"`) do set "%1=%%H"

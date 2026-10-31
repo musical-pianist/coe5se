@@ -1,4 +1,3 @@
-// Mods' battle maps: pools of the game's .coem battle map files, picked per battle by terrain, fort and conditions.
 #pragma once
 
 #define BATTLEMAP_WORD               "battlemap"
@@ -25,7 +24,6 @@
 #define BATTLE_FORT_WALLS            0x200
 #define BATTLE_TERRAIN_PLAYER        31
 
-// The conditions battlewhen names, one bit each.
 enum {
     BATTLE_WHEN_SIEGE = 1, BATTLE_WHEN_OPEN = 2, BATTLE_WHEN_AMBUSH = 4, BATTLE_WHEN_SEA = 8, BATTLE_WHEN_LAND = 16,
     BATTLE_WHEN_COLD = 32, BATTLE_WHEN_WARM = 64, BATTLE_WHEN_SUMMER = 128
@@ -54,7 +52,6 @@ static BattleMap *battleMaps;
 static int battleMapCount, battleMapCapacity;
 static int battleMapHooks;
 
-// A terrain's own battle scatter.
 typedef struct {
     int terrain, count;
     char names[BATTLE_SCATTER_OBJECTS_MAX][MONSTER_NAME_SIZE];
@@ -70,13 +67,11 @@ typedef struct {
 static BattleScatter *battleScatters;
 static int battleScatterCount, battleScatterCapacity;
 
-// The field the last setup with a square built, for its background.
 static struct {
     int valid, x, y, pick;
 } battleShown;
 static int battleBackgroundHook;
 
-// The field the running setup builds, from its traces.
 static struct {
     int active, x, y, pick;
     int snapped, width;
@@ -90,7 +85,6 @@ static void clearBattleMapFields(BattleMapFields *f) {
 }
 
 // ---- Reading the parts ----------------------------------------------------------------------------
-// Whether `path` is a battle map file: its first u32 is the game's magic.
 static int isBattleMapFile(const char *path) {
     FILE *f = fopen(path, "rb");
     if (!f) return 0;
@@ -100,7 +94,6 @@ static int isBattleMapFile(const char *path) {
     return ok;
 }
 
-// Finds battle map `spec` in mod folder `folder`: NULL and its path, or the reason.
 static const char *findBattleMapFile(const char *folder, const char *spec, char *path, size_t size) {
     static const char *const ENDINGS[2] = {".coem", ".coem"};
     static const char *const REASONS[4] = {"bad_file", "file_not_found", "file_wrong_case", "file_link"};
@@ -110,7 +103,6 @@ static const char *findBattleMapFile(const char *folder, const char *spec, char 
     return reason;
 }
 
-// Whether the game has battle map `name` ("citadel"): <data>/batmaps/<name>.coem is there.
 static int isGameBattleMap(const char *name) {
     size_t n = strlen(name);
     if (!n || n >= BATTLE_MAP_FORT_NAME_MAX) return 0;
@@ -123,7 +115,6 @@ static int isGameBattleMap(const char *name) {
     return f != NULL;
 }
 
-// The battlewhen bit of word `word`; 0 for none.
 static unsigned int battleWhenBit(const char *word) {
     for (int i = 0; i < BATTLE_WHEN_WORD_COUNT; i++)
         if (!strcmp(word, BATTLE_WHEN_WORDS[i])) return 1u << i;
@@ -133,7 +124,6 @@ static unsigned int battleWhenBit(const char *word) {
 // ---- Declarations: the words' and coe5.addBattleMap -------------------------------------------------
 static int installBattleMapHooks(void);
 
-// Adds a battle map from a mod's block or script; NULL, or the refusal's reason.
 static const char *declareBattleMap(const char *mod, const BattleMapFields *f, int script, const char *file, int line) {
     if (!f->path[0]) return "no_file";
     if (!f->terrainCount && !f->fortCount) return "no_place";
@@ -175,7 +165,6 @@ static int isBattleMapWord(const char *line, size_t len) {
     return 0;
 }
 
-// Refuses a block word's line, logged with its line number.
 static void refuseBattleLine(const char *word, int mod, const char *reason, const char *what, const char *args) {
     refuseC5mLine(word, spellModName(mod), reason, "line=%d text=%.60s", G32(RVA_MOD_LINE), args);
     const char *file = (const char *)GAME_PTR(RVA_EVENT_FILE);
@@ -185,7 +174,6 @@ static void refuseBattleLine(const char *word, int mod, const char *reason, cons
     else if (!strcmp(reason, "unknown_battle_map")) addPlaneProblem(0, spellModName(mod), file, G32(RVA_MOD_LINE), "No battle map called '%.60s'", what);
 }
 
-// Whether a block word's line applies: level 2, inside an open block that wasn't refused.
 static int battleBlockTakes(const char *word, int mod, int level, const char *args) {
     if (level != 2) return 0;
     if (!battleBlock.open || battleBlock.mod != mod) {
@@ -195,7 +183,6 @@ static int battleBlockTakes(const char *word, int mod, int level, const char *ar
     return !battleBlock.refused;
 }
 
-// Ends the open block: declares its map, or refuses the block.
 static void finishBattleBlock(void) {
     if (!battleBlock.open) return;
     battleBlock.open = 0;
@@ -205,7 +192,6 @@ static void finishBattleBlock(void) {
     if (reason) refuseC5mLine(BATTLEMAP_WORD, mod, reason, "line=%d path=%s", battleBlock.line, battleBlock.f.path);
 }
 
-// battlemap "./file.coem": opens a block, and ends the game's blocks and the one before.
 static void battlemapLine(const char *args, int mod, int level) {
     if (level != 2) return;
     finishSpellBlock();
@@ -227,7 +213,6 @@ static void battlemapLine(const char *args, int mod, int level) {
     }
 }
 
-// battleterrain <terrain>
 static void battleterrainLine(const char *args, int mod, int level) {
     if (!battleBlockTakes("battleterrain", mod, level, args)) return;
     const char *p = args, *why = NULL;
@@ -243,7 +228,6 @@ static void battleterrainLine(const char *args, int mod, int level) {
     battleBlock.f.terrains[battleBlock.f.terrainCount++] = terrain;
 }
 
-// battlefort "<game battle map>"
 static void battlefortLine(const char *args, int mod, int level) {
     if (!battleBlockTakes("battlefort", mod, level, args)) return;
     const char *p = args;
@@ -260,13 +244,11 @@ static void battlefortLine(const char *args, int mod, int level) {
     snprintf(battleBlock.f.forts[battleBlock.f.fortCount++], BATTLE_MAP_FORT_NAME_MAX, "%s", name);
 }
 
-// battlereplace
 static void battlereplaceLine(const char *args, int mod, int level) {
     if (!battleBlockTakes("battlereplace", mod, level, args)) return;
     battleBlock.f.replace = 1;
 }
 
-// battlenoscatter
 static void battlenoscatterLine(const char *args, int mod, int level) {
     if (!battleBlockTakes("battlenoscatter", mod, level, args)) return;
     battleBlock.f.noScatter = 1;
@@ -274,7 +256,6 @@ static void battlenoscatterLine(const char *args, int mod, int level) {
 
 static int installBattleBackgroundHook(void);
 
-// battleground <ground 0 to 28> "./picture.tga"
 static void battlegroundLine(const char *args, int mod, int level) {
     if (!battleBlockTakes("battleground", mod, level, args)) return;
     const char *p = args;
@@ -292,7 +273,6 @@ static void battlegroundLine(const char *args, int mod, int level) {
     battleBlock.f.groundPictures[ground] = picture + 1;
 }
 
-// battleweight <1 to 1000>
 static void battleweightLine(const char *args, int mod, int level) {
     if (!battleBlockTakes("battleweight", mod, level, args)) return;
     const char *p = args;
@@ -304,7 +284,6 @@ static void battleweightLine(const char *args, int mod, int level) {
     battleBlock.f.weight = (int)weight;
 }
 
-// battlewhen <condition>
 static void battlewhenLine(const char *args, int mod, int level) {
     if (!battleBlockTakes("battlewhen", mod, level, args)) return;
     char word[16];
@@ -317,7 +296,6 @@ static void battlewhenLine(const char *args, int mod, int level) {
     battleBlock.f.when |= bit;
 }
 
-// battleplane "<plane>"
 static void battleplaneLine(const char *args, int mod, int level) {
     if (!battleBlockTakes("battleplane", mod, level, args)) return;
     const char *p = args;
@@ -336,14 +314,12 @@ static void battleplaneLine(const char *args, int mod, int level) {
 
 
 // ---- Scatter declarations: the words' and coe5.setBattleScatter -------------------------------------
-// The declaration for terrain `terrain` that the running pass or a script made, or NULL.
 static BattleScatter *findBattleScatter(int terrain) {
     for (int i = 0; i < battleScatterCount; i++)
         if (battleScatters[i].f.terrain == terrain && battleScatters[i].from != BATTLE_MAPS_EARLIER_PASS) return &battleScatters[i];
     return NULL;
 }
 
-// Adds a terrain's battle scatter from a mod's block or script; NULL, or the refusal's reason.
 static const char *declareBattleScatter(const char *mod, const BattleScatterFields *f, int script, const char *file, int line) {
     if (f->terrain < 0 || f->terrain >= TERRAIN_TABLE_MAX) return "bad_terrain";
     if (findBattleScatter(f->terrain)) return "scatter_taken";
@@ -362,7 +338,6 @@ static const char *declareBattleScatter(const char *mod, const BattleScatterFiel
     return NULL;
 }
 
-// Adds object `name` at `chance` per 1000 cells to the fields; NULL, or the refusal's reason.
 static const char *addBattleScatterObject(BattleScatterFields *f, const char *name, long long chance) {
     if (!name[0] || strlen(name) >= MONSTER_NAME_SIZE) return "no_name";
     if (chance < 1 || chance > BATTLE_SCATTER_CHANCE_MAX) return "bad_chance";
@@ -380,7 +355,6 @@ static struct {
     BattleScatterFields f;
 } scatterBlock;
 
-// Ends the open scatter block: declares its scatter, or refuses the block.
 static void finishScatterBlock(void) {
     if (!scatterBlock.open) return;
     scatterBlock.open = 0;
@@ -390,7 +364,6 @@ static void finishScatterBlock(void) {
     if (reason) refuseC5mLine("battlescatter", mod, reason, "line=%d terrain=%d", scatterBlock.line, scatterBlock.f.terrain);
 }
 
-// battlescatter <terrain>: opens a block, and ends the game's blocks and the one before.
 static void battlescatterLine(const char *args, int mod, int level) {
     if (level != 2) return;
     finishSpellBlock();
@@ -412,7 +385,6 @@ static void battlescatterLine(const char *args, int mod, int level) {
     }
 }
 
-// battleobject "<monster>" <chance per 1000 cells>
 static void battleobjectLine(const char *args, int mod, int level) {
     if (level != 2) return;
     if (!scatterBlock.open || scatterBlock.mod != mod) {
@@ -429,7 +401,6 @@ static void battleobjectLine(const char *args, int mod, int level) {
 }
 
 // ---- The line hook and the passes -----------------------------------------------------------------
-// Reads a battlemap block's lines; returns the line to go on with, or NULL when it took it.
 static const char *battleMapLineHook(const char *line, size_t len, int mod, int level) {
     if (level == 2 && scatterBlock.open) {
         if (scatterBlock.mod != mod || scatterBlock.fileId != modFileNow()) finishScatterBlock();
@@ -452,7 +423,6 @@ static const char *battleMapLineHook(const char *line, size_t len, int mod, int 
     return line;
 }
 
-// The same when no plugin loaded; returns 1 to skip the line.
 static int declinedBattleMapLine(const char *line, size_t len, int mod, int level) {
     static int inBlock, blockMod, blockLevel;
     if (mod != blockMod || level != blockLevel) inBlock = 0;
@@ -465,7 +435,6 @@ static int declinedBattleMapLine(const char *line, size_t len, int mod, int leve
     return 0;
 }
 
-// Before a level-2 mod pass: the pass reads every block again.
 static void battleMapsBeforePass(int level) {
     if (level != 2) return;
     finishBattleBlock();
@@ -476,7 +445,6 @@ static void battleMapsBeforePass(int level) {
         if (battleScatters[i].from) battleScatters[i].from = BATTLE_MAPS_EARLIER_PASS;
 }
 
-// After a level-2 mod pass: the last block ends, and the blocks the pass didn't name again go.
 static void battleMapsAfterPass(int level) {
     if (level != 2) return;
     finishBattleBlock();
@@ -510,14 +478,12 @@ static void battleMapsAfterPass(int level) {
 }
 
 // ---- The pick ------------------------------------------------------------------------------------
-// The square's mix of x and y, the same on every machine.
 static unsigned int battleSquareHash(int x, int y) {
     unsigned int h = (unsigned int)x * BATTLE_SEED_SQUARES + (unsigned int)y;
     h ^= h >> 16, h *= 0x7feb352du, h ^= h >> 15, h *= 0x846ca68bu, h ^= h >> 16;
     return h;
 }
 
-// Whether map `m` may serve a battle with conditions `when` on plane `plane`.
 static int battleMapFits(const BattleMap *m, unsigned int when, int plane) {
     if ((m->f.when & when) != m->f.when) return 0;
     if (!m->f.planeCount) return 1;
@@ -538,7 +504,6 @@ static int battleMapNamesFort(const BattleMap *m, const char *game) {
     return 0;
 }
 
-// The map for a battle on square (x, y): a battleMaps index, or -1 for the game's own.
 static int pickBattleMap(int x, int y, int terrain, const char *game, unsigned int when, int plane, const char **pool) {
     int total = 0, gameWeight = 0, replaced = 0;
     for (int pass = 0; pass < 2 && !total; pass++) {
@@ -567,7 +532,6 @@ static int pickBattleMap(int x, int y, int terrain, const char *game, unsigned i
     return -1;
 }
 
-// The game's own pick in path `path` ("<data>/batmaps/citadel.coem"): its name in out[size], "" for none.
 static void gameBattleMapName(const char *path, char *out, size_t size) {
     out[0] = '\0';
     const char *slash = strrchr(path, '/'), *back = strrchr(path, '\\');
@@ -576,7 +540,6 @@ static void gameBattleMapName(const char *path, char *out, size_t size) {
     if (n > 5 && !strcmp(name + n - 5, ".coem")) snprintf(out, size, "%.*s", (int)(n - 5), name);
 }
 
-// The battle's BATTLEMAP_WHEN bits on square (x, y), from what the setup has set so far.
 static unsigned int battleConditions(int x, int y) {
     unsigned int when = 0;
     when |= *(const unsigned char *)GAME_PTR(RVA_BATTLE_IS_SIEGE) ? BATTLE_WHEN_SIEGE : BATTLE_WHEN_OPEN;
@@ -604,12 +567,10 @@ typedef void (*PlaceTerrainUnitFn)(const char *name, int x, int y, int side, uns
 static PlaceTerrainUnitFn battlePlaceForTests;
 static void (*battleRemoveForTests)(int unit);
 
-// Cell (x, y) of the battle grid.
 static unsigned char *battleCell(int x, int y) {
     return GAME_PTR(RVA_BATTLE_GRID) + ((size_t)x * BATTLE_ROWS + (size_t)y) * BATTLE_CELL_SIZE;
 }
 
-// The setup's "newseed" trace: notes the square, then traces as the game does.
 static void battleSeedTraceHook(const char *format, ...) {
     va_list ap;
     va_start(ap, format);
@@ -625,7 +586,6 @@ static void battleSeedTraceHook(const char *format, ...) {
     battleShown.valid = 1, battleShown.x = x, battleShown.y = y, battleShown.pick = -1;
 }
 
-// The setup's "bfsize" trace: traces as the game does, then puts the picked map's path in the setup's buffer.
 static void battleSizeTraceHook(const char *format, ...) {
     va_list ap;
     va_start(ap, format);
@@ -650,7 +610,6 @@ static void battleSizeTraceHook(const char *format, ...) {
              game[0] ? game : "-", pool);
 }
 
-// The scatter's "createtrees" trace: traces as the game does, then notes which cells hold objects.
 static void battleTreesTraceHook(const char *format, ...) {
     va_list ap;
     va_start(ap, format);
@@ -669,7 +628,6 @@ static void battleTreesTraceHook(const char *format, ...) {
     battleField.width = width, battleField.snapped = 1;
 }
 
-// Takes the scatter off: each object placed since the snapshot, and the rock pillars' marks; returns how many.
 static int clearBattleScatter(void) {
     int removed = 0;
     for (int x = 0; x < battleField.width; x++)
@@ -692,7 +650,6 @@ static int clearBattleScatter(void) {
     return removed;
 }
 
-// Places terrain scatter `b` on the field of square (x, y); returns how many objects went in.
 static int placeBattleScatter(const BattleScatter *b, int sx, int sy) {
     int width = battleField.width, placed = 0;
     unsigned int parts = battleFortPartsForTests ? battleFortPartsForTests(sx, sy) : (unsigned int)GAME_FN(int (*)(int, int), RVA_SQUARE_FORT_PARTS)(sx, sy);
@@ -717,7 +674,6 @@ static int placeBattleScatter(const BattleScatter *b, int sx, int sy) {
     return placed;
 }
 
-// The setup's "calculatefort" trace: traces as the game does, then swaps the scatter for the terrain's own or none.
 static void battleFortTraceHook(const char *format, ...) {
     va_list ap;
     va_start(ap, format);
@@ -738,7 +694,6 @@ static void battleFortTraceHook(const char *format, ...) {
              off ? battleMaps[battleField.pick].mod : own->mod);
 }
 
-// Points the four trace calls at the hooks, once, at the first battle map or scatter a mod declares.
 static int installBattleMapHooks(void) {
     if (battleMapHooks) return battleMapHooks > 0;
     int in = pointCustomPlaneCall(RVA_BATTLE_SEED_TRACE_CALL, RVA_TRACE, (void *)battleSeedTraceHook, "battle_seed_trace") &&
@@ -762,7 +717,6 @@ typedef struct {
     int version, ctm, count;
 } BattleMapFile;
 
-// Reads battle map file `path` and finds its parts; 1, or 0 when it isn't one CoE5SE can read.
 static int readBattleMapFile(const char *path, BattleMapFile *m) {
     memset(m, 0, sizeof *m);
     FILE *f = fopen(path, "rb");
@@ -799,7 +753,6 @@ static int readBattleMapFile(const char *path, BattleMapFile *m) {
     return 1;
 }
 
-// The object list's names after the end marker: 1 with the names in names[count][MONSTER_NAME_SIZE], or 0.
 static int battleMapNames(const BattleMapFile *m, const char **names) {
     unsigned int head[3];
     if (m->end + sizeof head > m->size) return 0;
@@ -812,7 +765,6 @@ static int battleMapNames(const BattleMapFile *m, const char **names) {
 
 static int battleTreeNow(void) { return monsterByName("Tree"); }
 
-// After the editor saves `path`: adds the names of its mods' monsters, when it holds one.
 static void addBattleMapNames(const char *path) {
     BattleMapFile m;
     if (!readBattleMapFile(path, &m)) {
@@ -842,7 +794,6 @@ static void addBattleMapNames(const char *path) {
     free(m.data);
 }
 
-// The copy of a battle map to read `path` through, or NULL.
 static const char *battleMapCopyFor(const char *path) {
     static char copy[BATTLE_MAP_PATH_SIZE];
     static unsigned int made;
@@ -889,7 +840,6 @@ static const char *battleMapCopyFor(const char *path) {
 
 #define BACKSLASH 0x5c
 
-// Where the battle map editor's save of `path` goes.
 static const char *battleEditorSavePath(const char *path, char *out, size_t size) {
     const char *dir = (const char *)GAME_PTR(RVA_BATMAPS_DIR);
     size_t n = strlen(dir);
@@ -919,7 +869,6 @@ static const char *battleEditorSavePath(const char *path, char *out, size_t size
     return out;
 }
 
-// The editor's save: opens the file where its name says, and notes it.
 static void *battleSaveFile;
 static char battleSavePath[BATTLE_MAP_PATH_SIZE];
 typedef void *(*GameFopenFn)(const char *path, const char *mode);
@@ -932,7 +881,6 @@ static void *battleEditorSaveOpenHook(const char *path, const char *mode) {
     return f;
 }
 
-// The editor's save closing its file: closes it, then adds the mods' monsters' names.
 static int battleEditorSaveCloseHook(void *file) {
     int r = GAME_FN(int (*)(void *), RVA_FCLOSE)(file);
     if (file && file == battleSaveFile) addBattleMapNames(battleSavePath);
@@ -941,20 +889,17 @@ static int battleEditorSaveCloseHook(void *file) {
 }
 
 #ifndef __APPLE__
-// The editor's load opening a file: a map with names through its copy.
 static void *battleEditorLoadOpenHook(const char *path, const char *mode) {
     const char *copy = battleMapCopyFor(path);
     return GAME_FN(GameFopenFn, RVA_FOPEN)(copy ? copy : path, mode);
 }
 #else
-// The editor's load: a map with names through its copy (Mac's loader opens the file itself).
 static int battleEditorLoadHook(const char *path, int centre, long x, long y) {
     const char *copy = battleMapCopyFor(path);
     return GAME_FN(int (*)(const char *, int, long, long), RVA_LOAD_BATMAP)(copy ? copy : path, centre, x, y);
 }
 #endif
 
-// The editor's Load Map list: opens in the mods folder instead of the game's batmaps.
 typedef int (*BattleBrowserFn)(const char *title, int a, int mode, int b, int c, const char *folder, const char *const *skips, const char *name,
                                char *path, int pathSize);
 static int battleEditorBrowseHook(const char *title, int a, int mode, int b, int c, const char *folder, const char *const *skips, const char *name,
@@ -965,7 +910,6 @@ static int battleEditorBrowseHook(const char *title, int a, int mode, int b, int
     return GAME_FN(BattleBrowserFn, RVA_FILE_BROWSER)(title, a, mode, b, c, start, skips, name, path, pathSize);
 }
 
-// Points the editor's save and load calls at CoE5SE, at the start.
 // @platform-split battle_editor_load: Windows wraps the editor's fopen before RVA_LOAD_BATMAP, Mac the editor's RVA_LOAD_BATMAP call, which opens the file itself
 static void installBattleEditorHooks(void) {
     int in = pointCustomPlaneCall(RVA_BATTLE_EDITOR_SAVE_OPEN_CALL, RVA_FOPEN, (void *)battleEditorSaveOpenHook, "battle_editor_save_open") +
@@ -980,7 +924,6 @@ static void installBattleEditorHooks(void) {
 }
 
 // ---- The battle's background ----------------------------------------------------------------------
-// Tags the battle's cells for CoE5SE's ground pictures.
 static void tagBattleCells(void) {
     terrainPaintAny = 0;
     if (!battleShown.valid) return;
@@ -1015,14 +958,12 @@ static void tagBattleCells(void) {
         }
 }
 
-// The battle background's call to the image: tags the cells, paints, and forgets the tags.
 static void battleBackgroundImageHook(void) {
     tagBattleCells();
     GAME_FN(void (*)(void), RVA_CREATE_BACKGROUND_IMAGE)();
     terrainPaintAny = 0;
 }
 
-// Points the battle background's call to the image at CoE5SE, once, with CoE5SE's composite.
 static int installBattleBackgroundHook(void) {
     if (battleBackgroundHook) return battleBackgroundHook > 0;
     int in = installTerrainCompositeHook() &&
@@ -1033,7 +974,6 @@ static int installBattleBackgroundHook(void) {
 }
 
 // ---- coe5.addBattleMap ---------------------------------------------------------------------------
-// Reads list field `field` of the table at 1 into the fields; NULL, or the refusal's reason.
 static const char *luaBattleMapList(lua_State *L, const char *field, BattleMapFields *f, const char *folder) {
     lua_getfield(L, 1, field);
     const char *reason = NULL;
@@ -1071,7 +1011,6 @@ static const char *luaBattleMapList(lua_State *L, const char *field, BattleMapFi
     return reason;
 }
 
-// coe5.addBattleMap{file =, terrains =, forts =, replace =, weight =, when =, planes =, noscatter =, grounds =}: true, or false when refused.
 static int lAddBattleMap(lua_State *L) {
     luaL_checktype(L, 1, LUA_TTABLE);
     lua_settop(L, 1);
@@ -1136,7 +1075,6 @@ static int lAddBattleMap(lua_State *L) {
     return 1;
 }
 
-// coe5.setBattleScatter{terrain =, objects = {{"<monster>", chance}, ...}}: true, or false when refused.
 static int lSetBattleScatter(lua_State *L) {
     luaL_checktype(L, 1, LUA_TTABLE);
     lua_settop(L, 1);
@@ -1175,7 +1113,6 @@ static int lSetBattleScatter(lua_State *L) {
     return 1;
 }
 
-// Adds the words.
 static void battleMapWordsInit(void) {
     int words = apiAddModCommand("battlemap", battlemapLine) + apiAddModCommand("battleterrain", battleterrainLine) +
                 apiAddModCommand("battlefort", battlefortLine) + apiAddModCommand("battlereplace", battlereplaceLine) +

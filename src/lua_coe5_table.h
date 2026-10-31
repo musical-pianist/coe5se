@@ -1,7 +1,4 @@
-// The coe5 table's functions: logging, menu lines, screens, planes, restarts, settings, keys, monsters, armies.
-
 // ---- The coe5 table ---------------------------------------------------------------------------
-// CoE5SE.c5se's script_log: whether mods' own lines go to coe5mod.log.
 #define SCRIPT_LOG_SETTING "script_log"
 #define SCRIPT_LOG_DEFAULT 0
 static int luaScriptLogOn(void) {
@@ -17,7 +14,6 @@ static int lLog(lua_State *L) {
     return 0;
 }
 
-// coe5.addMainMenuButton(label, onClick[, afterVanillaId]).
 static int lAddMainMenuButton(lua_State *L) {
     const char *label = luaL_checkstring(L, 1);
     if (refuseFromDeadLuaScript(L, "coe5.addMainMenuButton")) {
@@ -35,7 +31,6 @@ static int lAddMainMenuButton(lua_State *L) {
     return 1;
 }
 
-// coe5.addGameMenuLine{label=, tooltip=, visible=function, onClick=function, section=}.
 static int lAddGameMenuLine(lua_State *L) {
     luaL_checktype(L, 1, LUA_TTABLE);
     lua_settop(L, 1);
@@ -62,7 +57,6 @@ static int lAddGameMenuLine(lua_State *L) {
     return 1;
 }
 
-// coe5.addMapEditorLine{label=, tooltip=, visible=, onClick=}: a map editor toolbox line; its id or false.
 static int lAddMapEditorLine(lua_State *L) {
     luaL_checktype(L, 1, LUA_TTABLE);
     lua_settop(L, 1);
@@ -87,7 +81,6 @@ static int lAddMapEditorLine(lua_State *L) {
     return 1;
 }
 
-// coe5.addCommanderLine{label=, tooltip=, icon=, color=, visible=, onClick=}: a line in the commander panel; its id or false.
 static int lAddCommanderLine(lua_State *L) {
     luaL_checktype(L, 1, LUA_TTABLE);
     lua_settop(L, 1);
@@ -140,7 +133,6 @@ static int lAddCommanderLine(lua_State *L) {
 static int luaScriptsLoading;
 static int luaCommandsLoading;
 
-// coe5.addModCommand(name, handler): a .c5m word, in the mod's commands file only; true, or false when refused.
 static int lAddModCommand(lua_State *L) {
     const char *name = luaL_checkstring(L, 1);
     luaL_checktype(L, 2, LUA_TFUNCTION);
@@ -157,7 +149,6 @@ static int lAddModCommand(lua_State *L) {
     return 1;
 }
 
-// A script's .c5m word: its handler, the line's arguments, the line's mod by name, and the level.
 typedef struct { int ref; const char *args, *mod; int level; } LuaModCommandCall;
 static int pushLuaModCommand(lua_State *L, void *ctx) {
     const LuaModCommandCall *c = ctx;
@@ -169,7 +160,6 @@ static int pushLuaModCommand(lua_State *L, void *ctx) {
     return 3;
 }
 
-// Runs callback `callback`, a script's .c5m word, for a line of mod `mod` at `level`.
 static void runLuaModCommand(int callback, const char *args, int mod, int level) {
     if (callback < 0 || callback >= luaCallbackCount) return;
     LuaCallback c = luaCallbacks[callback];
@@ -180,7 +170,6 @@ static void runLuaModCommand(int callback, const char *args, int mod, int level)
 
 static int luaPathIsLink(const char *path);
 
-// Finds file `spec` in mod folder `folder` and writes its path; NULL, or the reason it can't.
 #define PLANE_ICON_SPEC_MAX 200
 static int endsWith(const char *text, const char *ending) {
     size_t n = strlen(text), e = strlen(ending);
@@ -216,7 +205,6 @@ static const char *findModFile(const char *folder, const char *spec, const char 
     return NULL;
 }
 
-// Finds image `spec` (.tga or .png) in mod folder `folder`.
 static const char *findModImage(const char *folder, const char *spec, char *path, size_t size) {
     static const char *const ENDINGS[2] = {".tga", ".png"};
     static const char *const REASONS[4] = {"bad_icon", "icon_not_found", "icon_wrong_case", "icon_link"};
@@ -225,7 +213,6 @@ static const char *findModImage(const char *folder, const char *spec, char *path
 
 #include "plane_build.h"
 
-// coe5.addPlane{...}: declares a plane of the mod's, at script load; true, or false when refused.
 static void readLuaPlaneLayout(lua_State *L, int piecesAt, int zonesAt, int unitsAt, PlaneLayout *layout, const char *mod, const char *folder,
                                const char *script, int line);
 static void finishPlaneLayout(PlaneLayout *layout, int w, int h, const char *mod);
@@ -295,7 +282,6 @@ static int lAddPlane(lua_State *L) {
     return 1;
 }
 
-// coe5.setPlaneShape(monster, planeName, shapeMonster): a monster's shape on a mod's plane.
 static int lSetPlaneShape(lua_State *L) {
     const char *monster = luaL_checkstring(L, 1), *plane = luaL_checkstring(L, 2), *shape = luaL_optstring(L, 3, NULL);
     const char *mod = runningLuaMod();
@@ -313,7 +299,6 @@ static int lSetBattleScatter(lua_State *L);
 static int lFactionSlot(lua_State *L);
 static int lAddFaction(lua_State *L);
 
-// coe5.planeIndex(name): the index of the named plane in this world, or nil.
 static int lPlaneIndex(lua_State *L) {
     const char *name = luaL_checkstring(L, 1);
     int index = customPlaneIndex(name);
@@ -324,14 +309,12 @@ static int lPlaneIndex(lua_State *L) {
     return 1;
 }
 
-// The plane argument `arg` of the tint calls, by index or name (plane_tint.h, planeTintNamed); -1 for none.
 static int luaTintPlane(lua_State *L, int arg) {
     if (lua_type(L, arg) == LUA_TSTRING) return planeTintNamed(lua_tostring(L, arg));
     lua_Integer plane = luaL_checkinteger(L, arg);
     return plane < 0 || plane > INT_MAX ? -1 : (int)plane;
 }
 
-// coe5.setPlaneTint(plane, r, g, b, strength): lays a colour over the map while the plane is in view.
 static int lSetPlaneTint(lua_State *L) {
     int plane = luaTintPlane(L, 1);
     double rgba[PLANE_TINT_CHANNELS];
@@ -344,7 +327,6 @@ static int lSetPlaneTint(lua_State *L) {
     return 1;
 }
 
-// coe5.clearPlaneTint(plane): drops the script's tint on the plane.
 static int lClearPlaneTint(lua_State *L) {
     const char *reason = clearLuaPlaneTint(luaTintPlane(L, 1));
     if (reason) refuseLuaCall(runningLuaMod(), "coe5.clearPlaneTint", reason, "plane=%.40s", luaL_tolstring(L, 1, NULL));
@@ -352,7 +334,6 @@ static int lClearPlaneTint(lua_State *L) {
     return 1;
 }
 
-// coe5.mapView(): the map view now as a table, or nil.
 static int lMapView(lua_State *L) {
     MapView v;
     if (!currentMapView(&v)) {
@@ -379,21 +360,18 @@ static int lMapView(lua_State *L) {
     return 1;
 }
 
-// coe5.restartGame(): the API's restartGame, from a Game Menu line's onClick.
 static int lRestartGame(lua_State *L) {
     checkLuaMainThread(L, "coe5.restartGame");
     lua_pushboolean(L, luaApi->restartGame());
     return 1;
 }
 
-// coe5.loadGame(): shows Load Game's list; a picked save ends this game and loads.
 static int lLoadGame(lua_State *L) {
     checkLuaMainThread(L, "coe5.loadGame");
     lua_pushboolean(L, apiLoadGame());
     return 1;
 }
 
-// coe5.restartPhase(): "ending", "starting", or nil.
 static int lRestartPhase(lua_State *L) {
     int phase = luaApi->restartPhase();
     if (phase == RESTART_ENDING) lua_pushstring(L, "ending");
@@ -404,7 +382,6 @@ static int lRestartPhase(lua_State *L) {
 
 static int lTurn(lua_State *L) { lua_pushinteger(L, G32(RVA_TURN)); return 1; }
 
-// coe5.setting(name): the script's own mod's setting.
 static int lSetting(lua_State *L) {
     const char *name = luaL_checkstring(L, 1);
     LuaScript *s = luaScriptOf(L);
@@ -437,13 +414,11 @@ static int lSendMessage(lua_State *L) {
     return 1;
 }
 
-// coe5.setupAutomated(): the API's setupAutomated flag, which coe5.setSetupAutomated sets.
 static int lSetupAutomated(lua_State *L) {
     lua_pushboolean(L, luaApi->setupAutomated() != 0);
     return 1;
 }
 
-// coe5.hideMainMenuButton(id, hidden): hides the game's button `id` while hidden() returns true.
 static int *luaReadTipHiders;
 static int luaReadTipHiderCount, luaReadTipHiderCapacity;
 static int lHideMainMenuButton(lua_State *L) {
@@ -471,7 +446,6 @@ static int lHideMainMenuButton(lua_State *L) {
     lua_pushboolean(L, 1);
     return 1;
 }
-// Runs every script's hidden function, and returns 1 when any says to hide.
 static int luaHidesReadTip(void) {
     int hidden = 0;
     for (int i = 0; i < luaReadTipHiderCount; i++)
@@ -479,7 +453,6 @@ static int luaHidesReadTip(void) {
     return hidden;
 }
 
-// coe5.addScreen(label, open[, tooltip]): a line in the Screens box of the mod's page.
 static int lAddScreen(lua_State *L) {
     const char *label = luaL_checkstring(L, 1);
     const char *tip = luaL_optstring(L, 3, NULL);
@@ -499,7 +472,6 @@ static int lAddScreen(lua_State *L) {
     return 1;
 }
 
-// coe5.rebindKey(action, key), coe5.addActionKey(action, key), coe5.actionKey(action).
 static int luaActionKeyArgs(lua_State *L, const char *call, int *action, int *key) {
     lua_Integer a = luaL_checkinteger(L, 1), k = key ? luaL_checkinteger(L, 2) : 0;
     LuaScript *s = luaScriptOf(L);
@@ -535,7 +507,6 @@ static int lActionKey(lua_State *L) {
     return 1;
 }
 
-// coe5.findMonster(name): the index of the first monster with this name, or nil.
 static int lFindMonster(lua_State *L) {
     const char *name = luaL_checkstring(L, 1);
     int last = G32(RVA_MONSTER_COUNT);
@@ -549,7 +520,6 @@ static int lFindMonster(lua_State *L) {
     return 1;
 }
 
-// coe5.portalExits(x, y): where the portal on square (x, y) leads.
 #define PORTAL_EXITS_MAX 100
 static int lPortalExits(lua_State *L) {
     lua_Integer x0 = luaL_checkinteger(L, 1), y0 = luaL_checkinteger(L, 2);
@@ -572,7 +542,6 @@ static int lPortalExits(lua_State *L) {
     return 1;
 }
 
-// coe5.squareUnits(x, y): the living units on square (x, y).
 static int lSquareUnits(lua_State *L) {
     lua_Integer x = luaL_checkinteger(L, 1), y = luaL_checkinteger(L, 2);
     lua_createtable(L, 0, 0);
@@ -586,7 +555,6 @@ static int lSquareUnits(lua_State *L) {
     return 1;
 }
 
-// coe5.revealMap(player[, plane]): every plane's squares, the mods' included, or one plane's, in view for the player.
 #define SIGHT_REDRAW_CONTROLLERS 0x109
 static int lRevealMap(lua_State *L) {
     lua_Integer player = luaCheckPlayer(L, 1), plane = luaL_optinteger(L, 2, -1);
@@ -609,7 +577,6 @@ static int lRevealMap(lua_State *L) {
     return 1;
 }
 
-// Why coe5.centerMap refuses square (x, y), or NULL.
 static const char *centerMapRefusal(int activePlayer, lua_Integer x, lua_Integer y, int mapW, int mapH, int plane, int windows) {
     if (!windows) return "windows_only";
     if (activePlayer < 0) return "no_game";
@@ -618,7 +585,7 @@ static const char *centerMapRefusal(int activePlayer, lua_Integer x, lua_Integer
     return NULL;
 }
 
-// coe5.centerMap(x, y): the map view centred on world square (x, y), on the plane that holds it.
+// @platform-split center_map: Windows calls RVA_CENTER_MAP_ON; Mac's wasn't looked up, so the call is refused there
 static int lCenterMap(lua_State *L) {
     lua_Integer x = luaL_checkinteger(L, 1), y = luaL_checkinteger(L, 2);
 #ifdef __APPLE__
@@ -643,7 +610,7 @@ static int lCenterMap(lua_State *L) {
     return 1;
 }
 
-// coe5.viewArmy(x, y): the game's view of the army on world square (x, y), as a right click on it shows it.
+// @platform-split view_army: Windows calls RVA_VIEW_ARMY_SCREEN; Mac's wasn't looked up, so the call is refused there
 static int lViewArmy(lua_State *L) {
     lua_Integer x = luaL_checkinteger(L, 1), y = luaL_checkinteger(L, 2);
     const char *reason = NULL;
@@ -669,7 +636,6 @@ static int lViewArmy(lua_State *L) {
     return 1;
 }
 
-// coe5.armies([viewer]): every army on the world map.
 static void setIntField(lua_State *L, const char *key, lua_Integer value);
 static int lArmies(lua_State *L) {
     int withViewer = !lua_isnoneornil(L, 1);

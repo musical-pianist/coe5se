@@ -1,4 +1,3 @@
-// Every instruction in CoE5.exe that builds an address in the game's monster table.
 #pragma once
 
 #define MONSTER_TABLE_SITE_COUNT 2287
@@ -2292,7 +2291,6 @@ static const TableMoveSite MONSTER_TABLE_SITES[MONSTER_TABLE_SITE_COUNT] = {
     {0x3306f5, 4, TABLE_FIELD_DISP32},
 };
 
-// The compares of a record number against the game's 6000: each becomes the moved table's size.
 #define MONSTER_BOUND_SITE_COUNT 30
 static const TableValueSite MONSTER_BOUND_SITES[MONSTER_BOUND_SITE_COUNT] = {
     {0x09b531, 1, MONSTER_RECORDS_MOVED - 1, "bound"},

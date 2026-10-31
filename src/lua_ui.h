@@ -1,6 +1,3 @@
-// The coe5.ui table: the game's screen widgets for scripts; and coe5.showMessageBox, the game's message box.
-
-// coe5.ui: the game's widgets, the same calls as the API's ui table.
 static int monsterRowIndex;
 static void closeLuaRow(lua_State *L, const char *call);
 static int lScreenBegin(lua_State *L) {
@@ -13,7 +10,6 @@ static int lSectionBegin(lua_State *L) { luaApi->ui->sectionBegin(luaL_optstring
 static int lSectionEnd(lua_State *L) { (void)L; luaApi->ui->sectionEnd(); return 0; }
 static int lText(lua_State *L) { luaApi->ui->text((int)luaL_checkinteger(L, 1), luaL_checkstring(L, 2)); return 0; }
 static int lChoice(lua_State *L) { luaApi->ui->choice((int)luaL_checkinteger(L, 1), lua_toboolean(L, 2), luaL_checkstring(L, 3)); return 0; }
-// coe5.ui.checkbox(id, checked, label).
 typedef struct { LuaScript *s; int id; int *value; } LuaCheckbox;
 static LuaCheckbox *luaCheckboxes;
 static int luaCheckboxCount, luaCheckboxCapacity;
@@ -46,7 +42,6 @@ static int lButtonRow(lua_State *L) { (void)L; luaApi->ui->buttonRow(); return 0
 static int lListBegin(lua_State *L) { (void)L; luaApi->ui->listBegin(); return 0; }
 static int lListRow(lua_State *L) { luaApi->ui->listRow((int)luaL_checkinteger(L, 1), luaL_checkstring(L, 2)); return 0; }
 static int lListEnd(lua_State *L) { (void)L; luaApi->ui->listEnd(); return 0; }
-// The game's bind_hotkey takes an int id and key.
 static int fitsInt(lua_Integer v) { return v >= INT_MIN && v <= INT_MAX; }
 static int lBindEscape(lua_State *L) {
     lua_Integer id = luaL_checkinteger(L, 1);
@@ -57,7 +52,6 @@ static int lBindEscape(lua_State *L) {
     luaApi->ui->bindKey((int)id, UI_KEY_ESCAPE);
     return 0;
 }
-// coe5.ui.bindKey(id, key): a key clicks line `id`.
 static int lBindKey(lua_State *L) {
     lua_Integer id = luaL_checkinteger(L, 1), key = luaL_checkinteger(L, 2);
     if (!fitsInt(id) || !fitsInt(key)) {
@@ -67,7 +61,6 @@ static int lBindKey(lua_State *L) {
     luaApi->ui->bindKey((int)id, key == KEY_ESC ? UI_KEY_ESCAPE : (int)key);
     return 0;
 }
-// A screen loop is one long call into the script, so the step count starts again every frame.
 static int lWait(lua_State *L) {
     checkLuaMainThread(L, "coe5.ui.wait");
     closeLuaRow(L, "coe5.ui.wait");
@@ -78,9 +71,7 @@ static int lWait(lua_State *L) {
     lua_pushinteger(L, id);
     return 1;
 }
-// The game's layout calls, for screens laid out another way and for wraps.
 static int lSectionHeader(lua_State *L) { sectionHeader(luaL_checkstring(L, 1)); return 0; }
-// Argument 1 as a float for the game's layout.
 static int luaLayoutFloat(lua_State *L, const char *call, const char *field, int negativeOk, float *out) {
     lua_Number value = luaL_checknumber(L, 1);
     LuaScript *s = luaScriptOf(L);
@@ -110,7 +101,6 @@ static int lColumnX(lua_State *L) {
     return 0;
 }
 
-// A draw call's arguments as floats; 0 when one isn't a finite float.
 static int luaDrawFloats(lua_State *L, const char *call, int first, int last, float *out) {
     for (int i = first; i <= last; i++) {
         lua_Number value = luaL_checknumber(L, i);
@@ -125,12 +115,11 @@ static int luaDrawFloats(lua_State *L, const char *call, int first, int last, fl
 }
 
 // ---- coe5.ui.rowBegin and rowEnd: a row of texts side by side, with a background colour ----------
-// A script's open row: 1 between coe5.ui.rowBegin and rowEnd.
+// @platform-split lua_row: Windows calls the game's row_area with the colour; Mac inlined it, so coe5.ui.rowBegin is refused there
 static int luaRowOpen;
 
-// Closes a row the script left open, with lua_refused reason=row_open for `call`.
 static void closeLuaRow(lua_State *L, const char *call) {
-    if (!luaRowOpen) return;   // No log: no row open.
+    if (!luaRowOpen) return;
     LuaScript *s = luaScriptOf(L);
     refuseLuaCall(s ? s->mod : "?", call, "row_open", "closed=1");
 #ifndef __APPLE__
@@ -139,7 +128,6 @@ static void closeLuaRow(lua_State *L, const char *call) {
     luaRowOpen = 0;
 }
 
-// Why coe5.ui.rowBegin refuses its arguments, or NULL.
 static const char *luaRowRefusal(int open, lua_Integer id, float width, const float colour[4], int windows) {
     if (!windows) return "windows_only";
     if (open) return "row_open";
@@ -149,7 +137,6 @@ static const char *luaRowRefusal(int open, lua_Integer id, float width, const fl
     return NULL;
 }
 
-// coe5.ui.rowBegin(id, width[, r, g, b, alpha]): opens a row `width` wide, all of it clicked as `id`.
 static int lRowBegin(lua_State *L) {
     lua_Integer id = luaL_checkinteger(L, 1);
     float width, colour[4] = {0, 0, 0, 0};
@@ -176,7 +163,6 @@ static int lRowBegin(lua_State *L) {
     return 0;
 }
 
-// coe5.ui.rowEnd(): closes the row coe5.ui.rowBegin opened.
 static int lRowEnd(lua_State *L) {
     if (!luaRowOpen) {
         LuaScript *s = luaScriptOf(L);
@@ -190,7 +176,6 @@ static int lRowEnd(lua_State *L) {
     return 0;
 }
 
-// Whether a draw call may draw now: only inside MAP_EDITOR_DRAW's or MAP_DRAW's chain.
 static int luaMayDraw(lua_State *L, const char *call) {
     if (mapEditorDrawing > 0 || mapDrawing > 0) return 1;
     LuaScript *s = luaScriptOf(L);
@@ -198,7 +183,6 @@ static int luaMayDraw(lua_State *L, const char *call) {
     return 0;
 }
 
-// coe5.ui.drawLine(x1, y1, x2, y2, r, g, b, alpha[, width]): one line at UI coordinates.
 static int lDrawLine(lua_State *L) {
     float f[9];
     f[8] = 1.0f;
@@ -214,7 +198,6 @@ static int lDrawLine(lua_State *L) {
     return 0;
 }
 
-// coe5.ui.drawRect(x, y, width, height, r, g, b, alpha): a filled rectangle at UI coordinates.
 static int lDrawRect(lua_State *L) {
     float f[8];
     if (!luaDrawFloats(L, "coe5.ui.drawRect", 1, 8, f)) return 0;
@@ -228,7 +211,6 @@ static int lDrawRect(lua_State *L) {
     return 0;
 }
 
-// coe5.ui.drawText(x, y, size, text, r, g, b, alpha): one line of text at UI coordinates.
 #define DRAW_TEXT_SIZE 500
 static int lDrawText(lua_State *L) {
     float pos[3], colour[4];
@@ -241,7 +223,6 @@ static int lDrawText(lua_State *L) {
     return 0;
 }
 
-// coe5.ui.nameBox(title, prompt, sprite[, maxLength]): the game's "Enter name" box.
 #define NAME_BOX_MONSTER_SPRITE 0x21
 static int lNameBox(lua_State *L) {
     const char *title = luaL_checkstring(L, 1), *prompt = luaL_checkstring(L, 2);
@@ -275,7 +256,6 @@ static int lNameBox(lua_State *L) {
     return 1;
 }
 
-// coe5.ui.monsterRow(id, monster, text[, line2]): a striped row with the monster's picture.
 #define MONSTER_ROW_STRIPE_WIDTH 200
 #define MONSTER_ROW_TEXT_X       30.0f
 #define MONSTER_ROW_SPRITE_FLAGS 4
@@ -287,7 +267,6 @@ static int lNameBox(lua_State *L) {
 static void monsterRowBegin(void) { rowBegin(1); }
 static void monsterRowEnd(void) { rowBegin(0); }
 static void monsterRowColumn(float x) { columnX(x); }
-// The game's text scale setter.
 static void setTextScale(float scale) { GF(RVA_COLUMN_BASE) = GF(RVA_TEXT_HEIGHT_BASE) * scale; }
 #else
 static void monsterRowBegin(void) { GAME_FN(void (*)(int), RVA_ROW_BEGIN)(0); }
@@ -295,7 +274,6 @@ static void monsterRowEnd(void) { GAME_FN(void (*)(int), RVA_ROW_BEGIN)(1); }
 static void monsterRowColumn(float x) { GAME_FN(void (*)(float), RVA_COLUMN_X)(x); }
 static void setTextScale(float scale) { GAME_FN(void (*)(float), RVA_SET_TEXT_SCALE)(scale); }
 #endif
-// The text scale now, so a row puts back what it found.
 static float textScaleNow(void) {
     float base = GF(RVA_TEXT_HEIGHT_BASE);
     return base > 0.0f ? GF(RVA_COLUMN_BASE) / base : 1.0f;
@@ -347,7 +325,6 @@ static int lMonsterRow(lua_State *L) {
 }
 
 // ---- coe5.showMessageBox -----------------------------------------------------------------------
-// Why coe5.showMessageBox refuses its call, or NULL when a human is at the screen to close the box.
 static const char *messageBoxRefusal(int network, int planning, int inAiSite, int activePlayer, int activeController) {
     if (network) return "network_game";
     if (planning) return "planning_route";
@@ -355,7 +332,6 @@ static const char *messageBoxRefusal(int network, int planning, int inAiSite, in
     return NULL;
 }
 
-// coe5.showMessageBox(title, text): the game's message box with one Ok button, shown at once.
 static int lShowMessageBox(lua_State *L) {
     const char *title = luaL_checkstring(L, 1), *text = luaL_checkstring(L, 2);
     int active = G32(RVA_ACTIVE_PLAYER);

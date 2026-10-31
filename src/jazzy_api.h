@@ -1,6 +1,3 @@
-// The plugin API that CoE5SE gives to plugin DLLs.
-
-// A wrapper has the same signature as the call it wraps, and calls `next` to go on.
 #pragma once
 #ifdef _WIN32
 #include <windows.h>
@@ -11,21 +8,16 @@
 #include <stdint.h>
 #include <stdio.h>
 
-// Raise it with any change a built plugin sees.
 #define PLUGIN_API_VERSION 9
 
-// wrap's priority, for wrapWithPriority (API version 6).
 #define WRAP_PRIORITY_DEFAULT 0
 
-// What restartPhase returns (API version 6).
 #define RESTART_NONE     0
 #define RESTART_ENDING   1
 #define RESTART_STARTING 2
 
 // ---- Game numbers ------------------------------------------------------------------------------
-// The game's own numbers that a plugin passes to the API or gets back from it.
 
-// The main menu's buttons.
 #define MAIN_MENU_START_NEW_GAME   1
 #define MAIN_MENU_LOAD_GAME        2
 #define MAIN_MENU_PREFERENCES      3
@@ -34,27 +26,21 @@
 #define MAIN_MENU_QUIT             9
 #define MAIN_MENU_MODS             10
 #define MAIN_MENU_READ_TIP         11
-// What a Game Menu line's onClick returns.
 #define GAME_MENU_STAY             0
 #define GAME_MENU_CLOSE            1
 #define GAME_MENU_RESIGN           6
-// Which section of the Game Menu a Lua line goes in.
 #define GAME_MENU_SECTION_SAVING   0
 #define GAME_MENU_SECTION_SETTINGS 1
-// Map screen actions, for the game's bind_hotkey(action, key).
 #define MAP_ACTION_SPECIAL_POWER   5
 #define MAP_ACTION_GAME_MENU       6
 #define MAP_ACTION_SQUARE_INFO     96
 #define MAP_ACTION_END_TURN        7
-// The answers to the boxes that stop a turn, as their waits return them.
 #define BOX_MESSAGES_OK            1
 #define BOX_WARN_OK                1
 #define BOX_FIRST_BUTTON           11
 #define BOX_SECOND_BUTTON          12
 #define BOX_CANCEL                 2
-// The map editor's ids, as SITE_MAP_EDITOR_WAIT returns them.
 #define MAP_EDITOR_HIDE_TOOLBOX    2
-// Key values: the game's key codes.
 #define KEY_NONE                   0
 #define KEY_BACKSPACE              8
 #define KEY_TAB                    9
@@ -85,26 +71,21 @@
 #define KEY_CTRL                   100000
 #define KEY_ALT                    200000
 #define KEY_CTRL_SHIFT             300000
-// sendMessage's player and result.
 #define MESSAGE_EVERY_HUMAN        (-2)
 #define MESSAGE_NOT_ADDED          (-1)
-// A player slot's controller.
 #define CONTROLLER_REMOVED         (-1)
 #define CONTROLLER_HUMAN           0
 #define CONTROLLER_AI              1
 #define CONTROLLER_INDEPENDENT     2
-// A class ability.
 #define CLASS_ABILITY_ID_AI_CLASS      203
 #define CLASS_ABILITY_ID_RANDOM_SKIP   204
 #define CLASS_ABILITY_ID_AI_LEVEL_MIN  210
 #define CLASS_ABILITY_ID_AI_LEVEL_MAX  211
 #define CLASS_ABILITY_ID_STDTROOPS     222
-// An aiclass value.
 #define AI_CLASS_HUMAN_ONLY        (-1)
 #define AI_CLASS_ANY               0
 #define AI_CLASS_AI_ONLY           1
 #define AI_CLASS_NEITHER           2
-// A corpse kind.
 #define CORPSE_KIND_SMALL          0
 #define CORPSE_KIND_HUMAN          1
 #define CORPSE_KIND_GIANT          2
@@ -113,10 +94,8 @@
 #define CORPSE_KIND_MARKATA        5
 #define CORPSE_KIND_VANARA         6
 #define CORPSE_KIND_BANDAR         7
-// A screen wait's mode.
 #define GAME_OVER_MODE_PLAIN       4
 #define GAME_OVER_MODE_FOG         9
-// A new game's setup: new_world's mode, and the setup screens' ids.
 #define NEW_WORLD_NORMAL           0
 #define NEW_WORLD_NETWORK          1
 #define NEW_WORLD_SKIP_PARTICIPANTS 2
@@ -124,7 +103,6 @@
 #define MAP_SETTINGS_OK            9
 #define MAP_SETTINGS_SIZE_FIRST    100
 #define PARTICIPANTS_OK            1
-// The ritual screen: why a ritual can't be cast, and the ids of its rows.
 #define RITUAL_REASON_MIRROR       (-2)
 #define RITUAL_REASON_MAXCAST      (-3)
 #define RITUAL_REASON_IMMORTAL     (-4)
@@ -132,11 +110,9 @@
 #define RITUAL_REASON_PLANE        (-7)
 #define RITUAL_ROW_CASTABLE        1000
 #define RITUAL_ROW_GREYED          12288
-// The game's file browser (Load Game's list) and the square info window.
 #define FILE_BROWSER_ROW_FIRST     10000
 #define FILE_BROWSER_DELETE        7
 #define SQUARE_INFO_OK             1
-// The AI's move for one commander.
 #define AI_MOVE_NONE               0
 #define AI_MOVE_TARGET             1
 #define AI_MOVE_EXPLORE            2
@@ -146,7 +122,6 @@
 
 #include "key_actions.h"
 
-// The sites, each with the signature of the game call it is.
 typedef enum {
     SITE_MAIN_MENU_WAIT,
     SITE_MAIN_MENU_PLAY_GAME,
@@ -236,18 +211,23 @@ typedef enum {
     SITE_MAP_EDITOR_TOOLBOX_LINE,
     SITE_MAP_EDITOR_DRAW,
     SITE_RUN_ONE_MOD_LINE_READ,
+    // @platform-split map_draw: Windows only; Mac's map screen frame wait wasn't tied to its draw pass
     SITE_MAP_DRAW,
     SITE_TOP_BAR,
     SITE_TOP_BAR_INCOME_DRAW,
+    // @platform-split top_bar_income: Windows only; Mac's top bar income calls weren't looked up
     SITE_TOP_BAR_INCOME,
+    // @platform-split message_box_wait: Windows only; Mac's message box wait wasn't looked up
     SITE_MESSAGE_BOX_WAIT,
+    SITE_AFTER_GAME_TURN,
+    SITE_DO_ALL_FIGHTS,
+    SITE_MOVE_ALL_INDEPENDENTS,
+    SITE_CONQUER_SQUARE,
     SITE_COUNT
 } CallSite;
 
-// The game's own screen widgets, for a plugin's screens.
 #define UI_KEY_ENTER  0x0d
 #define UI_KEY_ESCAPE (-1)
-// Lua's coe5.ui has these calls too, and more.
 
 typedef struct UiApi {
     void (*screenBegin)(const char *title);
@@ -265,7 +245,6 @@ typedef struct UiApi {
     void (*listEnd)(void);
 } UiApi;
 
-// One call at an observe-only site, as the functions given to observe see it.
 typedef struct CallInfo {
     unsigned long long args[6];
     unsigned long long result;
@@ -307,12 +286,10 @@ typedef struct PluginApi {
 #define COE5SE_DLL "coe5se.c5plugin.dll"
 #endif
 
-// Defines your plugin's entry and exports the API version it was built against.
 #define COE5SE_PLUGIN_LOAD(apiName) \
     __declspec(dllexport) const int coe5sePluginApiVersion = PLUGIN_API_VERSION; \
     __declspec(dllexport) int coe5sePluginLoad(const PluginApi *apiName)
 
-// Returns the plugin API, or NULL if CoE5SE isn't loaded or hasn't started this plugin.
 static inline const PluginApi *jazzyConnect(void) {
     HMODULE coe5se = GetModuleHandleA(COE5SE_DLL);
     typedef const PluginApi *(*GetApiFn)(int);
@@ -320,7 +297,6 @@ static inline const PluginApi *jazzyConnect(void) {
     return getApi ? getApi(PLUGIN_API_VERSION) : NULL;
 }
 
-// Marks a printf-style function so the compiler checks each call's arguments.
 #ifndef PRINTF_FORMAT
 #if defined(__MINGW32__) && !defined(__clang__)
 #define PRINTF_FORMAT(fmtIndex, firstArg) __attribute__((format(gnu_printf, fmtIndex, firstArg)))
@@ -331,7 +307,6 @@ static inline const PluginApi *jazzyConnect(void) {
 #endif
 #endif
 
-// Writes a printf-style line to coe5mod.log, tagged with this DLL's file name.
 static inline PRINTF_FORMAT(1, 2) void jazzyLog(const char *fmt, ...) {
     static const PluginApi *connected;
     if (!connected) connected = jazzyConnect();

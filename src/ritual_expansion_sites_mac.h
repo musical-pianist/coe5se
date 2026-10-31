@@ -1,10 +1,7 @@
-// Every instruction in coe5_mac that the Ritual Expansion rewrites.
 #pragma once
 
-// One instruction: its address less the link base.
 typedef struct { unsigned int rva; } RitualMacSite;
 
-// The ADRPs that build an address in the ritual table.
 #define RITUAL_MAC_TABLE_SITE_COUNT 261
 static const RitualMacSite RITUAL_MAC_TABLE_SITES[RITUAL_MAC_TABLE_SITE_COUNT] = {
     {MAC(0x100331310)},
@@ -270,7 +267,6 @@ static const RitualMacSite RITUAL_MAC_TABLE_SITES[RITUAL_MAC_TABLE_SITE_COUNT] =
     {MAC(0x100585c6c)},
 };
 
-// The ADRPs of the player blocks' base that feed only cast-count accesses.
 #define RITUAL_MAC_CAST_SITE_COUNT 5
 static const RitualMacSite RITUAL_MAC_CAST_SITES[RITUAL_MAC_CAST_SITE_COUNT] = {
     {MAC(0x10055c22c)},
@@ -280,7 +276,6 @@ static const RitualMacSite RITUAL_MAC_CAST_SITES[RITUAL_MAC_CAST_SITE_COUNT] = {
     {MAC(0x100392c54)},
 };
 
-// The named sites, and whether each is a movz/movk size pair (its movk the next word).
 typedef struct { unsigned int rva; int pair; } RitualMacNamedSite;
 #define RITUAL_MAC_NAMED_SITE_COUNT 33
 static const RitualMacNamedSite RITUAL_MAC_NAMED_SITES[RITUAL_MAC_NAMED_SITE_COUNT] = {

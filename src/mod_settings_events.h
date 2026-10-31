@@ -1,17 +1,14 @@
-// Mod Settings in events: +setting and -setting.
+#pragma once
 
 // ---- +setting and -setting in events -------------------------------------------------------------
-// 1 if the event line is "+setting ..." or "-setting ...".
 static int isSettingLine(const char *line) {
     return (line[0] == '+' || line[0] == '-') && !strncmp(line + 1, "setting", 7) && (line[8] == ' ' || line[8] == '\t');
 }
 
-// The value events and scripts see.
 static int settingValueNow(const ModSetting *s) {
     return isNetworkGame() || s->rejected ? s->defaultValue : s->value;
 }
 
-// Every line of a .c5m, on its way to the game's event runner.
 static void eventLineHook(const char *line, int level) {
     const char *file = (const char *)(gameBase + RVA_EVENT_FILE), *slash = strrchr(file, '/'), *back = strrchr(file, '\\');
     if (back > slash) slash = back;
@@ -74,7 +71,6 @@ static void eventLineHook(const char *line, int level) {
     if (holds != (sign > 0)) G32(RVA_EVENT_STATE) = -1;
 }
 
-// Used instead of eventLineHook when the player declined mods on an unknown game build.
 static void declinedEventLineHook(const char *line, int level) {
     if (isSettingLine(line)) refuseC5mLine(line[0] == '+' ? "+setting" : "-setting", "-", "plugins_declined", "line=%s", line);
     else if (isEventLogicWord(line)) refuseC5mLine("or", "-", "plugins_declined", "line=%s", line);
@@ -83,7 +79,6 @@ static void declinedEventLineHook(const char *line, int level) {
     else nextEventLine(line, level);
 }
 
-// Adds the +setting answer, the mod pass wrapper, and the Mod Settings button.
 static void modSettingsInit(void) {
     int ok = wrapSite(SITE_EVENT_LINE, (void *)eventLineHook, (void **)&nextEventLine) +
              wrapSite(SITE_MODS_RUN, (void *)modsRunHook, (void **)&nextModsRun) +

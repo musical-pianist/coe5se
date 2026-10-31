@@ -1,4 +1,4 @@
-// The names chunks of the save tail: what each of mods' spell slots held.
+#pragma once
 
 #define SAVE_TAG_MODS        SAVE_TAG('M', 'O', 'D', 'S')
 #define SAVE_TAG_SPEL        SAVE_TAG('S', 'P', 'E', 'L')
@@ -18,7 +18,6 @@ static int isSameNameIgnoringCase(const char *a, const char *b) {
 }
 
 // ---- The spells now ---------------------------------------------------------------------------------
-// The spell in slot `slot` now.
 static int currentModSpell(int slot, const char **mod, const char **name) {
     int index = slot - VANILLA_SPELL_COUNT;
     if (index < 0 || index >= spellTable.modSpells) return 0;
@@ -27,10 +26,8 @@ static int currentModSpell(int slot, const char **mod, const char **name) {
     return 1;
 }
 
-// One run of the spells now: the slots one mod's spells fill in a row.
 typedef struct { const char *mod; int first, count; } SpellRun;
 
-// The runs of mods' spells now, in slot order, into `runs` (room for MOD_SPELL_CAP_MAX).
 static int currentSpellRuns(SpellRun *runs) {
     int count = 0;
     for (int i = 0; i < spellTable.modSpells; i++) {
@@ -96,13 +93,11 @@ static void addSaveNameChunks(SaveList *list, SaveNamesWritten *written) {
 }
 
 // ---- Reading ------------------------------------------------------------------------------------
-// A run of a saved SPEL chunk.
 typedef struct {
     int mod, first, count;
     char **names;
 } SavedSpellRun;
 
-// What a save or turn file said about its mods' spell slots.
 typedef struct {
     char **mods;
     int modCount;
@@ -120,7 +115,6 @@ static void freeSavedSpells(SavedSpells *saved) {
     *saved = (SavedSpells){0};
 }
 
-// Reads the MODS chunk.
 static int readSavedMods(const SaveChunk *chunk, SavedSpells *saved) {
     SaveCursor c = {chunk->payload, chunk->payload + chunk->size, 0};
     int version = saveCursorInt(&c), count = saveCursorInt(&c);
@@ -137,7 +131,6 @@ static int readSavedMods(const SaveChunk *chunk, SavedSpells *saved) {
     return 1;
 }
 
-// Reads `count` strings into run->names (one block).
 static int readSavedNames(SaveCursor *c, SavedSpellRun *run) {
     SaveCursor scan = *c;
     size_t text = 0;
@@ -158,7 +151,6 @@ static int readSavedNames(SaveCursor *c, SavedSpellRun *run) {
     return !c->failed;
 }
 
-// Reads the SPEL chunk.
 static int readSavedSpells(const SaveChunk *chunk, SavedSpells *saved) {
     SaveCursor c = {chunk->payload, chunk->payload + chunk->size, 0};
     if (saveCursorInt(&c) != SAVE_NAMES_VERSION) return 0;
@@ -185,7 +177,6 @@ static int readSavedSpells(const SaveChunk *chunk, SavedSpells *saved) {
     return saved->read = 1;
 }
 
-// What the file said slot `slot` held.
 static int savedSpellAt(const SavedSpells *saved, int slot, int *modRef, const char **name) {
     for (int r = 0; r < saved->runCount; r++) {
         const SavedSpellRun *run = &saved->runs[r];
@@ -199,14 +190,12 @@ static int savedSpellAt(const SavedSpells *saved, int slot, int *modRef, const c
 
 static const char *savedModName(const SavedSpells *saved, int modRef) { return modRef < 0 ? "-" : saved->mods[modRef]; }
 
-// Whether the spell the file named in a slot (its mod and name) is the one there now.
 static int isSameSpellNow(const char *savedMod, const char *savedName, int slot) {
     const char *mod, *name;
     return currentModSpell(slot, &mod, &name) && !strcmp(mod, savedMod) && isSameNameIgnoringCase(name, savedName);
 }
 
 // ---- The changed spells -------------------------------------------------------------------------
-// A slot that units of the last save read hold, whose spell changed since the save was made.
 typedef struct {
     int slot;
     int modOrder;
@@ -220,12 +209,10 @@ typedef struct {
 static ChangedSpell *changedSpells;
 static int changedSpellCount, changedSpellCapacity;
 
-// Forgets the list: at the start of every save's read hook, and after the pop-up.
 static void clearChangedSpells(void) { changedSpellCount = 0; }
 
 static int changedSpellTotal(void) { return changedSpellCount; }
 
-// Entry `index` of the list.
 static const ChangedSpell *changedSpellAt(int index) {
     if (index < 0 || index >= changedSpellCount) return NULL;
     return &changedSpells[index];
@@ -235,7 +222,6 @@ static int isChangedSpellBefore(const ChangedSpell *a, const ChangedSpell *b) {
     return a->modOrder != b->modOrder ? a->modOrder < b->modOrder : a->slot < b->slot;
 }
 
-// Counts unit `unit` holding slot `slot` when its spell changed.
 static void noteUnitSpell(const SavedSpells *saved, int unit, int slot, int modRef, const char *name) {
     const char *mod = savedModName(saved, modRef);
     if (isSameSpellNow(mod, name, slot)) return;
@@ -264,7 +250,6 @@ static void noteUnitSpell(const SavedSpells *saved, int unit, int slot, int modR
     changedSpellCount++;
 }
 
-// Notes every mod spell slot in one of a unit's lists (`max` entries, ended at the first < 0).
 static void noteUnitSpellList(const SavedSpells *saved, int unit, const short *list, int max) {
     for (int i = 0; i < max && list[i] >= 0; i++) {
         int modRef;
@@ -275,7 +260,6 @@ static void noteUnitSpellList(const SavedSpells *saved, int unit, const short *l
     }
 }
 
-// Collects the changed spells that the units of the save just read hold, reading memory only.
 static void collectChangedSpells(const SavedSpells *saved) {
     for (int u = 0; u <= G32(RVA_UNIT_COUNT); u++) {
         size_t at = (size_t)u * UNIT_SIZE;
@@ -294,14 +278,12 @@ static void logChangedSpells(void) {
 }
 
 // ---- Using a read list --------------------------------------------------------------------------
-// The first chunk with tag `tag` in `list`, or NULL.
 static const SaveChunk *findSaveChunk(const SaveList *list, int tag) {
     for (int i = 0; i < list->count; i++)
         if (list->chunks[i].tag == tag) return &list->chunks[i];
     return NULL;
 }
 
-// The slots of the file's runs whose spell isn't the one there now.
 static int countChangedSlots(const SavedSpells *saved) {
     int changed = 0;
     for (int r = 0; r < saved->runCount; r++)
@@ -310,7 +292,6 @@ static int countChangedSlots(const SavedSpells *saved) {
     return changed;
 }
 
-// Reads MODS and SPEL and compares: "same" or "differs".
 static const char *useSaveNameChunks(const SaveList *list, SaveFile file) {
     SavedSpells saved = {0};
     const SaveChunk *mods = findSaveChunk(list, SAVE_TAG_MODS), *spells = findSaveChunk(list, SAVE_TAG_SPEL);
@@ -326,7 +307,6 @@ static const char *useSaveNameChunks(const SaveList *list, SaveFile file) {
 }
 
 // ---- DevTools ----------------------------------------------------------------------------------
-// For DevTools' contentledger command: run `index` of the spell runs a save would name now.
 __declspec(dllexport) int coe5seContentLedgerRun(int kind, int index, const char **kindName, const char **mod, int *first,
                                                  int *count, const char *const **names) {
     static SpellRun runs[MOD_SPELL_CAP_MAX];

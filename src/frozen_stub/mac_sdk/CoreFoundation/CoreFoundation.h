@@ -1,4 +1,3 @@
-// The part of macOS's CoreFoundation that CoE5SE's Mac dylibs call, declared as in Apple's SDK.
 #ifndef COE5SE_MAC_SDK_COREFOUNDATION_H
 #define COE5SE_MAC_SDK_COREFOUNDATION_H
 
@@ -29,7 +28,6 @@ enum {
     kCFUserNotificationCancelResponse = 3
 };
 
-// As in the SDK: a constant string the compiler lays out.
 #define CFSTR(cStr) ((CFStringRef)__builtin___CFStringMakeConstantString("" cStr ""))
 
 void CFRelease(CFTypeRef cf);

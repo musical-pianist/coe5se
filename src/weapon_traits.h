@@ -1,4 +1,3 @@
-// Weapon trait words: onlyaffects, doesntaffect, doubledmgvs.
 #pragma once
 #include "move_words.h"
 #include "ritual_effect_names.h"
@@ -23,13 +22,11 @@ static struct {
     int namedSize;
 } weaponTraits;
 
-// How a unit has a trait, as the game counts it.
 static unsigned long long (*weaponTraitUnitFlags)(int unit);
 static unsigned long long (*weaponTraitUnitMoves)(int unit);
 static int (*weaponTraitUnitAbility)(int unit, int ability);
 static void (*weaponTraitBattleLog)(int attacker, int target, const char *text);
 
-// The trait the word names, into *kind and *value; 0 when the game has no such monster word.
 static int findWeaponTrait(const char *word, int *kind, unsigned long long *value) {
     static const MonsterFlagWord OWN[] = {{"small", MONSTER_FLAG_SMALL}, {"combatcaster", MONSTER_FLAG_COMBAT_CASTER}};
     size_t len = strlen(word);
@@ -59,14 +56,12 @@ static int findWeaponTrait(const char *word, int *kind, unsigned long long *valu
     return 0;
 }
 
-// 1 when the unit has the rule's trait.
 static int unitHasWeaponTrait(int unit, const WeaponTraitRule *r) {
     if (r->kind == WEAPON_TRAIT_FLAG) return (weaponTraitUnitFlags(unit) & r->value) != 0;
     if (r->kind == WEAPON_TRAIT_MOVE) return (weaponTraitUnitMoves(unit) & r->value) == r->value;
     return weaponTraitUnitAbility(unit, (int)r->value) > 0;
 }
 
-// What the weapon's rules make of a hit on `target`: 0 unaffected, 1 as the game has it, 2 double.
 static int weaponTraitVerdict(int weapon, int target, const char **word) {
     if (weapon < 0 || weapon >= weaponTraits.namedSize || !weaponTraits.named[weapon] || target < 0 || target >= UNIT_TABLE_MAX ||
         G16(RVA_UNIT_MONSTER + (size_t)target * UNIT_SIZE) < 0)
@@ -89,7 +84,6 @@ static int weaponTraitVerdict(int weapon, int target, const char **word) {
     return doubled ? 2 : 1;
 }
 
-// The hit's damage after the weapon's rules, at the game's multipliers (RVA_WEAPON_HIT_DAMAGE_CHECK).
 static int weaponTraitDamage(int attacker, int target, int weapon, int damage) {
     if (damage < 1) return damage;
     const char *word = NULL;
@@ -104,7 +98,6 @@ static int weaponTraitDamage(int attacker, int target, int weapon, int damage) {
     return damage;
 }
 
-// Takes every rule off the weapon.
 static void clearWeaponTraitRules(int weapon) {
     int kept = 0;
     for (int i = 0; i < weaponTraits.count; i++)
@@ -113,7 +106,6 @@ static void clearWeaponTraitRules(int weapon) {
     if (weapon >= 0 && weapon < weaponTraits.namedSize) weaponTraits.named[weapon] = 0;
 }
 
-// Adds a rule to the weapon; 0 when out of memory.
 static int addWeaponTraitRule(int weapon, int rule, int kind, unsigned long long value, const char *word) {
     int records = tableRecords(TABLE_WEAPON);
     if (weaponTraits.namedSize != records) {
@@ -138,7 +130,6 @@ static int addWeaponTraitRule(int weapon, int rule, int kind, unsigned long long
     return 1;
 }
 
-// One onlyaffects, doesntaffect or doubledmgvs line at level 2: adds the rule, or refuses the line.
 static void weaponTraitLine(int rule, const char *args, int mod, int level) {
     if (level != 2) return;
     const char *word = WEAPON_RULE_WORDS[rule], *p = args;
@@ -165,14 +156,12 @@ static void doubledmgvsLine(const char *args, int mod, int level) {
     weaponTraitLine(WEAPON_RULE_DOUBLE, args, mod, level);
 }
 
-// Every .c5m line outside events comes here before the game's parser.
 static int weaponTraitLineHook(const char *line, size_t len, int level) {
     if (level != 2 || len != sizeof "clearwspec" - 1 || strncmp(line, "clearwspec", len)) return 0;
     clearWeaponTraitRules(G32(RVA_WEAPON_CURRENT));
     return 0;
 }
 
-// Before a mod pass: a level-2 pass reads every weapon's rules again.
 static void weaponTraitsBeforePass(int level) {
     if (level != 2) return;
     weaponTraits.count = 0;
@@ -190,7 +179,6 @@ static int gameUnitAbility(int unit, int ability) {
     return GAME_FN(int (*)(int, int, int, char *, int, int *), RVA_UNIT_ABILITY_TOTAL)(unit, ability, 1, NULL, 0, NULL);
 }
 
-// One line of the battle report, kind 2 as the game's own doublings.
 static void gameBattleLog(int attacker, int target, const char *text) {
     GAME_FN(void (*)(int, int, int, const char *, ...), RVA_BATTLE_LOG)(attacker, target, 2, text);
 }
@@ -198,14 +186,12 @@ static void gameBattleLog(int attacker, int target, const char *text) {
 typedef int (*TargetUsefulFn)(int unit, unsigned long long type, int weapon, unsigned long long value, int target);
 typedef void (*WeaponTextFn)(int weapon, unsigned long long dmg, int chained);
 
-// The game's RVA_BATTLE_TARGET_USEFUL, then the weapon's rules on the target the caller chose.
 static int targetUsefulHook(int unit, unsigned long long type, int weapon, unsigned long long value, int target) {
     int result = GAME_FN(TargetUsefulFn, RVA_BATTLE_TARGET_USEFUL)(unit, type, weapon, value, target);
     if (result == 1 && target >= 0 && weaponTraitVerdict(weapon, target, NULL) == 0) return BATTLE_TARGET_NOT_AFFECTED;
     return result;
 }
 
-// The game's lines for a weapon on an attack box, then a line for each of its rules.
 static void weaponTextHook(int weapon, unsigned long long dmg, int chained) {
     GAME_FN(WeaponTextFn, RVA_WEAPON_TEXT)(weapon, dmg, chained);
     if (weapon < 0 || weapon >= weaponTraits.namedSize || !weaponTraits.named[weapon]) return;
@@ -218,7 +204,6 @@ static void weaponTextHook(int weapon, unsigned long long dmg, int chained) {
 }
 
 #ifndef __aarch64__
-// The hit's stub, in a page near the game: RVA_WEAPON_HIT_DAMAGE_CHECK's 9 bytes become a jump to it.
 #define WEAPON_HIT_STUB          0x000
 #define WEAPON_HIT_FUNCTION      0x080
 #define WEAPON_HIT_UNWIND        0x090
@@ -228,7 +213,6 @@ static void weaponTextHook(int weapon, unsigned long long dmg, int chained) {
 #define UNWIND_FLAG_CHAININFO    4
 #define WEAPON_HIT_TEST_SIZE     3
 
-// Copies the hit's unwind info for the stub, its chain of entries made one, with no prolog.
 static size_t copyWeaponHitUnwind(unsigned char *out) {
     DWORD64 imageBase = 0;
     PRUNTIME_FUNCTION f = RtlLookupFunctionEntry((DWORD64)(uintptr_t)GAME_PTR(RVA_WEAPON_HIT_DAMAGE_CHECK), &imageBase, NULL);
@@ -258,7 +242,6 @@ static void emitWeaponHitRel32(unsigned char **p, unsigned char *target) {
     *p += 4;
 }
 
-// Writes the hit's stub and jump, once. Returns 1 when hits go through it.
 static int patchWeaponHit(unsigned char *page) {
     if (!copyWeaponHitUnwind(page + WEAPON_HIT_UNWIND)) {
         writeLog("weapon_hit_patched", "ok=0 reason=unwind_info");
@@ -298,7 +281,6 @@ static int patchWeaponHit(unsigned char *page) {
     return 1;
 }
 
-// Points the attack box's and the AI's calls at the hooks. Returns how many it pointed.
 static int pointWeaponTraitCalls(unsigned char *page) {
     unsigned char *stubs = page + WEAPON_HIT_REDIRECTS;
     return redirectCall(RVA_WEAPON_TEXT_CALL, RVA_WEAPON_TEXT, stubs, (void *)weaponTextHook, "weapon_text", NULL) +
@@ -320,7 +302,6 @@ static int installWeaponTraitHooks(int *hit) {
 }
 #else
 // @platform-split weapon_hit: Mac's stub is fixed code here, reached through the header padding
-// The hit's stub: RVA_WEAPON_HIT_DAMAGE_CHECK's cmp becomes a b to a trampoline to it.
 int coe5seWeaponTraitDamage(int attacker, int target, int weapon, int damage);
 __attribute__((used)) int coe5seWeaponTraitDamage(int attacker, int target, int weapon, int damage) {
     return weaponTraitDamage(attacker, target, weapon, damage);
@@ -391,7 +372,6 @@ extern const unsigned char coe5seWeaponHitStub[] __asm__("_coe5seWeaponHitStub")
 #define ARM64_B       0x14000000u
 #define ARM64_BL      0x94000000u
 
-// Points the bl or b at `callRva` at a trampoline to `hook`.
 static int pointWeaponTraitBranch(unsigned int callRva, unsigned int targetRva, void *hook, const char *name) {
     unsigned char *at = gameBase + callRva;
     uint32_t insn;
@@ -409,7 +389,6 @@ static int pointWeaponTraitBranch(unsigned int callRva, unsigned int targetRva, 
     return 0;
 }
 
-// Writes the hit's b, once. Returns 1 when hits go through the stub.
 static int patchWeaponHit(void) {
     coe5seWeaponHitGoOn = GAME_PTR(RVA_WEAPON_HIT_DAMAGE_GO_ON);
     unsigned char *at = GAME_PTR(RVA_WEAPON_HIT_DAMAGE_CHECK), *trampoline = newTrampoline((void *)coe5seWeaponHitStub);
@@ -433,7 +412,6 @@ static int installWeaponTraitHooks(int *hit) {
 }
 #endif
 
-// Adds the words, and patches the hit, the attack box and the AI's target check.
 static void weaponTraitsInit(void) {
     weaponTraitUnitFlags = gameUnitResistances;
     weaponTraitUnitMoves = gameUnitMoveFlags;

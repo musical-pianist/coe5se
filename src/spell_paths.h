@@ -1,4 +1,4 @@
-// Mods' spell paths: new magic paths with their own names, and new names for the game's paths.
+#pragma once
 
 #define VANILLA_SPELL_PATH_COUNT  70
 #define SPELL_PATH_NAME_MAX       32
@@ -17,16 +17,13 @@ static struct {
     char line[SPELL_PATH_LINE_MAX];
 } spellPaths = {.selected = -1};
 
-// The name table the game reads.
 static const char **spellPathNames(void) {
     if (pathTakeover.names) return pathTakeover.names;
     return spellPathsExpanded ? spellPathCopy : (const char **)(gameBase + RVA_SPELL_PATH_NAMES);
 }
 
-// Whether a mod pass has looked at the paths yet.
 static int spellPathsInUse(void) { return spellPaths.state != 0 || spellPaths.added != 0; }
 
-// Whether the name table is as the game ships it: named 1 to 69, NULL past.
 static int spellPathTableReady(void) {
     if (spellPaths.state) return spellPaths.state > 0;
     const char **names = spellPathNames();
@@ -53,7 +50,6 @@ static int spellPathTableReady(void) {
     return 1;
 }
 
-// Whether CoE5SE can write the name table.
 static int spellPathTableWritable(void) {
     if (spellPathsExpanded || pathTakeover.names) return 1;
     if (!spellPaths.writable)
@@ -61,7 +57,6 @@ static int spellPathTableWritable(void) {
     return spellPaths.writable > 0;
 }
 
-// Puts back the game's names and forgets every mod's path.
 static void resetSpellPaths(const char *reason) {
     spellPaths.selected = -1;
     if (!spellPaths.state) spellPathTableReady();
@@ -75,7 +70,6 @@ static void resetSpellPaths(const char *reason) {
     spellPaths.changed = 0;
 }
 
-// The number of the path named `name`, ignoring case.
 static int spellPathByName(const char *name) {
     if (!name[0] || !spellPathTableReady()) return -1;
     const char **names = spellPathNames();
@@ -86,7 +80,6 @@ static int spellPathByName(const char *name) {
     return -1;
 }
 
-// Reads the quoted path name of a path word's line into `name`.
 static int readSpellPathName(const char *word, const char *args, int mod, char *name, size_t size) {
     const char *p = args;
     int len = readSpellQuoted(&p, name, size);
@@ -99,7 +92,6 @@ static int readSpellPathName(const char *word, const char *args, int mod, char *
     return 1;
 }
 
-// Whether the table can take a path word's line now.
 static int spellPathWordTakes(const char *word, int mod) {
     const char *reason = !spellPathTableReady() ? "table_unexpected" : !spellPathTableWritable() ? "table_not_writable" : NULL;
     if (!reason) return 1;
@@ -108,10 +100,8 @@ static int spellPathWordTakes(const char *word, int mod) {
     return 0;
 }
 
-// A path refused in a network game for lack of a free path.
 #define SPELL_PATHS_SHORT_TITLE "CoE5SE: Spell paths left out"
 
-// The game's message box for spellPathsShortInNetworkGame.
 static int showSpellPathsShortBox(const char *text, int restartable) {
     if (!restartable) {
         messageBox(SPELL_PATHS_SHORT_TITLE, text, "Ok", "", 0, 0, 0);
@@ -122,7 +112,6 @@ static int showSpellPathsShortBox(const char *text, int restartable) {
 static int (*spellPathsShortBox)(const char *text, int restartable) = showSpellPathsShortBox;
 static int spellPathsShortTold;
 
-// The pop-up's text, into `text`.
 static void spellPathsShortText(int dllMod, char *text, size_t size) {
     int used = snprintf(text, size, "More spell paths than this copy supports.\n"
                                     "Spells would not match other players'.\n\n");
@@ -151,7 +140,6 @@ static void spellPathsShortInNetworkGame(int mod, const char *name) {
     relaunchGame("spell_paths_short_in_network_game");
 }
 
-// newspellpath "<name>": a new path, or the path that already has that name.
 static void newspellpathLine(const char *args, int mod, int level) {
     if (level != 2) return;
     finishSpellBlock();
@@ -182,7 +170,6 @@ static void newspellpathLine(const char *args, int mod, int level) {
     writeLog("spell_path_added", "mod=%s number=%d name=%s line=%d", spellModName(mod), number, name, G32(RVA_MOD_LINE));
 }
 
-// selectspellpath <nbr> or selectspellpath "<name>": picks the path the next `name` line renames.
 static void selectspellpathLine(const char *args, int mod, int level) {
     if (level != 2) return;
     finishSpellBlock();
@@ -209,7 +196,6 @@ static void selectspellpathLine(const char *args, int mod, int level) {
     spellPaths.selectedMod = mod;
 }
 
-// name "<name>" right after selectspellpath: the path's new name.
 static void spellPathNameLine(const char *args, int mod) {
     int number = spellPaths.selected;
     spellPaths.selected = -1;
@@ -225,18 +211,15 @@ static void spellPathNameLine(const char *args, int mod) {
     writeLog("spell_path_renamed", "mod=%s number=%d name=%s line=%d", spellModName(mod), number, name, G32(RVA_MOD_LINE));
 }
 
-// The game's words that take a path number first, which take a quoted path name through CoE5SE.
 static const char *const PATH_FIRST_WORDS[] = {
     "spellweapon", "spellweaponbonus", "spellweapon50", "spellweapon50s", "spellweaponsingle",
     "pathboost", "newspell1", "newspell2", "newspell3",
 };
 
-// The words whose path number CoE5SE checks.
 static const char *const CHECKED_PATH_WORDS[] = {
     "spellweapon", "spellweaponbonus", "spellweapon50", "spellweapon50s", "spellweaponsingle", "pathboost",
 };
 
-// A raw number in CHECKED_PATH_WORDS must be a path from 1 to the last.
 static int rawPathNumberTakes(const char *line, size_t len, const char *args, int mod) {
     int checked = 0;
     for (size_t i = 0; i < sizeof CHECKED_PATH_WORDS / sizeof CHECKED_PATH_WORDS[0]; i++)
@@ -251,7 +234,6 @@ static int rawPathNumberTakes(const char *line, size_t len, const char *args, in
     return 0;
 }
 
-// Every .c5m line outside events comes here after spellLineHook.
 static const char *spellPathLineHook(const char *line, size_t len, int mod, int level) {
     if (level != 2) return line;
     const char *args = line + len;
@@ -287,7 +269,6 @@ static const char *spellPathLineHook(const char *line, size_t len, int mod, int 
     return spellPaths.line;
 }
 
-// The same for declinedModCommandHook, when no plugin loaded.
 static int declinedSpellPathLine(const char *word, int mod, int level) {
     static int afterSelect, lastMod, lastLevel;
     int skip = afterSelect && mod == lastMod && level == lastLevel && !strcmp(word, "name");
@@ -297,7 +278,6 @@ static int declinedSpellPathLine(const char *word, int mod, int level) {
     return skip;
 }
 
-// Adds the words.
 static void spellPathWordsInit(void) {
     int words = apiAddModCommand("newspellpath", newspellpathLine) + apiAddModCommand("selectspellpath", selectspellpathLine);
     writeLog("spell_path_words_installed", "words=%d of 2", words);

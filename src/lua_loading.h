@@ -1,6 +1,5 @@
-// A script's Lua state: the coe5 table's lists, print, xpcall and warn, loading each script, require, and the player's boxes.
+#pragma once
 
-// A private build of CoE5SE may add coe5 functions.
 #ifdef COE5SE_EXTRA_LUA_HEADER
 #include COE5SE_EXTRA_LUA_HEADER
 #else
@@ -15,9 +14,9 @@ static const luaL_Reg LUA_COE5[] = {
     {"hideMainMenuButton", lHideMainMenuButton}, {"addScreen", lAddScreen}, {"rebindKey", lRebindKey},
     {"addActionKey", lAddActionKey}, {"actionKey", lActionKey}, {"findMonster", lFindMonster},
     {"dataFolder", lDataFolder}, {"readIni", lReadIni}, {"writeIni", lWriteIni}, {"listIni", lListIni},
-    {"deleteIni", lDeleteIni}, {"spawnUnit", lSpawnUnit}, {"spawnCommander", lSpawnCommander},
+    {"deleteIni", lDeleteIni}, {"spawnUnit", lSpawnUnit}, {"spawnCommander", lSpawnCommander}, {"newUnits", lNewUnits},
     {"monsterVariant", lMonsterVariant}, {"portalExits", lPortalExits}, {"onPortalCrossing", lOnPortalCrossing}, {"squareUnits", lSquareUnits}, {"revealMap", lRevealMap}, {"centerMap", lCenterMap}, {"viewArmy", lViewArmy}, {"armies", lArmies}, {"route", lRoute},
-    {"scrapRitualPlan", lScrapRitualPlan}, {"planRitual", lPlanRitual}, {"terrainMatch", lTerrainMatch},
+    {"scrapRitualPlan", lScrapRitualPlan}, {"planRitual", lPlanRitual}, {"aiRitualBad", lAiRitualBad}, {"aiRitualBadTime", lAiRitualBadTime}, {"aiItemValue", lAiItemValue}, {"aiItemUseRating", lAiItemUseRating}, {"terrainMatch", lTerrainMatch},
     {"releaseFollower", lReleaseFollower}, {"transferFollower", lTransferFollower},
     {"shopOffers", lShopOffers}, {"classRecruits", lClassRecruits}, {"recruitSquares", lRecruitSquares},
     {"builtinOffers", lBuiltinOffers}, {"builtinOfferChance", lBuiltinOfferChance}, {"replaceBuiltinOffer", lReplaceBuiltinOffer},
@@ -38,7 +37,6 @@ static const luaL_Reg LUA_UI[] = {
     {"nameBox", lNameBox}, {"monsterRow", lMonsterRow}, {"drawLine", lDrawLine}, {"drawText", lDrawText}, {"drawRect", lDrawRect}, {"rowBegin", lRowBegin}, {"rowEnd", lRowEnd}, {NULL, NULL},
 };
 
-// The game numbers, as coe5.<table>.<name>.
 static const struct { const char *table, *name; int value; } GAME_NUMBERS[] = {
     {"mainMenu", "startNewGame", MAIN_MENU_START_NEW_GAME}, {"mainMenu", "loadGame", MAIN_MENU_LOAD_GAME},
     {"mainMenu", "preferences", MAIN_MENU_PREFERENCES}, {"mainMenu", "network", MAIN_MENU_NETWORK},
@@ -87,12 +85,10 @@ static const struct { const char *table, *name; int value; } GAME_NUMBERS[] = {
     {"aiMove", "farExploreBelow", AI_FAR_EXPLORE_BELOW},
 };
 
-// The key actions as coe5.keyAction.<Lua name>.
 #define LUA_KEY_ACTION(name, lua, screen, how, id, key, row, label) {#lua, KEY_ACTION_##name},
 static const struct { const char *name; int value; } LUA_KEY_ACTIONS[] = {KEY_ACTION_LIST(LUA_KEY_ACTION)};
 #undef LUA_KEY_ACTION
 
-// Adds GAME_NUMBERS to the table on top of the stack, one subtable per group, and coe5.keyAction.
 static void addGameNumbers(lua_State *L) {
     lua_newtable(L);
     for (size_t i = 0; i < sizeof LUA_KEY_ACTIONS / sizeof LUA_KEY_ACTIONS[0]; i++) {
@@ -113,7 +109,6 @@ static void addGameNumbers(lua_State *L) {
     }
 }
 
-// print(...): written as a lua_print line in coe5mod.log.
 static int lPrint(lua_State *L) {
     if (!luaScriptLogOn()) return 0;
     int n = lua_gettop(L);
@@ -130,7 +125,6 @@ static int lPrint(lua_State *L) {
     return 0;
 }
 
-// xpcall(f, handler, ...): the base library's, except for CoE5SE's stop of the script.
 static int luaXpcallHandler(lua_State *L) {
     LuaScript *s = luaScriptOf(L);
     if (s && s->stopping) return 1;
@@ -160,13 +154,11 @@ static int lXpcall(lua_State *L) {
     return finishLuaXpcall(L, status, 2);
 }
 
-// What a commands file may call while it loads: coe5.addModCommand, coe5.log, and require.
 static int lRequire(lua_State *L);
 static int luaCommandsFileCall(const luaL_Reg *fn) {
     return fn->func == lAddModCommand || fn->func == lLog || fn->func == lRequire;
 }
 
-// Every coe5.* function is a closure of this gate.
 static int luaGate(lua_State *L) {
     const luaL_Reg *fn = lua_touserdata(L, lua_upvalueindex(1));
     LuaScript *s = luaScriptOf(L);
@@ -181,7 +173,6 @@ static int luaGate(lua_State *L) {
     refuseLuaCall(s ? s->mod : "?", lua_tostring(L, lua_upvalueindex(2)), reason, "running=%s", luaRunning ? luaRunning->mod : "none");
     return 0;
 }
-// Adds each function of `fns` to the table on top of the stack through luaGate.
 static void addGatedFunctions(lua_State *L, const luaL_Reg *fns, const char *prefix) {
     for (; fns->name; fns++) {
         lua_pushlightuserdata(L, (void *)fns);
@@ -191,7 +182,6 @@ static void addGatedFunctions(lua_State *L, const luaL_Reg *fns, const char *pre
     }
 }
 
-// The warning function of a script's state: each message is a lua_warning line in coe5mod.log.
 static void luaWarn(void *ud, const char *message, int tocont) {
     LuaScript *s = luaScriptOf(ud);
     if (!s) return;
@@ -214,7 +204,6 @@ static void luaWarn(void *ud, const char *message, int tocont) {
 }
 
 // ---- Loading ----------------------------------------------------------------------------------
-// Makes a Lua state with only the safe libraries and the coe5 table.
 static int setUpLuaSandbox(lua_State *L);
 static lua_State *newLuaSandbox(LuaScript *s) {
     lua_State *L = lua_newstate(luaAlloc, s, luaL_makeseed(NULL));
@@ -222,7 +211,6 @@ static lua_State *newLuaSandbox(LuaScript *s) {
     lua_atpanic(L, luaPanic);
     return setUpLuaSandbox(L) ? L : NULL;
 }
-// Opens the libraries and the coe5 table in a new state L.
 static int openLuaSandbox(lua_State *L);
 static int lRequire(lua_State *L);
 static char luaRequiredKey;
@@ -277,7 +265,6 @@ static int openLuaSandbox(lua_State *L) {
     return 0;
 }
 
-// lua_load's reader for a script's file.
 typedef struct { FILE *f; size_t pending; char buffer[BUFSIZ]; } LuaFileReader;
 static const char *readLuaFile(lua_State *L, void *ud, size_t *size) {
     (void)L;
@@ -291,7 +278,6 @@ static const char *readLuaFile(lua_State *L, void *ud, size_t *size) {
     *size = fread(r->buffer, 1, sizeof r->buffer, r->f);
     return r->buffer;
 }
-// Skips a UTF-8 BOM and a first line starting with #.
 static void readLuaFileStart(LuaFileReader *r) {
     int c = getc(r->f);
     if (c == 0xEF && getc(r->f) == 0xBB && getc(r->f) == 0xBF) c = getc(r->f);
@@ -304,7 +290,6 @@ static void readLuaFileStart(LuaFileReader *r) {
     if (c != EOF) r->buffer[r->pending++] = (char)c;
 }
 
-// Pushes the chunk of the script file at `path`, named `chunk`.
 #define LUA_CHUNK_NAME_MAX (MOD_NAME_MAX + 16)
 static void pushLuaTextFile(lua_State *L, const char *path, const char *chunk) {
     LuaFileReader *r = lua_newuserdatauv(L, sizeof *r, 0);
@@ -321,7 +306,6 @@ static void pushLuaTextFile(lua_State *L, const char *path, const char *chunk) {
     lua_remove(L, -2);
 }
 
-// callLuaProtected's push for a script's file: its chunk, with no arguments.
 static int pushLuaScriptFile(lua_State *L, void *script) {
     const LuaScript *s = script;
     char chunk[LUA_CHUNK_NAME_MAX];
@@ -331,11 +315,9 @@ static int pushLuaScriptFile(lua_State *L, void *script) {
 }
 
 // ---- require: a script's other files ------------------------------------------------------------
-// require(name): runs <name>.lua from the script's own mod folder, once.
 #define LUA_REQUIRE_NAME_MAX 200
 static char luaRequireLoading;
 
-// Returns NULL when `name` can name a required file, or the reason word it can't.
 static const char *luaRequireNameProblem(const char *name, size_t length) {
     if (!length) return "empty_name";
     if (length > LUA_REQUIRE_NAME_MAX) return "name_too_long";
@@ -356,7 +338,6 @@ static const char *luaRequireNameProblem(const char *name, size_t length) {
 }
 
 // @platform-split lua_require_link: Windows reads the reparse point attribute, a Mac lstat
-// Whether the file or folder at `path` is a link.
 static int luaPathIsLink(const char *path) {
 #ifdef _WIN32
     DWORD attributes = GetFileAttributesA(path);
@@ -367,7 +348,6 @@ static int luaPathIsLink(const char *path) {
 #endif
 }
 
-// Finds required file `name` in script s's folder.
 static const char *findRequiredFile(const LuaScript *s, const char *name, char *path, size_t size, char *chunk,
                                     char *part, size_t partSize) {
     snprintf(chunk, LUA_CHUNK_NAME_MAX, "%s.lua", name);
@@ -391,7 +371,6 @@ static const char *findRequiredFile(const LuaScript *s, const char *name, char *
     return NULL;
 }
 
-// require(name): see this section's top.
 static int lRequire(lua_State *L) {
     size_t length;
     const char *name = luaL_checklstring(L, 1, &length);
@@ -447,7 +426,6 @@ static int lRequire(lua_State *L) {
     return 1;
 }
 
-// Whether the file at `path` exists.
 static int luaFileExists(const char *path) {
     FILE *f = fopen(path, "rb");
     if (!f) return 0;
@@ -455,14 +433,12 @@ static int luaFileExists(const char *path) {
     return 1;
 }
 
-// The script of mod `mod` in folder `folder`, or NULL when it has none yet.
 static LuaScript *findLuaScript(const char *mod, const char *folder) {
     for (int i = 0; i < luaScriptCount; i++)
         if (!luaScripts[i]->retired && !strcmp(luaScripts[i]->mod, mod) && !strcmp(luaScripts[i]->folder, folder)) return luaScripts[i];
     return NULL;
 }
 
-// Makes mod `mod`'s script, with its Lua state, for the file at `path`; NULL when memory runs out (logged).
 static LuaScript *newLuaScript(const char *mod, const char *folder, const char *path) {
     LuaScript *s = calloc(1, sizeof *s);
     if (s) snprintf(s->mod, sizeof s->mod, "%s", mod);
@@ -479,7 +455,6 @@ static LuaScript *newLuaScript(const char *mod, const char *folder, const char *
     return s;
 }
 
-// Loads and runs <folder>/<mod>.lua, if the mod has one, in the state its commands file may have made.
 static void loadLuaScript(const char *mod, const char *folder) {
     char path[MAX_PATH];
     if (!buildPath(path, sizeof path, __func__, "%s" PATH_SEP "%s.lua", folder, mod)) return;
@@ -493,10 +468,8 @@ static void loadLuaScript(const char *mod, const char *folder) {
 }
 
 // ---- Commands files: <ModName>_commands.lua, loaded first ---------------------------------------
-// A mod's commands file: its coe5.addModCommand calls and their handlers.
 typedef struct { const char *path, *chunk, *key; } LuaCommandsFile;
 
-// Runs the commands file and keeps what it returned as require's value for it (true for nothing).
 static int runLuaCommandsFile(lua_State *L) {
     const LuaCommandsFile *c = lua_touserdata(L, 1);
     lua_settop(L, 0);
@@ -512,14 +485,12 @@ static int runLuaCommandsFile(lua_State *L) {
     lua_rawset(L, -3);
     return 0;
 }
-// callLuaProtected's push for a commands file.
 static int pushLuaCommandsFile(lua_State *L, void *file) {
     lua_pushcfunction(L, runLuaCommandsFile);
     lua_pushlightuserdata(L, file);
     return 1;
 }
 
-// Loads and runs <folder>/<mod>_commands.lua, if the mod has one: 1 when it ran, -1 when it stopped, 0 for none.
 static int loadLuaCommandsFile(const char *mod, const char *folder) {
     char path[MAX_PATH], chunk[LUA_CHUNK_NAME_MAX];
     if (!buildPath(path, sizeof path, __func__, "%s" PATH_SEP "%s" LUA_COMMANDS_SUFFIX, folder, mod)) return -1;
@@ -539,7 +510,6 @@ static int loadLuaCommandsFile(const char *mod, const char *folder) {
     return 1;
 }
 
-// Loads every enabled mod's commands file once, in load order, before the game's startup mod pass.
 static void loadLuaCommandsFiles(void) {
     static int loaded;
     if (loaded) return;
@@ -554,7 +524,6 @@ static void loadLuaCommandsFiles(void) {
     writeLog("lua_commands_done", "count=%d failed=%d", count, failed);
 }
 
-// Whether enabled mod `mod` has a commands file that hasn't loaded this launch.
 static int modWaitsForCommandsFile(int mod) {
     if (mod < 0 || mod > G32(RVA_MOD_LAST_INDEX) || !modEnabled(mod) || !modHasFile(mod, LUA_COMMANDS_SUFFIX)) return 0;
     const LuaScript *s = findLuaScript(modName(mod), modFolder(mod));
@@ -566,7 +535,6 @@ static int anyEnabledModWaitsForCommandsFile(void) {
     return 0;
 }
 
-// Loads every enabled mod's script once, at the end of startup (finishStartup), in load order.
 static void loadLuaScripts(void) {
     luaScriptsLoading = 1;
     for (int k = 0; k < orderedModCount; k++) {
@@ -579,16 +547,13 @@ static void loadLuaScripts(void) {
 }
 
 // ---- Mod set changes: the scripts follow the enabled mods ---------------------------------------
-// Scripts start and stop as their mods are turned on and off, with no restart.
 
-// Whether mod `mod` in folder `folder` is enabled in the game now.
 static int luaModEnabledNow(const char *mod, const char *folder) {
     for (int m = 0; m <= G32(RVA_MOD_LAST_INDEX); m++)
         if (modEnabled(m) && !strcmp(modName(m), mod) && !strcmp(modFolder(m), folder)) return 1;
     return 0;
 }
 
-// Turns off script s, whose mod was turned off.
 static void retireLuaScript(LuaScript *s) {
     s->retired = 1;
     if (!s->stopping) {
@@ -608,7 +573,6 @@ static void retireLuaScript(LuaScript *s) {
     closeDeadLuaScript(s);
 }
 
-// Before a mod pass at `level`: stops the scripts of mods turned off, and loads newly enabled mods' commands files.
 static void syncLuaScriptsBeforePass(int level) {
     if (!startupFinished || level != 2) return;
     int stopped = 0, started = 0;
@@ -628,7 +592,6 @@ static void syncLuaScriptsBeforePass(int level) {
     if (stopped || started) writeLog("lua_scripts_synced", "when=before_pass stopped=%d commands_files=%d network=%d", stopped, started, isNetworkGame());
 }
 
-// After a mod pass at `level`: loads the <ModName>.lua of each enabled mod whose script hasn't run.
 static void syncLuaScriptsAfterPass(int level) {
     if (!startupFinished || level != 2 || isNetworkGame()) return;
     int started = 0;
@@ -646,11 +609,9 @@ static void syncLuaScriptsAfterPass(int level) {
 }
 
 // ---- Boxes for the player ---------------------------------------------------------------------
-// The boxes about a mod's stopped script or full storage.
 #define LUA_NOTICE_NAME_MAX 40
 #define LUA_NOTICE_PATH_MAX 80
 
-// Writes `in` as the boxes show a name.
 static void luaNoticeName(const char *in, char *out, size_t size) {
     char clean[MOD_NAME_MAX];
     size_t n = 0;
@@ -666,7 +627,6 @@ static void luaNoticeName(const char *in, char *out, size_t size) {
     snprintf(out, size, "%s", clean);
 }
 
-// Writes box `kind`'s title and text for mod `mod`.
 static void luaNoticeText(int kind, const char *mod, int stop, const char *area, char *title, size_t titleSize, char *text,
                           size_t textSize) {
     char name[LUA_NOTICE_NAME_MAX + 8];
@@ -691,7 +651,6 @@ static void luaNoticeText(int kind, const char *mod, int stop, const char *area,
     snprintf(text, textSize, "%sOff until restart.\n", why);
 }
 
-// Shows the first box due, if any.
 static void showLuaNotices(void) {
     if (luaCodeRunning || isNetworkGame()) return;
     for (int i = 0; i < luaScriptCount; i++) {

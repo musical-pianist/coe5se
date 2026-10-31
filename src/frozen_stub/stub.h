@@ -1,10 +1,7 @@
-// What the stub does on both platforms (glu32_stub.c, mac_stub.c). Players copy the stub once, so
 #pragma once
 
-// The game's folder, which startStubLog sets.
 static char gameDir[MAX_PATH];
 
-// 1 if an import of the DLL `name` may hold SDL's SDL_SetMainReady (glu32_stub.c,
 static __attribute__((unused)) int isSdlImportName(const char *name) {
     return !_strnicmp(name, "SDL", 3);
 }
@@ -16,7 +13,6 @@ static __attribute__((unused)) int isSdlImportName(const char *name) {
 #include <sys/mman.h>
 #include <unistd.h>
 
-// Points every one of the game's symbol pointers for the imported function `symbol` ("_srand") at
 static __attribute__((unused)) int pointGameImportAt(const char *symbol, void *to, void **previous) {
     const struct mach_header_64 *header = NULL;
     intptr_t slide = 0;
@@ -60,7 +56,6 @@ static __attribute__((unused)) int pointGameImportAt(const char *symbol, void *t
                 if (index & (INDIRECT_SYMBOL_LOCAL | INDIRECT_SYMBOL_ABS) || index >= symtab->nsyms) continue;
                 if (strcmp(strings + syms[index].n_un.n_strx, symbol)) continue;
                 void *pageStart = (void *)((uintptr_t)&slots[k] & ~(uintptr_t)(page - 1));
-                // __DATA_CONST is read-only once dyld is done with it; __DATA stays writable.
                 int readOnly = !strncmp(seg->segname, "__DATA_CONST", 16);
                 if (mprotect(pageStart, page, PROT_READ | PROT_WRITE)) continue;
                 if (!changed && previous) *previous = slots[k];
@@ -74,13 +69,11 @@ static __attribute__((unused)) int pointGameImportAt(const char *symbol, void *t
 }
 #endif
 
-// The last part of the path `path`, for log lines.
 static const char *lastPathPart(const char *path) {
     const char *slash = strrchr(path, USER_DIR_SEP[0]);
     return slash ? slash + 1 : path;
 }
 
-// Copies the system's error text `text` (dlopen's names the paths it tried) to out[size], with each
 static void shortenPathsIn(const char *text, char *out, size_t size) {
     size_t n = 0;
     for (const char *p = text; *p && n + 1 < size;) {
@@ -97,7 +90,6 @@ static void shortenPathsIn(const char *text, char *out, size_t size) {
     out[n] = '\0';
 }
 
-// Looks in every folder under `root` for CoE5SE.c5m. Returns how many have it, and writes the first
 static int countCoe5seFolders(const char *root, char *dir, size_t size) {
     char pattern[MAX_PATH], sub[MAX_PATH], c5m[MAX_PATH];
     if (!buildPath(pattern, sizeof pattern, __func__, "%s" USER_DIR_SEP "*", root)) return 0;
@@ -116,7 +108,6 @@ static int countCoe5seFolders(const char *root, char *dir, size_t size) {
     return count;
 }
 
-// Counts CoE5SE's Workshop items (COE5SE_WORKSHOP_IDS) under `root` that hold CoE5SE.c5m, and writes
 static int countCoe5seItems(const char *root, char *dir, size_t size) {
     char sub[MAX_PATH], c5m[MAX_PATH];
     int count = 0;
@@ -129,7 +120,6 @@ static int countCoe5seItems(const char *root, char *dir, size_t size) {
     return count;
 }
 
-// Picks CoE5SE's folder and writes it to `dir`. Returns "local" or "workshop", or NULL with the
 static const char *findCoe5seFolder(char *dir, size_t size, const char **reason) {
     char root[MAX_PATH];
     int local = buildPath(root, sizeof root, __func__, "%s" USER_DIR_SEP "mods", userDir()) ? countCoe5seFolders(root, dir, size) : 0;
@@ -143,7 +133,6 @@ static const char *findCoe5seFolder(char *dir, size_t size, const char **reason)
     return NULL;
 }
 
-// Step 3's first part: turns CoE5SE on in coe5config, once per player (auto_enable.h). `source` is
 static void enableCoe5seOnce(const char *config, const char *layout, const char *source, const char *folderReason) {
     char done[MAX_PATH], notice[MAX_PATH], backup[MAX_PATH], oldDone[MAX_PATH];
     if (!coe5seUserFile(AUTO_ENABLE_DONE_FILE, done, sizeof done) || !coe5seUserFile(AUTO_ENABLE_NOTICE_FILE, notice, sizeof notice) ||
@@ -151,7 +140,6 @@ static void enableCoe5seOnce(const char *config, const char *layout, const char 
         writeLog("coe5se_auto_enable_skipped", "reason=path_too_long");
         return;
     }
-    // No log: CoE5SE was turned on, or found on, before; under a stub up to version 7 with COE5_SAVE
     if (autoEnableFileExists(done) || oldUserFile(COE5SE_USER_DIR, AUTO_ENABLE_DONE_FILE, oldDone, sizeof oldDone)) return;
     if (configEnablesMod(config, COE5SE_MOD, layout)) {
         int marked = writeAutoEnableFile(done, AUTO_ENABLE_DONE_TEXT);
@@ -173,11 +161,10 @@ static void enableCoe5seOnce(const char *config, const char *layout, const char 
         writeLog("coe5se_auto_enable_skipped", "reason=%s marked=%d", reason, autoEnableFileExists(done));
         return;
     }
-    writeAutoEnableFile(notice, AUTO_ENABLE_NOTICE_TEXT);   // No log: without it CoE5SE only doesn't say it turned itself on
+    writeAutoEnableFile(notice, AUTO_ENABLE_NOTICE_TEXT);
     writeLog("coe5se_auto_enabled", "mod=" COE5SE_MOD " backup=%s", lastPathPart(backup));
 }
 
-// Steps 1 to 4 above. `startedFrom` is one of loader_start.h's LOADER_STARTED_* values, and
 static const char *startLoader(uint32_t startedFrom, uint32_t stubVersion) {
     char config[MAX_PATH], layout[MAX_PATH] = "", dir[MAX_PATH] = "", path[MAX_PATH], error[256];
     const char *reason = "no_user_dir";
@@ -185,15 +172,13 @@ static const char *startLoader(uint32_t startedFrom, uint32_t stubVersion) {
     if (!buildPath(config, sizeof config, __func__, "%s" USER_DIR_SEP CONFIG_FILE, userDirPath)) return "path_too_long";
     const char *folderReason = "no_coe5se_mod";
     const char *source = findCoe5seFolder(dir, sizeof dir, &folderReason);
-    // The layout file comes with the CoE5SE that would run; without a folder, the name search.
-    if (source) buildPath(layout, sizeof layout, __func__, "%s" USER_DIR_SEP CONFIG_LAYOUT_FILE, dir);   // Logged by buildPath: then no layout file
+    if (source) buildPath(layout, sizeof layout, __func__, "%s" USER_DIR_SEP CONFIG_LAYOUT_FILE, dir);
     enableCoe5seOnce(config, layout[0] ? layout : NULL, source, folderReason);
     if (!configEnablesMod(config, COE5SE_MOD, layout[0] ? layout : NULL)) return "no_coe5se_mod";
     if (!source) return folderReason;
     writeLog("stub_coe5se_folder", "source=%s dir=%s", source, lastPathPart(dir));
     if (!buildPath(path, sizeof path, __func__, "%s" USER_DIR_SEP LOADER_DLL_NAME, dir)) return "path_too_long";
     if (GetFileAttributesA(path) == INVALID_FILE_ATTRIBUTES) return "loader_missing";
-    // Logged before the load, so if its start code crashes, the log's last line names it.
     writeLog("loader_plugin_loading", "name=" LOADER_DLL_NAME " source=%s", source);
     void *module = loadDllFile(path, error, sizeof error);
     if (!module) {
@@ -214,13 +199,11 @@ static const char *startLoader(uint32_t startedFrom, uint32_t stubVersion) {
     return NULL;
 }
 
-// Runs startLoader and logs why nothing loaded, if nothing did.
 static void runLoader(uint32_t startedFrom, uint32_t stubVersion) {
     const char *reason = startLoader(startedFrom, stubVersion);
     if (reason) writeLog("loader_inactive", "reason=%s", reason);
 }
 
-// Sets gameDir and the log's path, renames a log over 1 MB to coe5mod.old.log (so the log a player
 static void startStubLog(uint32_t stubVersion) {
     GetModuleFileNameA(NULL, gameDir, sizeof gameDir);
     char *slash = strrchr(gameDir, USER_DIR_SEP[0]);

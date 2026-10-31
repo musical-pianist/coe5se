@@ -1,6 +1,3 @@
-// coe5.onPortalCrossing: scripts may refuse an army's way through a portal.
-
-// One crossing, as the handlers see it. A field below 0 is nil to them.
 typedef struct {
     int x, y;
     int toX, toY;
@@ -11,12 +8,10 @@ typedef struct {
 
 static int *portalHandlers;
 static int portalHandlerCount, portalHandlerCapacity;
-// 1 while a handler runs: the crossings it causes aren't asked, and coe5.route refuses.
 static int portalHandlerRunning;
 static int portalHandlerPlanning;
 static int portalHooksState;
 
-// The game's functions the hooks call on, set by installPortalHooks (the unit tests set their own).
 typedef int (*PortalMoveStepFn)(int commander, int x, int y);
 typedef int (*PortalExitFn)(int portal, int *x, int *y, int x0, int y0);
 typedef int (*PortalFarSquareFn)(int commander, int x, int y, int flag);
@@ -24,33 +19,28 @@ static PortalMoveStepFn portalGameMoveStep;
 static PortalExitFn portalGameExit;
 static PortalFarSquareFn portalGameFarSquare;
 
-// Set by the stubs below, read by the hooks they lead to.
 __attribute__((used)) int coe5sePortalSpreadFrom[2];
 __attribute__((used)) int coe5sePortalRouteCommander = -1;
 __attribute__((used)) void *coe5sePortalGameWaytogo;
 __attribute__((used)) void *coe5sePortalTraceB;
 
 // ---- The game's records ------------------------------------------------------------------------
-// The SQUARE_PORTAL of square (x, y), 0 off the map.
 static int portalNumberAt(int x, int y) {
     if (x < 0 || y < 0 || x >= G32(RVA_MAP_DEPTH) || y >= G32(RVA_MAP_H)) return 0;
     return G16(RVA_SQUARE_RECORDS + ((size_t)x * MAP_COLUMN_SQUARES + (size_t)y) * SQUARE_SIZE + SQUARE_PORTAL);
 }
 
-// The unit of commander c, or -1.
 static int portalCommanderUnit(int commander) {
     if (commander < 0 || commander >= COMMANDER_TABLE_MAX || commander > G32(RVA_LAST_COMMANDER)) return -1;
     int unit = G32(RVA_COMMANDERS + (size_t)commander * COMMANDER_SIZE);
     return unit >= 0 && unit < UNIT_TABLE_MAX ? unit : -1;
 }
 
-// The player commander c's unit belongs to, or -1.
 static int portalCommanderPlayer(int commander) {
     int unit = portalCommanderUnit(commander);
     return unit < 0 ? -1 : G16(RVA_UNIT_PLAYER + (size_t)unit * UNIT_SIZE);
 }
 
-// Whether the game's step would take commander c to (x, y) through a portal; fills `out` if so.
 static int portalStepCrossing(int commander, int x, int y, PortalCrossing *out) {
     int unit = portalCommanderUnit(commander);
     if (unit < 0) return 0;
@@ -74,7 +64,6 @@ static void setPortalField(lua_State *L, const char *name, int value) {
     lua_setfield(L, -2, name);
 }
 
-// callLuaProtected's push: the handler and its crossing table.
 static int pushPortalHandlerCall(lua_State *L, void *ctx) {
     const PortalHandlerCall *call = ctx;
     const PortalCrossing *c = call->crossing;
@@ -92,7 +81,6 @@ static int pushPortalHandlerCall(lua_State *L, void *ctx) {
     return 1;
 }
 
-// Asks each handler in turn; 0 once one returns false.
 static int portalCrossingAllowed(const PortalCrossing *c) {
     if (!portalHandlerCount || portalHandlerRunning || isNetworkGame()) return 1;
     int allowed = 1;
@@ -115,14 +103,12 @@ static int portalCrossingAllowed(const PortalCrossing *c) {
 }
 
 // ---- The hooks ---------------------------------------------------------------------------------
-// The step's four callers: the game's step, unless it is a crossing a handler refuses.
 static int portalMoveStepHook(int commander, int x, int y) {
     PortalCrossing c;
     if (portalHandlerCount && portalStepCrossing(commander, x, y, &c) && !portalCrossingAllowed(&c)) return MOVE_STEP_REFUSED;
     return portalGameMoveStep(commander, x, y);
 }
 
-// Enter Gateway's exit: asked before it is drawn; refused, no exit, as when the game finds none.
 static int portalGatewayExitHook(int portal, int *x, int *y, int x0, int y0) {
     if (portalHandlerCount) {
         int commander = G32(RVA_SELECTED_COMMANDER);
@@ -135,7 +121,6 @@ static int portalGatewayExitHook(int portal, int *x, int *y, int x0, int y0) {
     return portalGameExit(portal, x, y, x0, y0);
 }
 
-// An independent army's random exit: refused, no exit, and the army doesn't move on that draw.
 static int portalIndepExitHook(int portal, int *x, int *y, int x0, int y0) {
     int found = portalGameExit(portal, x, y, x0, y0);
     if (!portalHandlerCount || *x < 0 || *y < 0) return found;
@@ -146,7 +131,6 @@ static int portalIndepExitHook(int portal, int *x, int *y, int x0, int y0) {
     return 0;
 }
 
-// The spread's exit check (from coe5sePortalSpreadStub).
 int coe5sePortalSpreadCheck(int commander, int x, int y, int flag);
 __attribute__((used)) int coe5sePortalSpreadCheck(int commander, int x, int y, int flag) {
     int r = portalGameFarSquare(commander, x, y, flag);
@@ -156,7 +140,6 @@ __attribute__((used)) int coe5sePortalSpreadCheck(int commander, int x, int y, i
     return portalCrossingAllowed(&c) ? r : 0;
 }
 
-// The walk back's portal predecessor (from coe5sePortalBackStub): 0 skips it.
 int coe5sePortalBackCheck(int px, int py, int sx, int sy);
 __attribute__((used)) int coe5sePortalBackCheck(int px, int py, int sx, int sy) {
     if (!portalHandlerCount) return 1;
@@ -166,7 +149,6 @@ __attribute__((used)) int coe5sePortalBackCheck(int px, int py, int sx, int sy) 
 }
 
 // ---- The stubs ---------------------------------------------------------------------------------
-// The three calls whose hooks need a register the call doesn't pass.
 void coe5sePortalRouteStub(void);
 void coe5sePortalSpreadStub(void);
 void coe5sePortalBackStub(void);
@@ -284,7 +266,6 @@ static int pointPortalCall(const PortalCall *c, unsigned char *stubs, int index)
 }
 #endif
 
-// Points every portal path at the hooks above, once. Returns 1 when all are.
 static int installPortalHooks(void) {
     if (portalHooksState) return portalHooksState > 0;
     portalHooksState = -1;

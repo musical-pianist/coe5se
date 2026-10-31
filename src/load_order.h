@@ -1,4 +1,4 @@
-// Load order inside the game: each enabled mod's modprio, modversion, and requires.
+#pragma once
 
 #include "mod_order.h"
 
@@ -18,7 +18,6 @@ static void clearLoadOrder(void) {
     orderIssueCount = 0;
 }
 
-// Reads every enabled mod's .c5m for modprio, modversion, and requires, and orders them.
 static void readLoadOrder(int logIt) {
     clearLoadOrder();
     char path[MAX_PATH];
@@ -56,14 +55,12 @@ static void readLoadOrder(int logIt) {
     }
 }
 
-// The mod's modversion, or "-" when it has none or isn't enabled.
 static const char *modVersionText(const char *mod) {
     for (int i = 0; i < orderedModCount; i++)
         if (!strcmp(orderedMods[i].name, mod)) return orderedMods[i].version[0] ? orderedMods[i].version : "-";
     return "-";
 }
 
-// The version of the mod whose folder holds the plugin at `pluginPath`, or "" for none.
 static const char *pluginModVersion(const char *pluginPath) {
     char dir[MAX_PATH], mod[MOD_NAME_MAX];
     if (!buildPath(dir, sizeof dir, __func__, "%s", pluginPath)) return "";
@@ -75,7 +72,6 @@ static const char *pluginModVersion(const char *pluginPath) {
     return strcmp(version, "-") ? version : "";
 }
 
-// The CoE5SE page's "Mod requirements" box: one line per warning, drawn only when there is one.
 static void drawModRequirements(void) {
     if (!orderIssueCount) return;
     sectionBegin();
@@ -106,12 +102,10 @@ static void drawModRequirements(void) {
     sectionEnd();
 }
 
-// The `requires <ModName> [minimum version]` .c5m word.
 static void requiresLine(const char *args, int mod, int level) {
     (void)args; (void)mod; (void)level;
 }
 
-// Adds the requires word.
 static void loadOrderInit(void) {
     writeLog("load_order_installed", "requires=%d", api->addModCommand("requires", requiresLine));
 }

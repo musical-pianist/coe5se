@@ -1,4 +1,4 @@
-// Starting plugin DLLs: the checks before any of a plugin's code runs.
+#pragma once
 #include "address_ids.h"
 #include "address_table.h"
 #ifdef __APPLE__
@@ -29,7 +29,6 @@ static const char *fileNameOf(const char *path) {
     return slash ? slash + 1 : path;
 }
 
-// The record for the DLL at `path`, made on first use.
 static PluginRecord *pluginRecordFor(const char *path) {
     const char *file = fileNameOf(path);
     for (int i = 0; i < pluginRecordCount; i++)
@@ -46,7 +45,6 @@ static PluginRecord *pluginRecordFor(const char *path) {
     return r;
 }
 
-// The record of a loaded module, or NULL for a DLL the loader didn't load.
 static PluginRecord *pluginRecordOfModule(HMODULE m) {
     char path[MAX_PATH];
     if (!m || !GetModuleFileNameA(m, path, sizeof path)) return NULL;
@@ -59,7 +57,6 @@ static PluginRecord *pluginRecordOfModule(HMODULE m) {
     return NULL;
 }
 
-// Holds the DLL back: logs plugin_refused and keeps the reason for the page.
 static PRINTF_FORMAT(3, 4) void refusePlugin(PluginRecord *r, const char *reason, const char *fmt, ...) {
     if (r->reason) return;
     r->reason = reason;
@@ -70,20 +67,17 @@ static PRINTF_FORMAT(3, 4) void refusePlugin(PluginRecord *r, const char *reason
     writeLog("plugin_refused", "dll=%s reason=%s %s", r->file, reason, r->detail);
 }
 
-// The refusal reason for a plugin built for API version `version`, which isn't CoE5SE's.
 static const char *apiVersionReason(int version) {
     return version > PLUGIN_API_VERSION ? "newer_api_version" : "older_api_version";
 }
 
 // ---- 1. Game versions --------------------------------------------------------------------------
 
-// The game version CoE5SE counts the running game as.
 static const char *runningGameVersion(void) {
     if (gameBuild) return gameBuild->gameVersion;
     return pluginsDeclined ? NULL : KNOWN_BUILDS[KNOWN_BUILD_COUNT - 1].gameVersion;
 }
 
-// Reads the coeversion lines of `mod`'s .c5m, and refuses the DLL when none matches.
 static void checkPluginGameVersion(PluginRecord *r, const char *mod) {
     r->versionChecked = 1;
     char dir[MAX_PATH], name[MAX_PATH], file[MAX_PATH], line[1024];
@@ -121,7 +115,6 @@ static void checkPluginGameVersion(PluginRecord *r, const char *mod) {
                      r->declared, running ? running : "declined");
 }
 
-// The loader calls this for each plugin before it hashes or loads it.
 __declspec(dllexport) const char *coe5seCheckPlugin(const char *path, const char *mod) {
     PluginRecord *r = path ? pluginRecordFor(path) : NULL;
     if (!r) return NULL;
@@ -132,7 +125,6 @@ __declspec(dllexport) const char *coe5seCheckPlugin(const char *path, const char
 
 // ---- 2. Address ids ----------------------------------------------------------------------------
 
-// The DLL's AddressSlots, or NULL when it has none.
 static AddressSlot *moduleAddressSlots(HMODULE m, size_t *count) {
     *count = 0;
 #ifdef __APPLE__
@@ -162,14 +154,12 @@ static const AddressEntry *addressEntryById(uint32_t id) {
     return bsearch(&id, ADDRESS_TABLE, ADDRESS_TABLE_COUNT, sizeof ADDRESS_TABLE[0], compareAddressId);
 }
 
-// An entry's id: the 32-bit FNV-1a hash of its name.
 static uint32_t addressIdOf(const char *name) {
     uint32_t h = 2166136261u;
     for (const char *c = name; *c; c++) h = (h ^ (unsigned char)*c) * 16777619u;
     return h;
 }
 
-// Checks every slot of the DLL, then fills them all, or refuses the DLL and fills none.
 static void resolvePluginAddresses(PluginRecord *r) {
     if (r->addressesChecked || !r->module) return;
     r->addressesChecked = 1;
@@ -207,7 +197,6 @@ static void resolvePluginAddresses(PluginRecord *r) {
     if (used) writeLog("plugin_addresses_resolved", "dll=%s names=%d uses=%d format=%d", r->file, distinct, used, ADDRESS_ID_FORMAT);
 }
 
-// Points every loaded plugin's per-player table addresses at the moved tables, after the player table move.
 static void refreshPluginPlayerAddresses(void) {
     for (int k = 0; k < pluginRecordCount; k++) {
         PluginRecord *r = pluginRecords[k];
@@ -224,7 +213,6 @@ static void refreshPluginPlayerAddresses(void) {
 
 // ---- 3. The entry ------------------------------------------------------------------------------
 
-// coe5sePluginLoading(NULL): the loader has loaded the DLL at `path`, or failed to (it logs that).
 static void pluginLoadingDone(const char *path) {
     PluginRecord *r = pluginRecordFor(path);
     if (!r || !(r->module = GetModuleHandleA(r->file))) return;
@@ -249,7 +237,6 @@ static void pluginLoadingDone(const char *path) {
     writeLog("plugin_started", "dll=%s entry=coe5sePluginLoad api=%d result=%d", r->file, *version, result);
 }
 
-// For jazzyGetApi: why CoE5SE holds back the DLL that holds `caller`, or NULL.
 static const char *pluginRefusalFor(void *caller) {
     PluginRecord *r = pluginRecordOfModule(callingPlugin(caller));
     if (!r) return NULL;
@@ -257,7 +244,6 @@ static const char *pluginRefusalFor(void *caller) {
 }
 
 // ---- Stack frame locals (frameVariable) --------------------------------------------------------
-// The sites each game function calls from its own frame.
 static const CallSite NEW_WORLD_FRAME_SITES[] = {SITE_NEW_WORLD_MAP_SCREEN, SITE_NEW_WORLD_INIT_PARTICIPANTS,
                                                  SITE_NEW_WORLD_CREATING_WORLD, SITE_PARTICIPANTS_WAIT,
                                                  SITE_PARTICIPANTS_BUTTON_ROW};
@@ -267,7 +253,6 @@ static const struct { const char *prefix; const CallSite *sites; size_t count; }
     {"FRAME_MESSAGE_BOX_", MESSAGE_BOX_FRAME_SITES, 1},
 };
 
-// PluginApi.frameVariable.
 static void *apiFrameVariable(CallSite site, const char *name) {
     if ((unsigned)site >= SITE_COUNT) return REFUSE_API(NULL, "frameVariable", "unknown_site", "site=%d", (int)site);
     if (!name) return REFUSE_API(NULL, "frameVariable", "no_name", "site=%s", SITES[site].name);
@@ -287,7 +272,6 @@ static void *apiFrameVariable(CallSite site, const char *name) {
 
 // ---- The CoE5SE page ---------------------------------------------------------------------------
 
-// The row suffix and the tooltip text for a DLL CoE5SE held back, or 0 for one it didn't.
 static int pluginRefusalText(const char *file, char *row, size_t rowSize, char *tip, size_t tipSize) {
     PluginRecord *r = NULL;
     for (int i = 0; i < pluginRecordCount && !r; i++)
@@ -322,7 +306,6 @@ static int pluginRefusalText(const char *file, char *row, size_t rowSize, char *
     return 1;
 }
 
-// Logs the address table this CoE5SE resolves plugins' ids with.
 static void pluginStartInit(void) {
     writeLog("plugin_checks_installed", "address_table=%d format=%d", ADDRESS_TABLE_COUNT, ADDRESS_ID_FORMAT);
 }

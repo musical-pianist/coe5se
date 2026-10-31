@@ -1,6 +1,5 @@
-// TOP_BAR_INCOME: the income number the map's top bar draws beside a resource, as a script's wraps answer it.
+// @platform-split top_bar_income: Windows only; Mac's top bar income calls weren't looked up
 
-// The resource each covered call draws, by the call's address.
 typedef struct { unsigned rva; int resource; } TopBarIncomeCall;
 static const TopBarIncomeCall TOP_BAR_INCOME_CALLS[] = {
     {0x09c9f1, 0}, {0x09cad0, 1}, {0x09ce18, 3}, {0x09cef5, 2}, {0x09cfc9, 6},
@@ -9,14 +8,12 @@ static const TopBarIncomeCall TOP_BAR_INCOME_CALLS[] = {
 #define TOP_BAR_INCOME_CALL_COUNT ((int)(sizeof TOP_BAR_INCOME_CALLS / sizeof TOP_BAR_INCOME_CALLS[0]))
 #define CALL_SIZE 5
 
-// The resource the call returning to `returnTo` draws, or -1 for none of them.
 static UNUSED int topBarIncomeResource(uintptr_t returnTo, uintptr_t base) {
     for (int i = 0; i < TOP_BAR_INCOME_CALL_COUNT; i++)
         if (returnTo == base + TOP_BAR_INCOME_CALLS[i].rva + CALL_SIZE) return TOP_BAR_INCOME_CALLS[i].resource;
     return -1;
 }
 
-// TOP_BAR_INCOME's end, the game's own answer: the income the bar would draw.
 static UNUSED int topBarIncomeAsGame(int player, int resource, int income) {
     (void)player, (void)resource;
     return income;
@@ -27,7 +24,6 @@ static void (*nextTopBar)(int, int);
 static u64 (*nextTopBarIncomeDraw)(int, float, float, float, const char *, int, int);
 static int topBarPlayer = -1;
 
-// CoE5SE's wrapper of map_screen's top bar call: notes the bar's player.
 static void noteTopBarPlayer(int player, int flag) {
     int outer = topBarPlayer;
     topBarPlayer = player;
@@ -35,7 +31,6 @@ static void noteTopBarPlayer(int player, int flag) {
     topBarPlayer = outer;
 }
 
-// CoE5SE's wrapper of the bar's income draws: the number TOP_BAR_INCOME's chain answers, the rest as the game's.
 static u64 drawTopBarIncome(int id, float x, float y, float size, const char *format, int stock, int income) {
     uintptr_t returnTo = *(const uintptr_t *)(siteCallerSp(SITE_TOP_BAR_INCOME_DRAW) - sizeof(uintptr_t));
     int resource = topBarIncomeResource(returnTo, (uintptr_t)gameBase);
@@ -45,7 +40,6 @@ static u64 drawTopBarIncome(int id, float x, float y, float size, const char *fo
     return ((u64 (*)(int, float, float, float, const char *, ...))nextTopBarIncomeDraw)(id, x, y, size, format, stock, drawn);
 }
 
-// Installs the two internal wraps, once, when TOP_BAR_INCOME is first wrapped (prepareSiteCode).
 static int installTopBarIncomeDraws(void) {
     static int done;
     if (done) return done > 0;

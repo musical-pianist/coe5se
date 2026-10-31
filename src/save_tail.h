@@ -1,5 +1,3 @@
-// The save tail: what CoE5SE writes after the last marker of every save and turn file.
-
 #define SAVE_TAG(a, b, c, d)  ((int)((unsigned)(a) | (unsigned)(b) << 8 | (unsigned)(c) << 16 | (unsigned)(d) << 24))
 #define SAVE_LIST_MAGIC       SAVE_TAG('C', '5', 'S', 'L')
 #define SAVE_LIST_VERSION     1
@@ -23,7 +21,6 @@ static const char *const SAVE_FILE_NAMES[] = {"save", "turn"};
 static const char *savePlatformName(int platform) { return platform == 0 ? "windows" : platform == 1 ? "mac" : "unknown"; }
 
 // ---- Payloads -----------------------------------------------------------------------------------
-// A payload being built.
 typedef struct { unsigned char *bytes; size_t size, capacity; int failed; } SaveBuffer;
 
 static void saveBufferAdd(SaveBuffer *b, const void *data, size_t size) {
@@ -52,7 +49,6 @@ static void saveBufferInt(SaveBuffer *b, int value) {
     saveBufferAdd(b, le, 4);
 }
 
-// A string: its length as one byte, then its bytes.
 static void saveBufferString(SaveBuffer *b, const char *text) {
     size_t length = strlen(text);
     unsigned char size = (unsigned char)(length > SAVE_STRING_MAX ? SAVE_STRING_MAX : length);
@@ -60,7 +56,6 @@ static void saveBufferString(SaveBuffer *b, const char *text) {
     saveBufferAdd(b, text, size);
 }
 
-// Reading a payload: a cursor that fails, and stays failed, when a field runs past the payload.
 typedef struct { const unsigned char *at, *end; int failed; } SaveCursor;
 
 static int saveCursorInt(SaveCursor *c) {
@@ -73,7 +68,6 @@ static int saveCursorInt(SaveCursor *c) {
     return value;
 }
 
-// Copies a string into `out` (`size` bytes, at least SAVE_STRING_MAX + 1 for every name to fit).
 static void saveCursorString(SaveCursor *c, char *out, size_t size) {
     out[0] = '\0';
     if (c->failed || c->at >= c->end || c->end - c->at - 1 < c->at[0]) {
@@ -90,7 +84,6 @@ static void saveCursorString(SaveCursor *c, char *out, size_t size) {
 typedef struct { int tag, size; unsigned char *payload; } SaveChunk;
 typedef struct { SaveChunk chunks[SAVE_CHUNKS_MAX]; int count, dropped; } SaveList;
 
-// The tag as its 4 characters, for the log.
 static const char *saveTagText(int tag, char out[5]) {
     for (int i = 0; i < 4; i++) {
         unsigned char ch = (unsigned char)(tag >> (8 * i));
@@ -100,7 +93,6 @@ static const char *saveTagText(int tag, char out[5]) {
     return out;
 }
 
-// Adds a built payload to the list, which then owns its bytes.
 static void saveListAdd(SaveList *list, int tag, SaveBuffer *b) {
     char text[5];
     if (b->failed || list->count >= SAVE_CHUNKS_MAX) {
@@ -117,10 +109,8 @@ static void saveListFree(SaveList *list) {
     list->count = 0;
 }
 
-// What the names chunks wrote, for save_names_written.
 typedef struct { int mods, spells; } SaveNamesWritten;
 
-// The names chunks (save_names.h, included after this file).
 static void addSaveNameChunks(SaveList *list, SaveNamesWritten *written);
 static const char *useSaveNameChunks(const SaveList *list, SaveFile file);
 static int isSaveNameTag(int tag);
@@ -136,14 +126,12 @@ static void setCustomPlaneCameras(void);
 static void addFactionChunks(SaveList *list);
 static void useFactionDataChunks(const SaveList *list);
 
-// The GAME chunk's last slot of the game's own content for kind `kind`.
 static int saveVanillaLastIndex(int kind) {
     if (kind == 0) return VANILLA_SPELL_COUNT - 1;
     if (kind == SAVE_GAME_KINDS - 1) return VANILLA_SPELL_PATH_COUNT - 1;
     return -1;
 }
 
-// Builds the list for a file being written: GAME, the names chunks, then MODH and MODC, last.
 static void buildSaveList(SaveList *list, SaveNamesWritten *written) {
     SaveBuffer game = {0};
     saveBufferInt(&game, SAVE_GAME_VERSION);
@@ -159,7 +147,6 @@ static void buildSaveList(SaveList *list, SaveNamesWritten *written) {
     addModContentChunk(list);
 }
 
-// Writes the list to the file and returns its bytes.
 static long long writeSaveList(void *file, const SaveList *list) {
     long long bytes = 0;
     WRITE_INT(SAVE_LIST_MAGIC, file);
@@ -177,7 +164,6 @@ static long long writeSaveList(void *file, const SaveList *list) {
     return bytes + 12;
 }
 
-// What the last read of a list found: save_names_read's fields.
 typedef struct {
     const char *result, *reason;
     char skipped[5 * SAVE_CHUNKS_MAX + 1];
@@ -186,13 +172,11 @@ typedef struct {
 } SaveListRead;
 static SaveListRead lastSaveListRead;
 
-// Reads 4 bytes as an int; 0 on a short read.
 static int readSaveInt(void *file, int *value) {
     *value = 0;
     return READ_ARRAY(value, 4, 1, file) == 4;
 }
 
-// Reads the list after the RXC1 block into `list`, all of it or nothing.
 static const char *readSaveList(void *file, SaveList *list, const char **reason) {
     int magic, version, tag, size;
     *reason = "-";
@@ -218,14 +202,12 @@ static const char *readSaveList(void *file, SaveList *list, const char **reason)
     return NULL;
 }
 
-// Notes a known tag skipped for its payload version.
 static void skipSaveChunk(SaveListRead *read, int tag) {
     char text[5];
     size_t used = strlen(read->skipped);
     snprintf(read->skipped + used, sizeof read->skipped - used, "%s%s", used ? "," : "", saveTagText(tag, text));
 }
 
-// Reads the GAME chunk: which platform wrote the file.
 static void readSaveGameChunk(const SaveChunk *chunk, SaveListRead *read) {
     SaveCursor c = {chunk->payload, chunk->payload + chunk->size, 0};
     char writer[SAVE_STRING_MAX + 1];
@@ -239,7 +221,6 @@ static void readSaveGameChunk(const SaveChunk *chunk, SaveListRead *read) {
 }
 
 // ---- The tail -----------------------------------------------------------------------------------
-// Writes the tail after a file's last marker: RXC1, then the list.
 static void writeSaveTail(void *file, int onlyPlayer, SaveFile kind) {
     writeExtraCastCounts(file, onlyPlayer, SAVE_FILE_NAMES[kind]);
     SaveList list = {0};
@@ -251,7 +232,6 @@ static void writeSaveTail(void *file, int onlyPlayer, SaveFile kind) {
     saveListFree(&list);
 }
 
-// Reads the tail after a file's last marker.
 static void readSaveTail(void *file, int onlyPlayer, SaveFile kind) {
     SaveListRead *read = &lastSaveListRead;
     *read = (SaveListRead){.result = "no_block", .reason = "-", .writtenOn = -1};
@@ -283,7 +263,6 @@ static void readSaveTail(void *file, int onlyPlayer, SaveFile kind) {
 
 // ---- The hooks ----------------------------------------------------------------------------------
 #ifndef __APPLE__
-// The game writes each file's last marker with its own fwrite.
 typedef size_t (*GameFwriteFn)(const void *data, size_t size, size_t count, void *file);
 typedef int (*GameFcloseFn)(void *file);
 
@@ -293,7 +272,6 @@ static size_t writeSaveEnd(const void *marker, size_t size, size_t count, void *
     return written;
 }
 
-// The server screen's copy of save_game writes its marker with write_int(0x69, file).
 typedef int (*GameWriteIntFn)(int value, void *file);
 
 static int writeServerSaveEnd(int marker, void *file) {
@@ -307,7 +285,6 @@ static int closeSaveRead(void *file) {
     return GAME_FN(GameFcloseFn, RVA_FCLOSE)(file);
 }
 
-// The turn file writer's player, which the marker's stub stores here.
 static volatile int turnWriterPlayer;
 static volatile int *turnWriterPlayerSlot;
 
@@ -317,7 +294,6 @@ static size_t writeTurnEnd(const void *marker, size_t size, size_t count, void *
     return written;
 }
 
-// A turn file read's player.
 static int closeTurnRead(void *file) {
     readSaveTail(file, turnFilePlayer, SAVE_FILE_TURN);
     return GAME_FN(GameFcloseFn, RVA_FCLOSE)(file);
@@ -364,7 +340,6 @@ static int installSaveTailHooks(void) {
     return ok;
 }
 #else
-// Each file's last marker comes right before its fclose.
 static int closeSaveWritten(FILE *file) {
     writeSaveTail(file, -1, SAVE_FILE_SAVE);
     return fclose(file);
@@ -380,13 +355,11 @@ static int closeTurnRead(FILE *file) {
     return fclose(file);
 }
 
-// The turn file writer's player comes in x1: the padding code before it copies it from x19.
 static int closeTurnWritten(FILE *file, long long player) {
     writeSaveTail(file, (int)player, SAVE_FILE_TURN);
     return fclose(file);
 }
 
-// Points the fclose `bl` at `callRva` to `code`.
 static int pointSaveTailCall(unsigned int callRva, unsigned char *code, const char *name) {
     uint32_t word = blTo(gameBase + callRva, code);
     if (writeGameCode(gameBase + callRva, &word, 4)) return 1;
@@ -394,7 +367,6 @@ static int pointSaveTailCall(unsigned int callRva, unsigned char *code, const ch
     return 0;
 }
 
-// Checks that the `bl` at `callRva` calls fclose; logs and returns 0 when it doesn't.
 static int isSaveTailFclose(unsigned int callRva, const char *name) {
     if (blTarget(gameBase + callRva) == gameBase + RVA_FCLOSE) return 1;
     writeLog("save_tail_hook_skipped", "name=%s va=0x%llx reason=not_the_expected_call", name, callRva + 0x100000000ULL);
@@ -427,7 +399,6 @@ static int installSaveTailHooks(void) {
 }
 #endif
 
-// Installs the hooks.
 static void saveTailInit(void) {
     writeLog("save_tail_hooks_installed", "ok=%d of %d", installSaveTailHooks(), SAVE_TAIL_HOOKS);
 }

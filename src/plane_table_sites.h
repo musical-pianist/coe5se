@@ -1,10 +1,8 @@
-// Every instruction in CoE5.exe that builds an address in the game's plane table or its camera arrays.
 #pragma once
 
 enum { PLANE_FIELD_REL32, PLANE_FIELD_DISP32 };
 enum { PLANE_GROUP_TABLE, PLANE_GROUP_CAMERA_X, PLANE_GROUP_CAMERA_Y, PLANE_GROUP_BG_BUILT, PLANE_GROUP_BG_PIXELS, PLANE_GROUP_BG_DIRTY, PLANE_GROUP_BG_SIZE };
 
-// One rewrite: the 4-byte field at rva + fieldOffset, its kind, and the array it reaches.
 typedef struct {
     unsigned int rva;
     unsigned char fieldOffset, kind, group;
@@ -1567,7 +1565,6 @@ static const PlanePatchSite PLANE_TABLE_SITES[PLANE_TABLE_SITE_COUNT] = {
     {0x190e49, 3, PLANE_FIELD_REL32, PLANE_GROUP_BG_SIZE},
 };
 
-// The plane-count compares after a read of RVA_LAST_PLANE: cmp r32, 11 (the imm8 at +2).
 typedef struct { unsigned int rva; } PlaneCountSite;
 #define PLANE_COUNT_SITE_COUNT 14
 static const PlaneCountSite PLANE_COUNT_SITES[PLANE_COUNT_SITE_COUNT] = {

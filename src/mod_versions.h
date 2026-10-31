@@ -1,5 +1,3 @@
-// Mods whose version differs from the one that made the current turn.
-
 #define MOD_VERSIONS_TITLE  "CoE5SE: Mod versions differ"
 #define MOD_VERSIONS_LINES  16
 static struct {
@@ -7,7 +5,6 @@ static struct {
     int count, capacity;
 } modVersionsDiffer;
 
-// Adds mod `name` to the list, once.
 static void noteModVersionDiffers(const char *name) {
     for (int i = 0; i < modVersionsDiffer.count; i++)
         if (!strcmp(modVersionsDiffer.mods[i], name)) return;
@@ -18,7 +15,6 @@ static void noteModVersionDiffers(const char *name) {
     snprintf(modVersionsDiffer.mods[modVersionsDiffer.count++], MOD_NAME_MAX, "%s", name);
 }
 
-// The box's text: one mod per line, by its display name.
 static size_t modVersionsDifferText(char *text, size_t size) {
     size_t n = 0;
     char label[80];
@@ -33,7 +29,6 @@ static size_t modVersionsDifferText(char *text, size_t size) {
     return n;
 }
 
-// The game's checksum differs for mod `name` on a later turn.
 static void modChecksumDiffers(const char *name) {
     if (findSavedModHash(name)) {
         writeLog("mod_checksum_differs", "mod=%s decided_by=content_hash", name);
@@ -42,7 +37,6 @@ static void modChecksumDiffers(const char *name) {
     noteModVersionDiffers(name);
 }
 
-// Compares the save's content hashes with each installed mod's files now.
 static int compareModContentHashes(void) {
     if (strcmp(savedModHashes.result, "found")) return -1;
     if (G32(RVA_TURN) <= G32(RVA_MOD_CRC_FIRST_TURN)) return -1;
@@ -61,7 +55,6 @@ static int compareModContentHashes(void) {
     return compared;
 }
 
-// After the mod list: with a differing mod, shows the box and ends the game.
 static void modVersionsCheckDone(void) {
     compareModContentHashes();
     if (modVersionsDiffer.count) {
@@ -75,7 +68,6 @@ static void modVersionsCheckDone(void) {
 
 static int modVersionsChecked;
 
-// Where load_game turns to resetmods after the mod list.
 static void finishLoadedModList(void) {
     keepPlayerModStates();
     if (modVersionsChecked) modVersionsCheckDone();
@@ -83,7 +75,6 @@ static void finishLoadedModList(void) {
 }
 
 #ifndef __APPLE__
-// load_game's RVA_WARN_FORMAT(RVA_STR_MOD_DIFFERS, name).
 static void modDiffersWarningHook(const char *format, const char *name) {
     (void)format;
     modChecksumDiffers(name);
@@ -121,7 +112,6 @@ static int installModVersionHooks(int *wanted) {
     return 3;
 }
 #else
-// load_game's RVA_WARN_FORMAT(RVA_STR_MOD_DIFFERS, name) on Mac.
 static void modDiffersWarningHook(const char *format, ...) {
     va_list ap;
     va_start(ap, format);
@@ -153,7 +143,6 @@ static int installModVersionHooks(int *wanted) {
 }
 #endif
 
-// Installs the hooks.
 static void modVersionsInit(void) {
     int wanted = 0, ok = installModVersionHooks(&wanted);
     writeLog("mod_version_hooks_installed", "ok=%d of %d", ok, wanted);

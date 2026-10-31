@@ -1,10 +1,8 @@
-// Every instruction in CoE5.exe that builds an address in the game's per-player tables, and every slot bound.
 #pragma once
 
 enum { PLAYER_FIELD_REL32, PLAYER_FIELD_DISP32 };
 enum { PLAYER_GROUP_BLOCKS, PLAYER_GROUP_CONTROLLER, PLAYER_GROUP_CLASS, PLAYER_GROUP_HOME_X, PLAYER_GROUP_HOME_Y, PLAYER_GROUP_COLOURS, PLAYER_GROUP_PLANE_SEEN, PLAYER_GROUP_COUNT };
 
-// One rewrite of an address in the game's per-player tables.
 typedef struct {
     unsigned int rva;
     unsigned char fieldOffset, kind, group, end;
@@ -2509,7 +2507,6 @@ static const PlayerPatchSite PLAYER_TABLE_SITES[PLAYER_TABLE_SITE_COUNT] = {
     {0x3356bc, 5, PLAYER_FIELD_DISP32, PLAYER_GROUP_BLOCKS, 0},
 };
 
-// A size or count of the game's 32 slots: the imm32 at rva + immOffset, 32 x per in the game.
 typedef struct { unsigned int rva; unsigned char immOffset; unsigned short per; } PlayerCountSite;
 #define PLAYER_COUNT_SITE_COUNT 6
 static const PlayerCountSite PLAYER_COUNT_SITES[PLAYER_COUNT_SITE_COUNT] = {
@@ -2521,7 +2518,6 @@ static const PlayerCountSite PLAYER_COUNT_SITES[PLAYER_COUNT_SITE_COUNT] = {
     {0x31d158, 2, 0xb},
 };
 
-// A unit owner's guard before a 32-int stack array.
 typedef struct { unsigned int rva; unsigned char kind; } PlayerGuardSite;
 #define PLAYER_GUARD_SITE_COUNT 4
 static const PlayerGuardSite PLAYER_GUARD_SITES[PLAYER_GUARD_SITE_COUNT] = {
@@ -2531,7 +2527,6 @@ static const PlayerGuardSite PLAYER_GUARD_SITES[PLAYER_GUARD_SITE_COUNT] = {
     {0x1152c5, 0},
 };
 
-// A slot bound: the imm8 at rva + immOffset, 30, 31 or 32 in the game.
 typedef struct { unsigned int rva; unsigned char immOffset, game; } PlayerBoundSite;
 #define PLAYER_BOUND_SITE_COUNT 373
 static const PlayerBoundSite PLAYER_BOUND_SITES[PLAYER_BOUND_SITE_COUNT] = {

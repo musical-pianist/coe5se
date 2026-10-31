@@ -1,7 +1,5 @@
-// What each .c5m word of a content block writes: the field, the flag bits, or the ability.
 #pragma once
 enum { RECORD_MONSTER, RECORD_WEAPON, RECORD_ITEM, RECORD_CLASS, RECORD_TERRAIN, RECORD_RITUAL };
-// A field (offset, signed width), flag bits (offset of a u64, the mask), or an ability (the id).
 enum { WORD_FIELD, WORD_FLAG, WORD_ABILITY };
 typedef struct { const char *word; unsigned char record, kind, size; unsigned short offset; unsigned long long value; } RecordWord;
 static const RecordWord RECORD_WORDS[] = {

@@ -1,4 +1,3 @@
-// Recruitment bonuses: a number after templerec, libraryrec, atavirec, or a reclimiter "$" line.
 #pragma once
 
 #define REC_BONUS_AMOUNT_MAX   100
@@ -8,7 +7,6 @@
 
 enum { REC_BONUS_TEMPLES, REC_BONUS_LIBRARIES, REC_BONUS_ATAVI, REC_BONUS_UNITS, REC_BONUS_KINDS };
 
-// A recruitment word, its bonus kind, and the record flag it sets.
 static const struct {
     const char *word;
     int flag;
@@ -19,7 +17,6 @@ static const struct {
     {"reclimiter", 0},
 };
 
-// One offer's bonus.
 typedef struct {
     int cls, offer, kind;
     int slot;
@@ -31,16 +28,13 @@ static struct {
     int count, capacity;
 } recBonus;
 
-// The record the shop is rolling: the class list's or a special location's, and the copy given to the game.
 static struct RecBonusRoll recBonusRoll;
 
-// What a player owns of a bonus kind; `name` is the monster for REC_BONUS_UNITS.
 static int recBonusGameCount(int player, int kind, const char *name);
 static int (*recBonusCountOf)(int player, int kind, const char *name) = recBonusGameCount;
 static int installRecBonusUnitsHooks(void);
 
 // ---- Reading the lines ---------------------------------------------------------------------------
-// The bonus of kind and slot on the offer, or NULL.
 static RecBonus *findRecBonus(int cls, int offer, int kind, int slot) {
     for (int i = 0; i < recBonus.count; i++) {
         RecBonus *b = &recBonus.list[i];
@@ -53,20 +47,18 @@ static void dropRecBonus(RecBonus *b) {
     *b = recBonus.list[--recBonus.count];
 }
 
-// Drops every bonus of the class.
 static void dropClassRecBonuses(int cls) {
     for (int i = recBonus.count - 1; i >= 0; i--)
         if (recBonus.list[i].cls == cls) dropRecBonus(&recBonus.list[i]);
 }
 
-// Sets the offer's bonus; 0 when there was no memory for it.
 static int setRecBonus(int cls, int offer, int kind, int slot, int amount, int cap) {
     RecBonus *b = findRecBonus(cls, offer, kind, slot);
     if (!b) {
         if (recBonus.count == recBonus.capacity) {
             int capacity = recBonus.capacity ? recBonus.capacity * 2 : 64;
             RecBonus *list = realloc(recBonus.list, (size_t)capacity * sizeof *list);
-            if (!list) return 0;   // Logged by the caller
+            if (!list) return 0;
             recBonus.list = list, recBonus.capacity = capacity;
         }
         b = &recBonus.list[recBonus.count++];
@@ -75,7 +67,6 @@ static int setRecBonus(int cls, int offer, int kind, int slot, int amount, int c
     return 1;
 }
 
-// Reads "amount [cap]" at p into the two; 0 for no number at p, -1 for anything else after the word.
 static int readRecBonusNumbers(const char *p, int *amount, int *cap) {
     skipSpaces(&p);
     if (!isdigit((unsigned char)*p) && !((*p == '-' || *p == '+') && isdigit((unsigned char)p[1]))) return 0;
@@ -89,7 +80,6 @@ static int readRecBonusNumbers(const char *p, int *amount, int *cap) {
     return 1;
 }
 
-// The reclimiter line's quoted text into `text`, and where the line goes on after it; NULL with none.
 static const char *readRecLimiterText(const char *args, char *text, size_t size) {
     const char *open = strchr(args, '"');
     const char *close = open ? strchr(open + 1, '"') : NULL;
@@ -98,7 +88,6 @@ static const char *readRecLimiterText(const char *args, char *text, size_t size)
     return close + 1;
 }
 
-// Every .c5m line outside events comes here before the game's parser; the game always gets the line.
 static void recBonusLineHook(const char *line, size_t len, int mod, int level) {
     if (level != 2) return;
     int cls = G32(RVA_CLASS_CURRENT), offer = G32(RVA_CLASS_LAST_RECRUIT);
@@ -135,7 +124,6 @@ static void recBonusLineHook(const char *line, size_t len, int mod, int level) {
     if (!hooked) refuseC5mLine(word, spellModName(mod), "site_unavailable", "line=%d", G32(RVA_MOD_LINE));
 }
 
-// Before a mod pass: a level-2 pass reads every bonus again.
 static void recBonusBeforePass(int level) {
     if (level != 2) return;
     recBonus.count = 0;
@@ -155,14 +143,12 @@ static int recBonusGameCount(int player, int kind, const char *name) {
     return temples;
 }
 
-// One bonus for the player: amount x min(count, cap).
 static int recBonusFor(const RecBonus *b, int player, const char *name) {
     int n = recBonusCountOf(player, b->kind, name);
     if (b->cap != REC_BONUS_NO_CAP && n > b->cap) n = b->cap;
     return n > 0 ? b->amount * n : 0;
 }
 
-// The class and offer of a class list record, 0 for another record (a special location's).
 static int recBonusOfferOf(const unsigned char *record, int *cls, int *offer) {
     const unsigned char *list = tableAddress(TABLE_CLASS_RECRUITS);
     size_t at = (size_t)(record - list);
@@ -173,7 +159,6 @@ static int recBonusOfferOf(const unsigned char *record, int *cls, int *offer) {
     return 1;
 }
 
-// Copies a class offer with flag word bonuses into `copy`, the bonuses in its chance; 0 for a record with none.
 static int recBonusOfferCopy(int player, const unsigned char *record, unsigned char *copy) {
     int cls, offer;
     if (!recBonus.count || !recBonusOfferOf(record, &cls, &offer)) return 0;
@@ -192,7 +177,6 @@ static int recBonusOfferCopy(int player, const unsigned char *record, unsigned c
     return 1;
 }
 
-// RVA_SHOP_PROCESS_OFFER's count for a "$" line: the line's bonus, or the game's own step.
 static int recBonusUnitsCount(int player, const char *name) {
     int n = recBonusCountOf(player, REC_BONUS_UNITS, name);
     const unsigned char *rolled = recBonusRoll.rolled;
@@ -209,7 +193,6 @@ static int recBonusUnitsCount(int player, const char *name) {
     return n * (1 + (chance >= 3) + (chance >= 9));
 }
 
-// After the game rolled a copy: the new entry keeps the record's flags and the game's message.
 static void recBonusAfterRoll(int player, const unsigned char *record, const unsigned char *copy, int entryBefore) {
     size_t block = (size_t)player * PLAYER_BLOCK_SIZE;
     int entry = PG32(RVA_SHOP_LAST + block);
@@ -219,7 +202,7 @@ static void recBonusAfterRoll(int player, const unsigned char *record, const uns
         GAME_FN(void (*)(int), RVA_SHOP_OFFER_MESSAGE)(player);
 }
 
-// Points the "$" count call at recBonusUnitsCount and patches out the game's two steps, once; 1 when all are in.
+// @platform-split rec_bonus_steps: Windows rewrites each lea's SIB byte, Mac each csel's first source
 #ifndef __APPLE__
 #define REC_BONUS_SIB_NO_INDEX 0x20
 #define REC_BONUS_STEP_3(live) (unsigned char)(REC_BONUS_SIB_NO_INDEX | (((live) >> 3) & 7))
@@ -237,7 +220,7 @@ static int installRecBonusUnitsHooks(void) {
     recBonusRoll.unitsTried = 1;
     if (!gameCodeMatches) {
         writeLog("hook_skipped", "site=shop_units_count reason=game_code_differs");
-        return 0;   // Logged
+        return 0;
     }
     if (!installShopOfferHooks() ||
         !pointCustomPlaneCall(RVA_SHOP_UNITS_COUNT_CALL, RVA_COUNT_PLAYER_MONSTERS, (void *)recBonusUnitsCount, "shop_units_count"))
@@ -253,12 +236,12 @@ static int installRecBonusUnitsHooks(void) {
     __typeof__(live[0]) patched[2] = {REC_BONUS_STEP_3(live[0]), REC_BONUS_STEP_9(live[1])};
     if (!writeGameCode(steps[0], &patched[0], REC_BONUS_STEP_SIZE)) {
         writeLog("hook_skipped", "site=shop_units_steps reason=code_unwritable");
-        return 0;   // Logged
+        return 0;
     }
     if (!writeGameCode(steps[1], &patched[1], REC_BONUS_STEP_SIZE)) {
         writeGameCode(steps[0], &live[0], REC_BONUS_STEP_SIZE);
         writeLog("hook_skipped", "site=shop_units_steps reason=code_unwritable");
-        return 0;   // Logged
+        return 0;
     }
     recBonusRoll.unitsHooked = 1;
     writeLog("rec_bonus_units_hooked", "ok=1");

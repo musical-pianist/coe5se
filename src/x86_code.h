@@ -1,4 +1,3 @@
-// The x86-64 code CoE5SE writes on Windows, built into a buffer.
 #ifndef X86_CODE_H
 #define X86_CODE_H
 
@@ -10,7 +9,6 @@
 #define TRACE_RESUME_AT   0x20
 #define TRACE_MOVED_BYTES 5
 
-// Writes `opcode` and a 32-bit displacement to `slot`, and moves *p past it.
 static UNUSED void emitRipStore(unsigned char **p, const unsigned char *opcode, int opcodeLen, const void *slot, const unsigned char *runsAt) {
     memcpy(*p, opcode, opcodeLen);
     int disp = (int)((const unsigned char *)slot - (runsAt + opcodeLen + 4));
@@ -18,7 +16,6 @@ static UNUSED void emitRipStore(unsigned char **p, const unsigned char *opcode, 
     *p += opcodeLen + 4;
 }
 
-// What a site's stub stores and reads before it jumps to the chain's head.
 typedef struct {
     const void *xmm12, *xmm13;
     const void *ecxFrom;
@@ -26,7 +23,6 @@ typedef struct {
     const void *rsp, *head;
 } SiteStubSlots;
 
-// Builds a site's stub, to run at `stub`, in `code` (STUB_SIZE bytes); returns its length.
 static UNUSED size_t buildSiteStub(unsigned char *code, const unsigned char *stub, const SiteStubSlots *s) {
     static const unsigned char MOVSS_XMM12[] = {0xf3, 0x44, 0x0f, 0x11, 0x25};
     static const unsigned char MOVSS_XMM13[] = {0xf3, 0x44, 0x0f, 0x11, 0x2d};
@@ -49,15 +45,13 @@ static UNUSED size_t buildSiteStub(unsigned char *code, const unsigned char *stu
     return (size_t)(p - code);
 }
 
-// Builds the call at `call` that goes to the site's stub at `stub`: call rel32, then a nop.
-static UNUSED void buildSiteCall(unsigned char code[6], const unsigned char *call, const unsigned char *stub) {
+static UNUSED void buildSiteCall(unsigned char code[6], const unsigned char *call, const unsigned char *stub, int tailJump) {
     int rel = (int)(stub - (call + 5));
-    code[0] = 0xe8;
+    code[0] = tailJump ? 0xe9 : 0xe8;
     memcpy(code + 1, &rel, 4);
     code[5] = 0x90;
 }
 
-// Builds a gate's code, to run at `gate`, in `code` (GATE_SIZE bytes); returns its length.
 static UNUSED size_t buildGateCode(unsigned char *code, const unsigned char *gate, const void *const flags[3],
                                    const void *entered, const void *hookSlot, const void *nextSlot) {
     static const unsigned char JCC[3] = {0x7f, 0x75, 0x75};
@@ -79,10 +73,8 @@ static UNUSED size_t buildGateCode(unsigned char *code, const unsigned char *gat
     return (size_t)(p - code);
 }
 
-// A rel32 at `at` in copied code, and the address it reaches.
 typedef struct { int at; const unsigned char *target; } CodeFixup;
 
-// Builds an entry hook's slot, to run at `t`, in `code` (ENTRY_HOOK_SLOT bytes); 0 when a fixup is out of reach.
 static UNUSED int buildEntryHookSlot(unsigned char *code, const unsigned char *t, const unsigned char *fn, const unsigned char *saved,
                                      int size, const CodeFixup *fixups, int fixupCount, const void *detour) {
     static const unsigned char JMP_RIP[6] = {0xff, 0x25, 0, 0, 0, 0};
@@ -102,7 +94,6 @@ static UNUSED int buildEntryHookSlot(unsigned char *code, const unsigned char *t
     return 1;
 }
 
-// Builds the jump an entry hook writes over the function's first `size` bytes at `fn`: jmp rel32 to `stub`, then nops.
 static UNUSED void buildEntryHookJump(unsigned char *code, const unsigned char *fn, const unsigned char *stub, int size) {
     code[0] = 0xe9;
     int rel = (int)(stub - (fn + 5));
@@ -110,7 +101,6 @@ static UNUSED void buildEntryHookJump(unsigned char *code, const unsigned char *
     memset(code + 5, 0x90, (size_t)size - 5);
 }
 
-// Builds a trace function's two stubs, to run at `entry`, in `code` (TRACE_STUB_SIZE bytes).
 static UNUSED void buildTraceStubs(unsigned char *code, const unsigned char *entry, const unsigned char *fn,
                                    const unsigned char moved[TRACE_MOVED_BYTES], const void *hook) {
     memset(code, 0, TRACE_STUB_SIZE);
@@ -126,7 +116,6 @@ static UNUSED void buildTraceStubs(unsigned char *code, const unsigned char *ent
     memcpy(p, &hook, 8);
 }
 
-// A trace function's first 8 bytes, `word`, with its first 5 made a jmp rel32 from `fn` to `entry`.
 static UNUSED unsigned long long buildTraceJumpWord(unsigned long long word, const unsigned char *fn, const unsigned char *entry) {
     unsigned int rel = (unsigned int)(int)(entry - (fn + 5));
     return (word & 0xffffff0000000000ULL) | (unsigned long long)rel << 8 | 0xe9;

@@ -1,4 +1,3 @@
-// Every word CoE5.exe's .c5m reader recognizes.
 #pragma once
 #include <string.h>
 

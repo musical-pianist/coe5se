@@ -1,7 +1,6 @@
-// Mods' screens: their entries in Mod Settings, the game's screen widgets for plugins (UiApi), and the main menu's More screen.
+#pragma once
 
 // ---- Plugin entries in Mod Settings: screen lines ---------------------------------------------
-// A mod's settings live only in its settings files.
 #define ID_SCREEN_FIRST   400
 #define ID_SCREEN_END     1000
 enum { ENTRY_SCREEN, ENTRY_LEFT_OUT };
@@ -18,7 +17,6 @@ typedef struct {
 static SettingEntry **entries;
 static int entryCount, entryCapacity;
 
-// Writes the calling plugin's DLL path, its folder, and its mod.
 static void pluginModOf(void *caller, char *path, char *dir, char *mod, size_t modSize) {
     HMODULE m = callingPlugin(caller);
     path[0] = '\0';
@@ -31,7 +29,6 @@ static void pluginModOf(void *caller, char *path, char *dir, char *mod, size_t m
         snprintf(mod, modSize, "%.*s", (int)(strlen(file) > strlen(PLUGIN_SUFFIX) ? strlen(file) - strlen(PLUGIN_SUFFIX) : strlen(file)), file);
 }
 
-// Adds an entry for the plugin that called, or for mod `luaMod`'s script.
 static SettingEntry *addEntry(void *caller, const char *luaMod, int type, const char *label, const char *tip) {
     SettingEntry *e = calloc(1, sizeof *e);
     if (!e) return NULL;
@@ -56,7 +53,6 @@ static SettingEntry *addEntry(void *caller, const char *luaMod, int type, const 
     return e;
 }
 
-// Makes `e` a left-out entry, logged with the rule's reason.
 static void leaveEntryOut(SettingEntry *e, void *caller, const char *call, const SettingProblem *p) {
     refuseApiCall(caller, call, p->reason, "label=%s problem=%s", e->label, p->text);
     snprintf(e->problem, sizeof e->problem, "%.20s %.32s: %.79s", call, e->label, p->text);
@@ -64,7 +60,6 @@ static void leaveEntryOut(SettingEntry *e, void *caller, const char *call, const
     leftOutVersion++;
 }
 
-// The lines a mod's screen lines take on its page.
 static int pluginPageLines(const char *mod) {
     int lines = 0, boxOpen = 0;
     for (int i = 0; i < entryCount; i++)
@@ -72,7 +67,6 @@ static int pluginPageLines(const char *mod) {
     return lines;
 }
 
-// Adds a screen line for the plugin that called, or for mod `luaMod`'s script.
 static int addScreenFor(void *caller, const char *luaMod, const char *label, const char *tip, void (*open)(void), int lua) {
     if (!open && lua < 0) {
         refuseApiCall(caller, "addScreen", "no_callback", "label=%s", label ? label : "");
@@ -99,7 +93,6 @@ static int apiAddScreen(const char *label, const char *tip, void (*open)(void)) 
     return addScreenFor(__builtin_return_address(0), NULL, label, tip, open, -1);
 }
 
-// api->setting: the calling plugin's own mod's setting.
 static const int *pluginSetting(void *caller, const char *mod, const char *dir, const char *name);
 static const int *apiSetting(const char *name) {
     void *caller = __builtin_return_address(0);
@@ -109,7 +102,6 @@ static const int *apiSetting(const char *name) {
 }
 
 // ---- The game's screen widgets for plugins (UiApi) --------------------------------------------
-// A mod's text for a game draw function's buffer of `size` bytes, cut to fit.
 static const char *fitGameText(void *caller, const char *call, const char *text, char *buf, size_t size) {
     if (strlen(text) < size) return text;
     noteApiCut(caller, call, "text", text, (int)size - 1);
@@ -118,7 +110,6 @@ static const char *fitGameText(void *caller, const char *call, const char *text,
     return buf;
 }
 
-// common.h's screenTitle, with the translated title cut to screen_title's buffer.
 static void uiScreenBegin(const char *title) {
     static char translated[TRANSLATED_SIZE];
     _Static_assert(SCREEN_TITLE_TEXT_SIZE <= TRANSLATED_SIZE, "the title is cut inside the translation buffer");
@@ -149,13 +140,11 @@ static void uiTooltip(const char *text) {
     char cut[TOOLTIP_TEXT_SIZE];
     if (text) tooltip(fitGameText(__builtin_return_address(0), "ui.tooltip", text, cut, sizeof cut));
 }
-// UI_KEY_ESCAPE binds the game's own Escape key, which is 0 while the game binds none.
 static void uiBindKey(int id, int key) {
     if (key == UI_KEY_ESCAPE) key = ESCAPE_KEY();
     if (key) bindHotkey(id, key);
 }
 
-// The List layout makes the same calls, in the same order, as Load Game's list.
 #define LIST_WIDTH         450.0f
 #define LIST_GAP           3.0f
 static int listRowIndex;
@@ -199,7 +188,6 @@ static const UiApi UI = {
     .wait = screenWait, .listBegin = uiListBegin, .listRow = uiListRow, .listEnd = uiListEnd,
 };
 
-// The screen that More on the main menu opens: the buttons the column has no room for.
 #define MORE_ID_BACK      9
 #define MORE_ID_FIRST_ROW 100
 static void moreButtonsScreen(int first) {

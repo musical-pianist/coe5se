@@ -1,4 +1,3 @@
-// The in-game side of CoE5SE, coe5se.c5plugin.dll (coe5se.c5plugin.dylib on Mac).
 #define COE5SE_RAW_ADDRESSES
 #include "common.h"
 #include "build_path.h"
@@ -9,7 +8,6 @@
 #include "loader_start.h"
 #include "settings_files.h"
 
-// The game's user folder.
 static int userDirFollowsGame = -1;
 static const char *userDir(void) {
     if (userDirFollowsGame < 0) {
@@ -39,7 +37,6 @@ static const char *userDir(void) {
 
 typedef unsigned long long u64;
 
-// Appends printf-style text at text + *n, in a buffer of `size` bytes, and moves *n past it.
 static PRINTF_FORMAT(4, 5) void appendText(char *text, size_t size, size_t *n, const char *fmt, ...) {
     if (*n >= size - 1) return;
     va_list ap;
@@ -49,13 +46,11 @@ static PRINTF_FORMAT(4, 5) void appendText(char *text, size_t size, size_t *n, c
     if (wrote > 0) *n = *n + (size_t)wrote < size - 1 ? *n + (size_t)wrote : size - 1;
 }
 
-// The game's message box with one Ok button, which Enter clicks.
 static int okBox(const char *title, const char *text) {
     return messageBox(title, text, "Ok", "", 0, UI_KEY_ENTER, 0);
 }
 
 // ---- Refusals ----------------------------------------------------------------------------------
-// Every input CoE5SE refuses or drops logs one line with its reason.
 #define MAX_REFUSALS_SEEN 128
 static unsigned int refusalsSeen[MAX_REFUSALS_SEEN];
 static unsigned int refusalSeenCount;
@@ -70,7 +65,6 @@ static int isScriptObserver(const void *fn);
 static void showLuaNotices(void);
 static void logHeaderEnd(void);
 
-// Logs `event` with the refusal's fields, unless the same line was already logged this launch.
 static void logRefusal(const char *event, const char *call, const char *modField, const char *mod,
                        const char *reason, const char *fmt, va_list ap) {
     char fields[512], line[768];
@@ -85,7 +79,6 @@ static void logRefusal(const char *event, const char *call, const char *modField
     writeLog(event, "%s", line);
 }
 
-// Names who made a PluginApi call: the script's mod, or the plugin DLL's file name.
 static const char *apiCallerName(void *caller, char *out, size_t size) {
     char path[MAX_PATH] = "?";
     HMODULE m = callingPlugin(caller);
@@ -96,14 +89,12 @@ static const char *apiCallerName(void *caller, char *out, size_t size) {
     return luaMod ? "mod" : "dll";
 }
 
-// Logs `event` for a PluginApi call.
 static void logApiCall(const char *event, void *caller, const char *call, const char *reason, const char *fmt, va_list ap) {
     char name[MAX_PATH];
     const char *field = apiCallerName(caller, name, sizeof name);
     logRefusal(event, call, field, name, reason, fmt, ap);
 }
 
-// Logs api_refused for a PluginApi call that `caller` made.
 static PRINTF_FORMAT(4, 5) void refuseApiCall(void *caller, const char *call, const char *reason, const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
@@ -118,13 +109,11 @@ static PRINTF_FORMAT(3, 4) void logApiCut(void *caller, const char *call, const 
     va_end(ap);
 }
 
-// Logs api_cut when `text` is longer than `max` characters.
 static void noteApiCut(void *caller, const char *call, const char *field, const char *text, int max) {
     if (strlen(text) <= (size_t)max) return;
     logApiCut(caller, call, "%s=%.80s max=%d", field, text, max);
 }
 
-// Refuses a PluginApi call: logs why, then returns `value`.
 #define REFUSE_API(value, call, reason, ...) \
     (refuseApiCall(__builtin_return_address(0), call, reason, __VA_ARGS__), (value))
 
@@ -135,7 +124,6 @@ static float *menuFadeTimer;
 
 #define COE5SE_PAGE_TITLE "CoE5SE"
 
-// Defined further down.
 static void coe5sePageScreen(void);
 static void readUnreadSettingsFiles(void);
 static unsigned int settingsPassCount(void);
@@ -229,7 +217,6 @@ static int runLuaCallback(int i, int wantResult, int fallback);
 static int runLuaVisible(int i);
 static int luaHidesReadTip(void);
 
-// The main menu buttons that plugins and scripts added.
 #define MAIN_BUTTON_FIRST_ID 780
 #define MORE_BUTTON_ID       779
 #define MORE_LABEL           "More"
@@ -237,7 +224,6 @@ typedef struct { char label[48]; void (*onClick)(void); int lua, afterId; } Main
 static MainButton *mainButtons;
 static int mainButtonCount, mainButtonCapacity;
 
-// Adds a main menu button for the plugin or script that called.
 static int addMainMenuButtonFor(void *caller, const char *label, void (*onClick)(void), int lua, int afterId) {
     if (!label || !label[0]) {
         refuseApiCall(caller, "addMainMenuButton", "no_label", "after=%d", afterId);
@@ -271,14 +257,12 @@ static int apiAddMainMenuButton(const char *label, void (*onClick)(void)) {
     return addMainMenuButtonFor(__builtin_return_address(0), label, onClick, -1, -1);
 }
 
-// Runs button i's onClick, or its script's function.
 static void runMainButton(int i) {
     writeLog("main_menu_button_clicked", "label=%s", mainButtons[i].label);
     if (mainButtons[i].lua >= 0) runLuaCallback(mainButtons[i].lua, 0, 0);
     else mainButtons[i].onClick();
 }
 
-// The vanilla button plugins may hide with hideMainMenuButton.
 #define HIDDEN_Y         (-1000.0f)
 static const int **readTipHiders;
 static int readTipHiderCount, readTipHiderCapacity;
@@ -302,14 +286,12 @@ static int readTipHidden(void) {
     return hidden;
 }
 
-// The game's main menu buttons.
 static const int VANILLA_MENU_IDS[] = {MAIN_MENU_START_NEW_GAME, 0, MAIN_MENU_LOAD_GAME, MAIN_MENU_NETWORK, MAIN_MENU_PREFERENCES,
                                        MAIN_MENU_MODS, MAIN_MENU_CREDITS, MAIN_MENU_READ_TIP, MAIN_MENU_QUIT};
 #define VANILLA_BUTTONS  8
 #define MENU_FIRST_Y     305
 #define MENU_STEP        25.0f
 #define MENU_X_OFFSET    80.0f
-// The game's own button and background sizes.
 #define MENU_LABEL_SIZE  20.0f
 #define MENU_BUTTON_W    160.0f
 #define MENU_BG_INSET    5.0f
@@ -321,10 +303,8 @@ static int isVanillaMenuId(int id) {
     return 0;
 }
 
-// The id in GUI slot `slot`.
 static int guiId(int slot) { return *(int *)(gameBase + RVA_GUI_TABLE + (size_t)slot * GUI_STRIDE); }
 
-// Returns Quit's slot: the last slot before `before` that holds Quit.
 static int findQuitSlot(int before) {
     for (int q = before - 1; q >= 2 * (VANILLA_BUTTONS - 1); q--) {
         if (guiId(q) != MAIN_MENU_QUIT) continue;
@@ -335,12 +315,10 @@ static int findQuitSlot(int before) {
     return -1;
 }
 
-// How many buttons fit in the column on a screen `screenH` high.
 static int mainMenuRows(int screenH) {
     return screenH < MENU_FIRST_Y ? 1 : (screenH - MENU_FIRST_Y) / (int)MENU_STEP + 1;
 }
 
-// Puts the main menu's buttons in order.
 typedef struct { int slot, id; float width; void *label; } MenuSlot;
 static int arrangeMainMenu(const int *slots, const int *buttons, int count, int hide) {
     static MenuSlot *column, *saved;
@@ -397,7 +375,6 @@ static void loadLuaCommandsFiles(void);
 static void logAllWrapOrders(void);
 static void moreButtonsScreen(int first);
 
-// Draws one button of the column and returns its GUI slot, or -1 if the game gave it none.
 static int drawMenuButton(int id, float x, float y, float fade, const char *text) {
     static char label[TRANSLATED_SIZE];
     translateText(text, label, sizeof label);
@@ -410,7 +387,6 @@ static int drawMenuButton(int id, float x, float y, float fade, const char *text
 #endif
 }
 
-// The one-time message for a player whose stub turned CoE5SE on.
 static void showAutoEnableNotice(void) {
     char notice[MAX_PATH];
     if (!coe5seUserFile(AUTO_ENABLE_NOTICE_FILE, notice, sizeof notice)) return;
@@ -420,7 +396,6 @@ static void showAutoEnableNotice(void) {
     okBox("CoE5SE", "CoE5SE was turned on automatically.\nYou can turn it off at any time on the Mods screen.");
 }
 
-// The main menu column as drawMenuColumn drew it this frame.
 typedef struct {
     float x, top, bgAlpha;
     int room;
@@ -428,7 +403,6 @@ typedef struct {
     int count, moved;
 } MenuColumn;
 
-// Draws the plugins' buttons under the game's, with More last when they don't all fit.
 static void drawMenuColumn(MenuColumn *col) {
     int screenW = *(int *)(gameBase + RVA_SCREEN_W);
     int screenH = *(int *)(gameBase + RVA_SCREEN_H);
@@ -476,7 +450,6 @@ static void drawMenuColumn(MenuColumn *col) {
     }
 }
 
-// The end of CoE5SE's startup, once a launch, after the game has read its mods.
 #ifdef __APPLE__
 static long paddingLeft(void);
 #endif
@@ -495,7 +468,6 @@ static void finishStartup(void) {
     startupFinished = 1;
 }
 
-// The first main menu frame: the game has found its mods by now.
 static void onFirstMenuFrame(const MenuColumn *col) {
     finishStartup();
     writeLog("menu_hook_first_frame", "screen_w=%d screen_h=%d x=%.1f top=%.1f bg_alpha=%.3f fade_timer=%.3f buttons=%d room=%d quit_moved=%d",
@@ -503,7 +475,6 @@ static void onFirstMenuFrame(const MenuColumn *col) {
              col->count, col->room, col->moved);
 }
 
-// Once per launch: CoE5SE's main menu notices and pop-ups.
 static void showLaunchNotices(void) {
     static int shown;
     if (shown) return;
@@ -513,7 +484,6 @@ static void showLaunchNotices(void) {
     warnModsMissingPlugins();
 }
 
-// Whether this main menu frame may show CoE5SE's notices and pop-ups.
 #define MENU_NOTICE_WAIT_FRAMES 60
 static int menuClickedFrames;
 static int menuNoticesDue(int clicked) {
@@ -527,7 +497,6 @@ static int menuNoticesDue(int clicked) {
     return 1;
 }
 
-// Wraps each main menu frame.
 static int menuWaitHook(int a, int b) {
     MenuColumn col;
     drawMenuColumn(&col);
@@ -555,17 +524,13 @@ static int menuWaitHook(int a, int b) {
 }
 
 // ---- Plugin API: call sites -----------------------------------------------------------------
-// A site is one or more call instructions in the game with the same target.
 
-// The catalog of sites, with both builds' addresses, is in game_addresses.h.
 #define GAME_ADDRESSES_SITE_TABLE
 #include "game_addresses.h"
 #include "player_slots.h"
 
-// 1 when the game's code section hashed to its known build's (checkGameCode): every patch of the
 static int gameCodeMatches;
 
-// The sites whose calls are an inlined button_row's layout_new.
 static int isInlinedButtonRowSite(CallSite site) {
     return site == SITE_PARTICIPANTS_BUTTON_ROW || site == SITE_SQUARE_INFO_BUTTON_ROW;
 }
@@ -573,7 +538,6 @@ static int isInlinedButtonRowSite(CallSite site) {
 #include "x86_code.h"
 
 #ifndef __aarch64__
-// Each site's stub is 0x40 bytes of code, and all of them share two read-execute pages near the game's
 typedef struct {
     void *head;
     uintptr_t rsp;
@@ -591,10 +555,8 @@ static int setupIsAutomated;
 static unsigned char *siteStub(CallSite site) { return stubPage + site * STUB_SIZE; }
 static StubData *siteStubData(CallSite site) { return (StubData *)(stubPage + STUB_PAGES_BYTES) + site; }
 
-// The caller's rsp at the site's call, as on Mac.
 static uintptr_t siteCallerSp(CallSite site) { return siteStubData(site)->rsp + 8; }
 
-// The stubs' pages: code read-execute, data read-write, within 2 GB of `target`; NULL when there is no room.
 static unsigned char *allocStubPages(unsigned char *target) {
     unsigned char *pages = allocNearBytes(target, STUB_PAGES_BYTES + STUB_DATA_BYTES);
     if (!pages) return NULL;
@@ -603,7 +565,6 @@ static unsigned char *allocStubPages(unsigned char *target) {
     return pages;
 }
 
-// Makes game data in .rdata writable.
 static int makeGameDataWritable(void *address, size_t size) {
     DWORD old;
     return VirtualProtect(address, size, PAGE_READWRITE, &old) != 0;
@@ -613,7 +574,6 @@ static int prepareSiteCode(CallSite site);
 static void gameStartPrepOnce(void), removeGameStartOnceJump(void);
 static unsigned char *generatedSiteCall(CallSite site), *generatedSiteTarget(CallSite site);
 
-// Call i of a site (NULL past its last), and the function its calls go to.
 static int siteThroughSlot[SITE_COUNT];
 static unsigned char *siteCallAt(CallSite site, int i) {
     unsigned char *generated = generatedSiteCall(site);
@@ -630,7 +590,6 @@ static unsigned char *siteCallTarget(CallSite site) {
     return siteThroughSlot[site] ? *(unsigned char **)target : target;
 }
 
-// Whether the call at `call` goes to `target`.
 static int isSiteCall(const unsigned char *call, const unsigned char *target, const unsigned char *slot) {
     int rel;
     if (slot) {
@@ -638,13 +597,11 @@ static int isSiteCall(const unsigned char *call, const unsigned char *target, co
         return call[0] == 0xff && call[1] == 0x15 && call + 6 + rel == slot;
     }
     memcpy(&rel, call + 1, 4);
-    return call[0] == 0xe8 && call + 5 + rel == target;
+    return (call[0] == 0xe8 || call[0] == 0xe9) && call + 5 + rel == target;
 }
 
-// Whether CoE5SE runs the site's chain itself, from its own code, with no game call of the site's.
 static int siteRunByCoe5se(CallSite site) { return site == SITE_MAP_DRAW || site == SITE_TOP_BAR_INCOME; }
 
-// Builds the site's stub and points every call of the site at it.
 static int installSite(CallSite site) {
     const SiteInfo *info = &SITES[site];
     if (!prepareSiteCode(site)) {
@@ -692,7 +649,7 @@ static int installSite(CallSite site) {
     for (int i = 0; !ownCall && siteCallAt(site, i); i++) {
         unsigned char *call = siteCallAt(site, i), callCode[6];
         size_t size = slot ? 6 : 5;
-        buildSiteCall(callCode, call, stub);
+        buildSiteCall(callCode, call, stub, !slot && call[0] == 0xe9);
         memcpy(saved[i], call, size);
         if (writeGameCode(call, callCode, size)) continue;
         while (--i >= 0) writeGameCode(siteCallAt(site, i), saved[i], size);
@@ -710,7 +667,6 @@ static int setupIsAutomated;
 #endif
 
 // ---- Multiplayer gate -----------------------------------------------------------------------
-// No plugin runs in network games.
 #ifndef __aarch64__
 #define GATE_PAGE_SIZE  0x10000
 #define GATES_PER_PAGE  (GATE_PAGE_SIZE / GATE_SIZE)
@@ -728,7 +684,6 @@ static GateData *gateData(void *gate) {
 static void setGateNext(void *gate, void *next) { gateData(gate)->next = next; }
 #endif
 
-// Returns the loaded module (EXE or DLL) that holds `address`, or NULL.
 static HMODULE moduleOf(const void *address) {
     HMODULE m = NULL;
     GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
@@ -736,18 +691,15 @@ static HMODULE moduleOf(const void *address) {
     return m;
 }
 
-// Returns 1 for code inside CoE5SE itself.
 static int isCoe5seCode(const void *address) {
     HMODULE m = moduleOf(address);
     return m && m == moduleOf((void *)moduleOf);
 }
 
-// The path of the plugin DLL whose DllMain is running now.
 static char loadingPlugin[MAX_PATH];
 
 static void pluginLoadingDone(const char *path);
 
-// The loader calls this with the plugin's path before the load, and with NULL after it.
 __declspec(dllexport) void coe5sePluginLoading(const char *path) {
     if (path) {
         snprintf(loadingPlugin, sizeof loadingPlugin, "%s", path);
@@ -759,7 +711,6 @@ __declspec(dllexport) void coe5sePluginLoading(const char *path) {
     loadingPlugin[0] = '\0';
 }
 
-// Returns the plugin that called an API function.
 static HMODULE callingPlugin(void *returnAddress) {
     HMODULE m = loadingPlugin[0] ? GetModuleHandleA(loadingPlugin) : NULL;
     return m ? m : moduleOf(returnAddress);
@@ -770,14 +721,12 @@ static HMODULE callingPlugin(void *returnAddress) {
 #endif
 
 #ifndef __aarch64__
-// Writes a gate's code at `gate`, in a block that is still writable.
 static void writeGateCode(unsigned char *gate) {
     const void *flags[3] = {GAME_PTR(RVA_NET_CLIENT), GAME_PTR(RVA_NET_SERVER), GAME_PTR(RVA_NET_LOBBY)};
     GateData *data = gateData(gate);
     buildGateCode(gate, gate, flags, (const void *)&enteredGateAddress, &data->hook, &data->next);
 }
 
-// Builds a gate that jumps to `next` in a network game and to `hook` otherwise.
 static void *makeGate(void *hook, void *next) {
     if (gatePageUsed + GATE_SIZE > GATE_PAGE_SIZE) {
         unsigned char *page = VirtualAlloc(NULL, GATE_PAGE_SIZE + GATE_DATA_BYTES, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
@@ -798,11 +747,11 @@ static void *makeGate(void *hook, void *next) {
 #endif
 
 // ---- Who may wrap a site ------------------------------------------------------------------------
-// Observe-only and internal sites are closed to plugin wrappers.
 #define OBSERVE_ONLY_SITES(X) \
     X(SITE_RITUAL_SCREEN_LOCATION_CHECK) X(SITE_RITUAL_SCREEN_CAN_CAST) \
     X(SITE_GAME_START) X(SITE_MONTH_START) X(SITE_PLAYER_TURN_START) X(SITE_HUMAN_TURN) X(SITE_AI_TURN) \
-    X(SITE_PLAYER_TURN_END) X(SITE_GAME_OVER) X(SITE_GAME_SAVE) X(SITE_GAME_LOAD)
+    X(SITE_PLAYER_TURN_END) X(SITE_GAME_OVER) X(SITE_GAME_SAVE) X(SITE_GAME_LOAD) \
+    X(SITE_AFTER_GAME_TURN) X(SITE_DO_ALL_FIGHTS) X(SITE_MOVE_ALL_INDEPENDENTS) X(SITE_CONQUER_SQUARE)
 
 static int isInternalSite(CallSite site) {
     return site == SITE_MODS_RUN || site == SITE_MOD_COMMAND || site == SITE_TEXT_FORMAT || site == SITE_TEXT_BUILD ||
@@ -827,7 +776,6 @@ static int isObserveOnlySite(CallSite site) {
 }
 
 // ---- Wrap chains --------------------------------------------------------------------------------
-// Each site keeps its wrappers in one list, in the order they run.
 typedef enum { WRAP_LAYER_INNER, WRAP_LAYER_PLUGIN, WRAP_LAYER_OUTERMOST } WrapLayer;
 static const char *const WRAP_LAYER_NAMES[] = {"inner", "plugins", "outermost"};
 
@@ -857,7 +805,6 @@ static void **siteHeadSlot(CallSite site) {
 #endif
 }
 
-// Where the game's calls of `site` go: its stub, which runs every wrapper, then the game.
 static void *siteEntry(CallSite site, void *game) {
     if (!siteInstalled[site]) return game;
 #ifdef __aarch64__
@@ -871,20 +818,17 @@ static void *siteEntry(CallSite site, void *game) {
 static int saveGameToOpenFile(const char *path, const char *name);
 #endif
 
-// GAME_START in every game.
+// @platform-split game_start_once: Windows' play_game tests prep's done flag before the GAME_START call, so CoE5SE removes that jne and gameStartPrepOnce makes the test; Mac's prep tests it inside itself
 #define GAME_START_ONCE_JNE 0x12
 #ifndef __aarch64__
-// GAME_START's game end on Windows: game_start_prep while it hasn't run in this launch.
 static void gameStartPrepOnce(void) {
     if (G32(RVA_GAME_START_PREP_DONE) == 0) ((void (*)(void))GAME_PTR(RVA_GAME_START_PREP))();
 }
-// installSite's step for GAME_START before it points the call at the stub.
 static int checkGameStartOnceCode(void) {
     if (gameCodeMatches) return 1;
     writeLog("game_start_once_check", "ok=0 reason=game_code_differs address=%p", (void *)GAME_PTR(RVA_GAME_START_ONCE_TEST));
     return 0;
 }
-// Removes play_game's jne over the GAME_START call, once the call goes to the site's stub.
 static void removeGameStartOnceJump(void) {
     unsigned char *jne = GAME_PTR(RVA_GAME_START_ONCE_TEST) + GAME_START_ONCE_JNE;
     static const unsigned char NOP2[] = {0x66, 0x90};
@@ -893,7 +837,6 @@ static void removeGameStartOnceJump(void) {
 }
 #endif
 
-// The game's own function for the site: where the innermost wrapper's next goes.
 static void *siteGameTarget(CallSite site) {
 #ifdef __aarch64__
     return siteGameFunction(site);
@@ -904,13 +847,11 @@ static void *siteGameTarget(CallSite site) {
 #endif
 }
 
-// Points `w`'s next, and its gate's, at `target`.
 static void pointWrapAt(SiteWrap *w, void *target) {
     *w->next = target;
     if (w->entry != w->hook) setGateNext(w->entry, target);
 }
 
-// Links the wrapper just put at list[at] in between its neighbours.
 static void linkWrapAt(CallSite site, int at) {
     SiteWrap *w = siteWraps[site].list[at];
     pointWrapAt(w, at + 1 < siteWraps[site].count ? siteWraps[site].list[at + 1]->entry : siteGameTarget(site));
@@ -918,7 +859,6 @@ static void linkWrapAt(CallSite site, int at) {
     else pointWrapAt(siteWraps[site].list[at - 1], w->entry);
 }
 
-// Logs the site's wrappers in the order they run, outermost first.
 static void logWrapOrder(CallSite site) {
     char chain[2048];
     size_t n = 0;
@@ -938,14 +878,12 @@ static void logAllWrapOrders(void) {
         if (siteWraps[s].count) logWrapOrder((CallSite)s);
 }
 
-// Where a wrapper goes in its site's chain.
 typedef struct {
     int priority;
     WrapLayer layer;
     int gated;
 } WrapPlace;
 
-// Adds `hook` to the site's chain at `place` and sets *next.
 static int insertWrap(CallSite site, void *hook, void **next, WrapPlace place, const char *owner, const char **reason) {
     const char *why = NULL;
     SiteWrap *w = NULL;
@@ -979,7 +917,6 @@ static int insertWrap(CallSite site, void *hook, void **next, WrapPlace place, c
     return 1;
 }
 
-// The entry the chain calls for the wrapper whose next variable is `next`: its gate, or the hook.
 static void *wrapEntryFor(CallSite site, void **next) {
     if (lastWrapAdded && lastWrapAdded->next == next) return lastWrapAdded->entry;
     for (int i = 0; i < siteWraps[site].count; i++)
@@ -987,7 +924,6 @@ static void *wrapEntryFor(CallSite site, void **next) {
     return NULL;
 }
 
-// The DLL file name holding `address`.
 static void moduleFileName(const void *address, char *out, size_t size) {
     char path[MAX_PATH] = "?";
     HMODULE m = moduleOf(address);
@@ -996,7 +932,6 @@ static void moduleFileName(const void *address, char *out, size_t size) {
     snprintf(out, size, "%.63s", file ? file + 1 : path);
 }
 
-// CoE5SE's own wrappers go through wrapSite.
 static int wrapSite(CallSite site, void *hook, void **next) {
     if (next) *next = NULL;
     if ((unsigned)site >= SITE_COUNT || !hook || !next) return 0;
@@ -1005,7 +940,6 @@ static int wrapSite(CallSite site, void *hook, void **next) {
     return insertWrap(site, hook, next, (WrapPlace){.priority = WRAP_PRIORITY_DEFAULT, .gated = !runsInNetworkGames(hook)}, owner, NULL);
 }
 
-// wrap and wrapWithPriority, for the plugin or script that called.
 static int wrapFor(void *caller, const char *call, CallSite site, void *hook, void **next, int priority) {
     if (next) *next = NULL;
     const char *reason = NULL;
@@ -1026,7 +960,6 @@ static int wrapFor(void *caller, const char *call, CallSite site, void *hook, vo
         WrapPlace place = {.priority = priority, .layer = luaMod ? WRAP_LAYER_INNER : WRAP_LAYER_PLUGIN,
                            .gated = luaMod || !runsInNetworkGames(hook)};
 #ifdef __APPLE__
-        // A step the game copied into its caller runs only Lua wraps, split at next() (lua_split_chain.h).
         // @platform-split ai_steps_mac: Mac's copied AI steps take only script wraps (Windows calls them)
         if (!luaMod && isSplitSite(site)) reason = "lua_only_site";
         else
@@ -1057,7 +990,6 @@ static void runLuaModCommand(int callback, const char *args, int mod, int level)
 static int modWaitsForCommandsFile(int mod);
 static int anyEnabledModWaitsForCommandsFile(void);
 
-// Returns 1 in a network game: any of the client, server, and lobby flags is set.
 static int isNetworkGame(void) {
 #ifdef __APPLE__
     return G8(RVA_NET_CLIENT) || G8(RVA_NET_SERVER) || G8(RVA_NET_LOBBY);
@@ -1071,16 +1003,13 @@ static int isNetworkGame(void) {
 #include "mod_command_hook.h"
 
 // ---- Observers ---------------------------------------------------------------------------------
-// CoE5SE puts one wrapper on each observe-only site.
 typedef u64 (*ObservedCall)(u64, u64, u64, u64, u64, u64);
 typedef void (*ObserverFn)(const CallInfo *call);
 
-// A site's observers run in one list.
 typedef struct { ObserverFn before, after; int scripts; } Observer;
 static struct { Observer *list; int count, capacity; } observers[SITE_COUNT];
 static ObservedCall nextObserved[SITE_COUNT];
 
-// Calls every observer's `before` (or `after`) for the site.
 static void notifyObservers(CallSite site, const CallInfo *call, int after) {
     int network = isNetworkGame();
     for (int i = 0; i < observers[site].count; i++) {
@@ -1098,7 +1027,6 @@ static u64 runObserved(CallSite site, u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u6
     return result;
 }
 
-// Defines observe_<site>, the wrapper for each observe-only site.
 #define OBSERVE_WRAPPER(s) \
     static u64 observe_##s(u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u64 a6) { return runObserved(s, a1, a2, a3, a4, a5, a6); }
 OBSERVE_ONLY_SITES(OBSERVE_WRAPPER)
@@ -1135,9 +1063,7 @@ static int apiObserve(CallSite site, ObserverFn before, ObserverFn after) {
 #include "game_menu.h"
 
 // ---- Mod names ----------------------------------------------------------------------------------
-// A mod's name is its .c5m's file name without ".c5m", as the game names mods.
 
-// Writes the name of the mod in folder `dir` (its first *.c5m) to `out`.
 static int c5mNameInFolder(const char *dir, char *out, size_t size) {
     char pattern[MAX_PATH];
     if (!buildPath(pattern, sizeof pattern, __func__, "%s" PATH_SEP "*.c5m", dir)) return 0;
@@ -1150,7 +1076,6 @@ static int c5mNameInFolder(const char *dir, char *out, size_t size) {
     return 1;
 }
 
-// Writes the name a mod's rows show: its name with spaces put back.
 static void modDisplayName(const char *mod, char *out, size_t size) {
     size_t o = 0;
     for (const char *c = mod; *c && o + 2 < size; c++) {
@@ -1171,7 +1096,6 @@ static void modDisplayName(const char *mod, char *out, size_t size) {
 #include "plugin_ui.h"
 
 // ---- Messages --------------------------------------------------------------------------------
-// The game's add_message.
 typedef unsigned long long (*AddMessageFn)(int, int, int, int, int, int, const char *, const char *, ...);
 
 static int apiSendMessage(int player, const char *title, const char *text) {
@@ -1189,7 +1113,6 @@ static int apiSendMessage(int player, const char *title, const char *text) {
     return index;
 }
 
-// Writes a plugin's own line to coe5mod.log.
 static void apiLogLine(const void *self, const char *text) {
     char path[MAX_PATH] = "?";
     HMODULE m = moduleOf(self);
@@ -1205,7 +1128,6 @@ static uintptr_t apiCallerRsp(CallSite site) {
 }
 
 static int apiSetupAutomated(void) { return setupIsAutomated; }
-// Logs who changed the shared flag.
 static void apiSetSetupAutomated(int on) {
     if (on == setupIsAutomated) return;
     setupIsAutomated = on;
@@ -1214,7 +1136,6 @@ static void apiSetSetupAutomated(int on) {
     writeLog("setup_automated", "on=%d by=%s", on, by);
 }
 
-// API functions defined further down.
 static int apiSettingsPluginCount(void);
 static const char *apiSettingsPluginName(int plugin);
 static void apiSettingsPluginDraw(int plugin);
@@ -1238,7 +1159,6 @@ static const PluginApi API = {
 };
 
 // ---- Game build check -------------------------------------------------------------------------
-// Every address in CoE5SE and in the plugins belongs to one build of the game.
 typedef struct {
     const char *gameVersion;
     unsigned int timeDateStamp, imageSize;
@@ -1262,7 +1182,6 @@ static int notStartedByLoader;
 #include "plugin_start.h"
 #include "game_code_hash.h"
 
-// Hashes the game's code section and sets gameCodeMatches when gameBuild's hash is that.
 static void checkGameCode(void) {
     const unsigned char *code;
     size_t size;
@@ -1279,7 +1198,6 @@ static void checkGameCode(void) {
     writeLog("game_code_check", "match=%d bytes=%zu sha256=%s", gameCodeMatches, size, hex);
 }
 
-// Reads the running game's build id and sets gameBuild if it is one of KNOWN_BUILDS.
 static void identifyGameBuild(void) {
 #ifdef __APPLE__
     const struct mach_header_64 *header = (const struct mach_header_64 *)gameBase;
@@ -1301,7 +1219,6 @@ static void identifyGameBuild(void) {
     checkGameCode();
 }
 
-// Asks whether to load mods on a game build this CoE5SE wasn't made for.
 static int askLoadOnUnknownGame(void) {
     char text[256];
     snprintf(text, sizeof text, "This CoE5SE was made for CoE5 %s, not this version. Load mods anyway?",
@@ -1320,13 +1237,11 @@ static int askLoadOnUnknownGame(void) {
 
 static void startCoe5se(const char *via);
 
-// The loader calls this right after loading CoE5SE's DLL, after coe5seStart.
 __declspec(dllexport) int coe5seLoadsPlugins(void) {
     startCoe5se("older_loader");
     return !pluginsDeclined && !notStartedByLoader;
 }
 
-// The API for plugins.
 __declspec(dllexport) const PluginApi *jazzyGetApi(int version) {
     if (notStartedByLoader) return NULL;
     const char *held = pluginRefusalFor(__builtin_return_address(0));
@@ -1338,7 +1253,6 @@ __declspec(dllexport) const PluginApi *jazzyGetApi(int version) {
 
 // ---- Main menu button ----------------------------------------------------------------------
 
-// Wraps the main menu's frame.
 static void installMenuHook(void) {
     if (!wrapSite(SITE_MAIN_MENU_WAIT, (void *)menuWaitHook, (void **)&nextMainMenuWait)) return;
 #ifdef __aarch64__
@@ -1352,19 +1266,16 @@ static void installMenuHook(void) {
 }
 
 // ---- CoE5SE's own page: the DLL report, approvals, auto-approve -----------------------------
-// The page uses only the game's own widgets, with Preferences as the model.
 
 #define ID_EXIT            9
 #define ID_APPROVE_FIRST   100
 
-// A plugin as the CoE5SE page lists it: its plugins_found.txt line, and its mod's .c5m info.
 typedef struct {
     FoundLine found;
     char name[64], description[400];
     int approvedNow;
 } PluginEntry;
 
-// Reads the mod's name and description from the .c5m in the plugin's folder.
 static int readC5mInfo(const char *pluginPath, char *name, size_t nameSize, char *desc, size_t descSize) {
     char dir[MAX_PATH], mod[MOD_NAME_MAX], file[MAX_PATH];
     if (!buildPath(dir, sizeof dir, __func__, "%s", pluginPath)) return 0;
@@ -1404,9 +1315,7 @@ static int readC5mInfo(const char *pluginPath, char *name, size_t nameSize, char
 }
 
 // ---- Plugins' screen lines, shown by Mod Settings -----------------------------------------------
-// Every plugin's screen lines are on its mod's page in Mod Settings.
 
-// Returns how many mods' plugins have entries, and sets *first to the i-th's first entry.
 static int settingsPluginGroup(int i, int *first) {
     int count = 0;
     for (int e = 0; e < entryCount; e++) {
@@ -1421,7 +1330,6 @@ static int settingsPluginGroup(int i, int *first) {
 
 static int apiSettingsPluginCount(void) { return settingsPluginGroup(-1, NULL); }
 
-// The name of the i-th mod whose plugins have entries.
 static const char *apiSettingsPluginName(int plugin) {
     int first = 0;
     if (plugin < 0 || plugin >= settingsPluginGroup(plugin, &first))
@@ -1429,17 +1337,14 @@ static const char *apiSettingsPluginName(int plugin) {
     return entries[first]->mod;
 }
 
-// The page drawn last.
 static char drawnPluginMod[MOD_NAME_MAX];
 
-// The j-th entry of the drawn page, or NULL.
 static SettingEntry *drawnPluginEntry(int j) {
     for (int i = 0; i < entryCount; i++)
         if (!_stricmp(entries[i]->mod, drawnPluginMod) && j-- == 0) return entries[i];
     return NULL;
 }
 
-// Adds a line for each of the mod's left-out plugin calls to the "Settings left out" box.
 static void drawPluginRejections(const char *mod, int *open) {
     char tip[400];
     for (int i = 0; i < entryCount; i++) {
@@ -1456,7 +1361,6 @@ static void drawPluginRejections(const char *mod, int *open) {
     }
 }
 
-// Draws mod `plugin`'s screen lines in one box titled "Screens", after the mod's settings.
 static void apiSettingsPluginDraw(int plugin) {
     int first = 0;
     if (plugin < 0 || plugin >= settingsPluginGroup(plugin, &first)) {
@@ -1500,7 +1404,6 @@ static int apiSettingsPluginClick(int id) {
 #include "mod_settings_events.h"
 #include "event_logic.h"
 
-// Reads plugins_found.txt, one plugin per line.
 static int readPlugins(PluginEntry **listOut, int *capacity) {
     static char line[FOUND_LINE_MAX];
     char file[MAX_PATH];
@@ -1531,7 +1434,6 @@ static const char *sourceText(const char *source) {
     return source;
 }
 
-// The note after a plugin's name on the CoE5SE page: why it didn't load, or nothing.
 static const char *pluginRowNote(const PluginEntry *p) {
     switch (p->found.state) {
     case PLUGIN_FAILED: return " (failed to load)";
@@ -1542,7 +1444,6 @@ static const char *pluginRowNote(const PluginEntry *p) {
     }
 }
 
-// The same for the plugin's tooltip, before its details.
 static const char *pluginTipNote(const PluginEntry *p) {
     switch (p->found.state) {
     case PLUGIN_FAILED: return "Failed to load. Check coe5mod.log. ";
@@ -1555,7 +1456,6 @@ static const char *pluginTipNote(const PluginEntry *p) {
     }
 }
 
-// CoE5SE's own page: the report of mods with DLLs, their Approve lines, and auto-approve.
 static void coe5sePageScreen(void) {
     static PluginEntry *plugins;
     static int pluginCapacity;
@@ -1625,7 +1525,6 @@ static void coe5sePageScreen(void) {
 
 #endif
 
-// Logs the game's Mod Error box before it shows, so a tool waiting on the log can stop at once.
 typedef u64 (*MessageBoxFn)(u64, u64, u64, u64, u64, u64, u64, u64);
 static MessageBoxFn nextModErrorDialog;
 static u64 modErrorDialogWrapper(u64 title, u64 text, u64 a3, u64 a4, u64 a5, u64 a6, u64 a7, u64 a8) {
@@ -1654,6 +1553,7 @@ static u64 modErrorDialogWrapper(u64 title, u64 text, u64 a3, u64 a4, u64 a5, u6
 #include "offset_names.h"
 #include "name_lists.h"
 #include "monster_flags.h"
+#include "monster_hates.h"
 #include "ritual_words.h"
 #include "game_save.h"
 #include "save_tail.h"
@@ -1704,6 +1604,7 @@ static u64 modErrorDialogWrapper(u64 title, u64 text, u64 a3, u64 a4, u64 a5, u6
 #include "terrain_looks.h"
 #include "battle_maps.h"
 #include "event_finders.h"
+#include "drown_search.h"
 #include "battle_snapshot.h"
 #include "fanpatch/fanpatch_host.h"
 #include "faction_words.h"
@@ -1711,7 +1612,6 @@ static u64 modErrorDialogWrapper(u64 title, u64 text, u64 a3, u64 a4, u64 a5, u6
 #include "faction_saves.h"
 #include "faction_names.h"
 
-// Ends the launch's header in the log at the end of startup (finishStartup).
 static void logHeaderEnd(void) {
     static char order[16384];
     size_t n = 0;
@@ -1723,7 +1623,6 @@ static void logHeaderEnd(void) {
              PLUGIN_API_VERSION);
 }
 
-// Only what must run as the DLL loads: the log, and the check that the loader loaded CoE5SE.
 BOOL WINAPI DllMain(HINSTANCE dll, DWORD reason, LPVOID reserved) {
     (void)reserved;
     if (reason != DLL_PROCESS_ATTACH) return TRUE;
@@ -1738,12 +1637,10 @@ BOOL WINAPI DllMain(HINSTANCE dll, DWORD reason, LPVOID reserved) {
     return TRUE;
 }
 
-// The loader calls this right after loading CoE5SE's DLL, before anything else: CoE5SE's startup.
 __declspec(dllexport) void coe5seStart(void) {
     startCoe5se("coe5se_start");
 }
 
-// CoE5SE's startup, once: the game build check, then every patch, site and file read, in order.
 static void startCoe5se(const char *via) {
     static int started;
     if (started || notStartedByLoader) return;
@@ -1770,6 +1667,7 @@ static void startCoe5se(const char *via) {
     eventFindersInit();
     battleSnapshotInit();
     strengthIndexInit();
+    drownSearchInit();
 #ifndef __APPLE__
     traceLogFileInit();
     installStackCookieHook();
@@ -1815,6 +1713,7 @@ static void startCoe5se(const char *via) {
     terrainLooksWordsInit();
     battleMapWordsInit();
     monsterFlagWordsInit();
+    hatesWordsInit();
     ritualWordsInit();
     corpseKindsInit();
     weaponTraitsInit();

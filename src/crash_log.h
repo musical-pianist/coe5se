@@ -1,4 +1,4 @@
-// The crash line (Windows): one event=crash line in coe5mod.log when the game crashes.
+#pragma once
 
 #include <winternl.h>
 
@@ -20,14 +20,12 @@ static void crashHex(unsigned long long v, int digits) {
     } while ((v || n < digits) && n < 16);
     while (n && crashLength < (int)sizeof crashLine - 3) crashLine[crashLength++] = d[--n];
 }
-// Appends v (below 1000) as `digits` decimal digits, with leading zeros.
 static void crashDecimal(int v, int digits) {
     char d[3];
     for (int i = digits - 1; i >= 0; i--, v /= 10) d[i] = (char)('0' + v % 10);
     for (int i = 0; i < digits && crashLength < (int)sizeof crashLine - 3; i++) crashLine[crashLength++] = d[i];
 }
 
-// Returns the base of the module holding `pc` and copies its file name into `name`, or returns 0.
 static ULONG64 crashModule(ULONG64 pc, char *name, int size) {
     PEB *peb = NtCurrentTeb()->ProcessEnvironmentBlock;
     if (!peb || !peb->Ldr) return 0;
@@ -50,7 +48,6 @@ static ULONG64 crashModule(ULONG64 pc, char *name, int size) {
     return 0;
 }
 
-// Walks up to `max` frames up from `c` and stores each frame's code address.
 static int crashFrames(CONTEXT *c, ULONG64 *pcs, int max) {
     NT_TIB *tib = (NT_TIB *)NtCurrentTeb();
     ULONG64 low = c->Rsp, high = (ULONG64)tib->StackBase;
@@ -78,7 +75,6 @@ static int crashFrames(CONTEXT *c, ULONG64 *pcs, int max) {
     return n;
 }
 
-// Appends "module+0xoffset", or the bare address outside every module.
 static void crashWhere(ULONG64 pc) {
     char name[MAX_PATH];
     ULONG64 base = crashModule(pc, name, sizeof name);
@@ -92,7 +88,6 @@ static void crashWhere(ULONG64 pc) {
     crashHex(pc - base, 1);
 }
 
-// Appends the registers of `c`, as they were at the crash, after the other fields.
 #define CRASH_REGISTER(name, field) {" " name "=0x", offsetof(CONTEXT, field)}
 static const struct { const char *field; size_t offset; } CRASH_REGISTERS[] = {
     CRASH_REGISTER("rip", Rip), CRASH_REGISTER("rsp", Rsp), CRASH_REGISTER("rbp", Rbp), CRASH_REGISTER("rax", Rax),
@@ -110,7 +105,6 @@ static void crashRegisters(const CONTEXT *c) {
     crashHex(c->EFlags, 1);
 }
 
-// Appends " stack=": the values above rsp that point into a loaded module, likely return addresses.
 static void crashStack(const CONTEXT *c) {
     char name[MAX_PATH];
     const ULONG64 *slot = (const ULONG64 *)c->Rsp;
@@ -126,7 +120,6 @@ static void crashStack(const CONTEXT *c) {
     }
 }
 
-// Builds and writes the crash line.
 static void writeCrashLine(DWORD code, ULONG64 address, const EXCEPTION_RECORD *record, const CONTEXT *registers,
                            const ULONG64 *pcs, int frames, const char *caughtBy) {
     char name[MAX_PATH];
@@ -193,7 +186,6 @@ static void writeCrashLine(DWORD code, ULONG64 address, const EXCEPTION_RECORD *
 static CONTEXT crashWalkContext;
 static ULONG64 crashPcs[CRASH_FRAMES];
 
-// Writes the line for an exception, walking its stack from its context.
 static void writeExceptionLine(const EXCEPTION_RECORD *record, const CONTEXT *context, const char *caughtBy) {
     crashWalkContext = *context;
     int frames = crashFrames(&crashWalkContext, crashPcs, CRASH_FRAMES);
@@ -209,7 +201,6 @@ static LONG WINAPI logCrash(EXCEPTION_POINTERS *e) {
 }
 
 // ---- The vectored handler: remembers the latest error-class exception ----
-// An exception that is a crash: error severity and a code Windows defined.
 static DWORD pendingThread;
 static EXCEPTION_RECORD pendingRecord;
 static CONTEXT pendingContext;
@@ -226,7 +217,6 @@ static LONG WINAPI rememberException(EXCEPTION_POINTERS *e) {
 }
 
 // ---- The game's failed stack-cookie check ----
-// Called when a stack cookie check fails.
 static CONTEXT cookieContext;
 static ULONG64 cookiePcs[CRASH_FRAMES + 1];
 
@@ -248,10 +238,8 @@ static void stackCookieFailed(ULONG64 cookie) {
     GAME_FN(void (*)(ULONG64), RVA_REPORT_GSFAILURE)(cookie);
 }
 
-// Installs the filter.
 static void installCrashFilter(void) { previousCrashFilter = SetUnhandledExceptionFilter(logCrash); }
 
-// Installs the crash handlers.
 static void installStackCookieHook(void) {
     unsigned char *site = gameBase + RVA_CHECK_COOKIE_FAIL_JMP;
     int rel;

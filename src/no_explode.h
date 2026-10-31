@@ -1,4 +1,3 @@
-// The noexplode word: dice that don't roll again on their highest face.
 #pragma once
 
 #define NO_EXPLODE_WORD        "noexplode"
@@ -7,7 +6,6 @@
 #define SUMMON_PART_SEPARATOR  " & "
 #define NO_EXPLODE_ALL_PARTS   ~0ULL
 
-// One summon string's parts whose dice don't explode.
 typedef struct {
     int ritual, line;
     unsigned long long parts;
@@ -29,7 +27,6 @@ static struct {
     int summonPart;
 } noExplode = {.stringRitual = -1, .rangeMod = -1};
 
-// The game's dice and its random numbers.
 static int (*noExplodeRandom)(int n);
 static int (*noExplodeOpenDie)(int n);
 static int (*noExplodeOpenDice)(int sides, int count);
@@ -38,7 +35,6 @@ typedef int (*SummonStringFn)(int caster, int percent, int player, int x, int y,
 static SummonStringFn noExplodeSummonString;
 static void (*noExplodeTrace)(const char *format, ...);
 
-// `count` plain dice of `sides`, each 1 to sides from the game's random numbers; 0 with none.
 static int plainDice(int sides, int count) {
     if (sides < 1 || count < 1) return 0;
     int sum = 0;
@@ -46,13 +42,11 @@ static int plainDice(int sides, int count) {
     return sum;
 }
 
-// A hit's damage die of `n`: plain for a noexplode weapon, else the game's open-ended one.
 static int noExplodeWeaponDie(int n, int weapon) {
     if (weapon >= 0 && weapon < noExplode.weaponCount && noExplode.weapons[weapon]) return plainDice(n, 1);
     return noExplodeOpenDie(n);
 }
 
-// The parts of a summon string; `*dice` gets a bit for each part whose count has dice.
 static int summonParts(const char *text, unsigned long long *dice) {
     int parts = 0;
     *dice = 0;
@@ -71,7 +65,6 @@ static int summonParts(const char *text, unsigned long long *dice) {
     }
 }
 
-// The ritual's last summon string line, from 0, or -1 when it has none.
 static int lastRitualString(int ritual) {
     const char *strings = (const char *)ritualWordRecord(ritual) + RITUAL_STRINGS;
     int line = -1;
@@ -79,7 +72,6 @@ static int lastRitualString(int ritual) {
     return line;
 }
 
-// The parts of `line` whose dice don't explode, 0 for none.
 static unsigned long long noExplodeLineParts(const char *line) {
     for (int i = 0; i < noExplode.stringCount; i++) {
         const NoExplodeString *s = &noExplode.strings[i];
@@ -88,7 +80,6 @@ static unsigned long long noExplodeLineParts(const char *line) {
     return 0;
 }
 
-// Marks the weapon's damage as not exploding; 0 when out of memory.
 static int addNoExplodeWeapon(int weapon) {
     int records = tableRecords(TABLE_WEAPON);
     if (noExplode.weaponCount != records) {
@@ -102,7 +93,6 @@ static int addNoExplodeWeapon(int weapon) {
     return 1;
 }
 
-// Adds the parts to the ritual's string; 0 when out of memory.
 static int addNoExplodeString(int ritual, int line, unsigned long long parts) {
     for (int i = 0; i < noExplode.stringCount; i++)
         if (noExplode.strings[i].ritual == ritual && noExplode.strings[i].line == line) {
@@ -114,7 +104,6 @@ static int addNoExplodeString(int ritual, int line, unsigned long long parts) {
     return 1;
 }
 
-// noexplode under an addstring: reads the part numbers, or all the string's parts with dice.
 static void noexplodeStringLine(const char *args, int mod, int ritual) {
     int line = lastRitualString(ritual);
     if (ritual != noExplode.stringRitual || line < 0) {
@@ -145,7 +134,6 @@ static void noexplodeStringLine(const char *args, int mod, int ritual) {
         refuseC5mLine(NO_EXPLODE_WORD, spellModName(mod), "out_of_memory", "line=%d", G32(RVA_MOD_LINE));
 }
 
-// noexplode start or end: opens or closes the range.
 static void noexplodeRangeLine(int start, int mod) {
     if (start && noExplode.rangeMod >= 0) {
         refuseC5mLine(NO_EXPLODE_WORD, spellModName(mod), "already_started", "line=%d start=%d", G32(RVA_MOD_LINE), noExplode.rangeLine);
@@ -160,14 +148,12 @@ static void noexplodeRangeLine(int start, int mod) {
     }
 }
 
-// Ends a range its mod didn't close, at the end of the mod's files.
 static void endOpenNoExplodeRange(void) {
     if (noExplode.rangeMod < 0) return;
     refuseC5mLine(NO_EXPLODE_WORD, spellModName(noExplode.rangeMod), "no_end", "start=%d", noExplode.rangeLine);
     noExplode.rangeMod = -1;
 }
 
-// One noexplode line at level 2: the current weapon's damage, the current ritual's last string, or a range.
 static void noexplodeLine(const char *args, int mod, int level) {
     if (level != 2) return;
     char word[8];
@@ -191,7 +177,6 @@ static void noexplodeLine(const char *args, int mod, int level) {
     }
 }
 
-// Every .c5m line outside events comes here before the game's parser.
 static void noExplodeLineHook(const char *line, size_t len, int mod, int level) {
     if (level != 2) return;
     if (noExplode.rangeMod >= 0 && mod != noExplode.rangeMod) endOpenNoExplodeRange();
@@ -212,7 +197,6 @@ static void noExplodeLineHook(const char *line, size_t len, int mod, int level) 
     if (weapon >= 0 && weapon < noExplode.weaponCount) noExplode.weapons[weapon] = 0;
 }
 
-// Before a mod pass: a level-2 pass reads every noexplode line again.
 static void noExplodeBeforePass(int level) {
     if (level != 2) return;
     if (noExplode.weapons) memset(noExplode.weapons, 0, (size_t)noExplode.weaponCount);
@@ -221,14 +205,12 @@ static void noExplodeBeforePass(int level) {
     noExplode.rangeMod = -1;
 }
 
-// After a mod pass: a range still open ends with the last mod's files.
 static void noExplodeAfterPass(int level) {
     if (level != 2) return;
     endOpenNoExplodeRange();
 }
 
 // ---- The game's side -----------------------------------------------------------------------------
-// Notes the ritual line a cast copied into `copy`.
 static void notePickedString(char *copy, const char *line) {
     for (int i = 0; i < NO_EXPLODE_PICKS; i++)
         if (noExplode.picks[i].copy == copy) {
@@ -240,7 +222,6 @@ static void notePickedString(char *copy, const char *line) {
     noExplode.nextPick = (noExplode.nextPick + 1) % NO_EXPLODE_PICKS;
 }
 
-// The game's copy of the cast's picked string, noted first.
 #ifdef __aarch64__
 // @platform-split ritual_string_copy: the cast copies its string with __strlcpy_chk on Mac, the game's own strlcpy on Windows
 typedef size_t (*StringCopyFn)(char *copy, const char *line, size_t size, size_t copySize);
@@ -259,7 +240,6 @@ static int pickedStringCopyHook(char *copy, const char *line, int size) {
 }
 #endif
 
-// A ritual's summon: the game's, with the parts of its picked string that don't explode.
 static int noExplodeSummon(int caster, int percent, int player, int x, int y, char *string, int defctrl, int reliability,
                            int countPercent, int add, int failplayer) {
     unsigned long long outerParts = noExplode.summonParts;
@@ -274,7 +254,6 @@ static int noExplodeSummon(int caster, int percent, int player, int x, int y, ch
     return made;
 }
 
-// The summon reader's trace of each part: counts the part, then traces it as the game does.
 static void noExplodePartTrace(const char *format, ...) {
     va_list ap;
     va_start(ap, format);
@@ -285,7 +264,6 @@ static void noExplodePartTrace(const char *format, ...) {
     noExplodeTrace(format, last, part);
 }
 
-// A summon part's dice: plain for a part noexplode names, else the game's open-ended ones.
 static int noExplodeSummonDice(int sides, int count) {
     int part = noExplode.summonPart;
     if (part >= 1 && part <= NO_EXPLODE_PARTS_MAX && (noExplode.summonParts >> (part - 1) & 1)) return plainDice(sides, count);
@@ -300,7 +278,6 @@ typedef struct {
 
 #ifndef __aarch64__
 #define NO_EXPLODE_STUB_SIZE 0x20
-// Points the hit's damage roll at noExplodeWeaponDie, with the weapon from the hit's frame.
 static int pointWeaponDieCall(unsigned char *stub) {
     unsigned char *site = GAME_PTR(RVA_WEAPON_HIT_DAMAGE_DIE_CALL);
     int rel;
@@ -333,7 +310,6 @@ static int installNoExplodeCalls(const NoExplodeCall *calls, int count) {
     return ok;
 }
 #else
-// The hit's stub: loads the weapon from the hit's frame and goes on to noExplodeWeaponDie.
 int coe5seNoExplodeWeaponDie(int n, int weapon);
 __attribute__((used)) int coe5seNoExplodeWeaponDie(int n, int weapon) { return noExplodeWeaponDie(n, weapon); }
 __asm__(".text\n.p2align 2\n_coe5seNoExplodeWeaponDieStub:\n"
@@ -361,7 +337,6 @@ static int installNoExplodeCalls(const NoExplodeCall *calls, int count) {
 }
 #endif
 
-// Adds the word, and points the hit's damage roll and the ritual summon's calls at the hooks.
 static void noExplodeInit(void) {
     noExplodeRandom = GAME_FN(int (*)(int), RVA_RANDOM);
     noExplodeOpenDie = GAME_FN(int (*)(int), RVA_DIE_OPEN_ENDED);

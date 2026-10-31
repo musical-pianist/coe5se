@@ -1,4 +1,3 @@
-// Mods' factions' turns: the vanilla independents' movers for a faction slot, by its preset.
 #pragma once
 
 // ---- The game's helpers the movers call ----------------------------------------------------------
@@ -12,7 +11,6 @@ static int moverPortalsLinkedTo(int plane, int kind) { return GAME_FN(int (*)(in
 static int moverUnitCommander(int unit) { return GAME_FN(int (*)(int), RVA_UNIT_COMMANDER_INDEX)(unit); }
 static void moverSitepop(int slot, int x, int y, const char *group) { GAME_FN(void (*)(int, int, int, const char *), RVA_SITEPOP)(slot, x, y, group); }
 #else
-// RVA_COUNT_TERRAIN_AROUND: the squares of the (2 radius + 1) box holding that terrain number, off the map as -1.
 static int moverCountTerrainAround(int x, int y, int radius, int terrain) {
     int n = 0, mapW = G32(RVA_MAP_W), mapH = G32(RVA_MAP_H);
     for (int ty = y - radius; ty <= y + radius; ty++)
@@ -22,12 +20,10 @@ static int moverCountTerrainAround(int x, int y, int radius, int terrain) {
         }
     return n;
 }
-// The monster record name of a unit, or NULL for a unit with none.
 static const char *unitMonsterName(int unit) {
     short monster = (short)G16(RVA_UNIT_MONSTER + (size_t)unit * UNIT_SIZE);
     return monster >= 0 ? (const char *)monsterRecord(monster) : NULL;
 }
-// RVA_COMMANDER_FOLLOWERS_NAMED: the living units whose leader is the commander, of that monster name.
 static int moverFollowersNamed(int commander, const char *name) {
     int n = 0, last = G32(RVA_UNIT_COUNT);
     for (int u = 0; u <= last; u++) {
@@ -37,7 +33,6 @@ static int moverFollowersNamed(int commander, const char *name) {
     }
     return n;
 }
-// RVA_COMMANDER_RELEASE_FOLLOWERS: up to `most` of them get no leader (-1), in unit order.
 static int moverReleaseFollowers(int commander, const char *name, int most) {
     int n = 0, last = G32(RVA_UNIT_COUNT);
     if (most < 1) return 0;
@@ -50,13 +45,11 @@ static int moverReleaseFollowers(int commander, const char *name, int most) {
     }
     return n;
 }
-// RVA_UNIT_TRACE_NAME's text for the carrier traces: the monster's name (the trace lines are the game's log only).
 static const char *moverTraceName(int unit) {
     const char *own = unit >= 0 ? unitMonsterName(unit) : NULL;
     return own ? own : "?";
 }
 static short squarePortalAt(int x, int y) { return *(short *)(sightSquare(x, y) + SQUARE_PORTAL); }
-// 0x242900: whether a square of plane `kind` (-1 any) holds portal number `portal` (either sign).
 static int planeHasPortalNumber(int portal, int kind) {
     int x0 = 0, y0 = 0, x1 = G32(RVA_MAP_DEPTH) - 1, y1 = G32(RVA_MAP_H) - 1;
     if (kind >= 0) x0 = planeField(kind, PLANE_X), y0 = planeField(kind, PLANE_Y), x1 = x0 + planeField(kind, PLANE_W) - 1, y1 = y0 + planeField(kind, PLANE_H) - 1;
@@ -65,7 +58,6 @@ static int planeHasPortalNumber(int portal, int kind) {
             if (abs(squarePortalAt(x, y)) == portal) return 1;
     return 0;
 }
-// The squares of a plane with a portal linked to plane `kind`.
 static int moverPortalsLinkedTo(int plane, int kind) {
     if (plane == -2) return moverPortalsLinkedTo(0, kind) + moverPortalsLinkedTo(3, kind) + moverPortalsLinkedTo(2, kind);
     int x0 = 0, y0 = 0, x1 = G32(RVA_MAP_DEPTH) - 1, y1 = G32(RVA_MAP_H) - 1, n = 0;
@@ -77,7 +69,6 @@ static int moverPortalsLinkedTo(int plane, int kind) {
         }
     return n;
 }
-// RVA_UNIT_COMMANDER_INDEX: the commander whose unit it is, -1 none.
 static int moverUnitCommander(int unit) {
     int last = G32(RVA_LAST_COMMANDER);
     for (int c = 0; c <= last; c++)
@@ -87,7 +78,6 @@ static int moverUnitCommander(int unit) {
 static void moverSitepop(int slot, int x, int y, const char *group) { GAME_FN(void (*)(int, int, int, int, const char *), RVA_SITEPOP)(slot, x, y, 0, group); }
 #endif
 
-// The game's planeshift of a plane's monsters, for a faction.
 static void moverPlaneShiftMonsters(int plane, int percent, int each, const char *name) {
 #ifndef __APPLE__
     GAME_FN(void (*)(int, int, int, const char *), RVA_PLANE_SPAWN_CHANCE)(plane, percent, each, name);
@@ -122,30 +112,25 @@ static void moverPlaneShiftMonsters(int plane, int percent, int each, const char
 #define INFERNO_SPAWN_TRIES       500000
 #define INFERNO_TERRAIN_RADIUS    2
 
-// Each faction slot's turn state in this world.
 static struct { int active, ownGateway; } factionTurns[FACTION_SLOT_TARGET];
 
-// Each slot's preset slot per behaviour, and its wanderers' gate.
 enum { FACTION_AS_LIKE, FACTION_AS_WANDER, FACTION_AS_TITHE, FACTION_AS_EVENTS, FACTION_AS_CONQUEST, FACTION_AS_STATUE, FACTION_AS_COUNT };
 static unsigned char factionAsBySlot[FACTION_AS_COUNT][PLAYER_SLOTS_PADDED];
 typedef struct { int kind, home, active, pad; } FactionGate;
 static FactionGate factionGates[PLAYER_SLOTS_PADDED];
 _Static_assert(sizeof(FactionGate) == 16, "the gate stub steps 16 bytes a slot");
 
-// Forgets every faction slot's turn state: a new world or a load.
 static void refreshFactionWanderTables(void);
 static void resetFactionTurnState(void) {
     memset(factionTurns, 0, sizeof factionTurns);
     refreshFactionWanderTables();
 }
 
-// The faction in slot `slot`, or NULL.
 static const Faction *factionInSlot(int slot) {
     int i = slot - PLAYER_SLOTS_GAME;
     return i >= 0 && i < factionCount ? &factions[i] : NULL;
 }
 
-// A faction's home plane in this world, or -1 (none, or not in this world).
 static int factionHomePlane(const Faction *f) {
     if (!f->home[0]) return -1;
     int plane = vanillaPlaneNamed(f->home);
@@ -154,7 +139,6 @@ static int factionHomePlane(const Faction *f) {
 
 static short squarePortal(int x, int y) { return *(short *)(sightSquare(x, y) + SQUARE_PORTAL); }
 
-// Whether plane `home` holds portal number `number`.
 static int planeHoldsPortal(int home, int number) {
     int x0 = planeField(home, PLANE_X), y0 = planeField(home, PLANE_Y), w = planeField(home, PLANE_W), h = planeField(home, PLANE_H);
     for (int x = x0; x < x0 + w; x++)
@@ -163,7 +147,6 @@ static int planeHoldsPortal(int home, int number) {
     return 0;
 }
 
-// The portal number of a faction home's own gateway pair.
 static int factionOwnGateway(int slot, int home) {
     int *own = &factionTurns[slot - PLAYER_SLOTS_GAME].ownGateway;
     if (*own) return *own;
@@ -188,7 +171,6 @@ static int factionOwnGateway(int slot, int home) {
     return *own = best;
 }
 
-// The Inferno's active test, for a faction on its home.
 static int factionInfernoActive(int slot, const Faction *f, int home, int *portalsOut) {
     int x0 = planeField(home, PLANE_X), y0 = planeField(home, PLANE_Y), w = planeField(home, PLANE_W), h = planeField(home, PLANE_H);
     int portals = 0;
@@ -213,7 +195,6 @@ static int factionInfernoActive(int slot, const Faction *f, int home, int *porta
     return 0;
 }
 
-// Removes up to `most` of the slot's living units named `name` at (x, y), in unit order.
 static void removeSlotMonstersAt(int slot, int x, int y, const char *name, int most) {
     int last = G32(RVA_UNIT_COUNT), removed = 0;
     for (int u = 0; u <= last; u++) {
@@ -225,7 +206,6 @@ static void removeSlotMonstersAt(int slot, int x, int y, const char *name, int m
     }
 }
 
-// One spawn of a faction's turn at (x, y): the first of its spawns that applies, its fuel used up and its group made.
 static void factionSpawnAt(int slot, const Faction *f, int x, int y, int fuel, const int terrain[4]) {
     int (*random)(int) = GAME_FN(int (*)(int), RVA_RANDOM);
     for (int i = 0; i < f->spawnCount; i++) {
@@ -239,7 +219,6 @@ static void factionSpawnAt(int slot, const Faction *f, int x, int y, int fuel, c
     }
 }
 
-// The citadel site's spawn: a random citadel of the faction's home it owns, with the terrain around it.
 static void factionCitadelSpawn(int slot, const Faction *f, int home) {
     int x0 = planeField(home, PLANE_X), y0 = planeField(home, PLANE_Y), w = planeField(home, PLANE_W), h = planeField(home, PLANE_H);
     int (*random)(int) = GAME_FN(int (*)(int), RVA_RANDOM);
@@ -267,13 +246,11 @@ static void factionMonumentSpawns(int slot, const Faction *f);
 static int factionMonumentPlane(const Faction *f);
 static int factionMonumentCount(const Faction *f, int plane, int owner);
 static void factionMonumentSteps(int slot, const Faction *f, int home, int monuments);
-// The faction's turn's spawns, by its spawn site: the citadel site while it is active, the monument site's squares.
 static void factionTurnSpawn(int slot, const Faction *f, int home, int active) {
     if (f->spawnSite == FACTION_SITE_OWN_CITADEL && active && home >= 0) factionCitadelSpawn(slot, f, home);
     else if (f->spawnSite == FACTION_SITE_MONUMENT) factionMonumentSpawns(slot, f);
 }
 
-// RVA_MOVE_INFERNO_PLAYER for a faction: the active test, the armies' move, the spawn.
 static void factionInfernoMove(int slot, const Faction *f, void (*moveArmies)(int)) {
     int home = factionHomePlane(f), portals = 0;
     int active = home >= 0 && factionInfernoActive(slot, f, home, &portals);
@@ -287,9 +264,7 @@ static void factionInfernoMove(int slot, const Faction *f, void (*moveArmies)(in
 }
 
 // ---- The wanderers ------------------------------------------------------------------------------
-// The wanderers' words and gates for a faction slot.
 
-// The chance an independent's army is refused a step onto another slot's army.
 static unsigned char factionAvoidRefusal[PLAYER_SLOTS_PADDED][PLAYER_SLOTS_PADDED];
 static void setFactionAvoid(int mover, int target, int refusal) {
     factionAvoidRefusal[mover][target] = (unsigned char)refusal;
@@ -312,7 +287,6 @@ static void refreshFactionAvoidTable(void) {
     }
 }
 
-// Fills the tables from the declared factions; a faction slot's home and active flag as its last turn left them.
 static void refreshFactionWanderTables(void) {
     refreshFactionAvoidTable();
     for (int s = 0; s < PLAYER_SLOTS_PADDED; s++) {
@@ -336,7 +310,6 @@ static void refreshFactionWanderTables(void) {
 }
 
 #ifndef __APPLE__
-// A stub for a slot test, `[66] [REX] 80|83 /7 <reg or [mem]>, imm8`: the compare takes the slot's preset.
 static int buildPresetTestStub(unsigned char *at, const unsigned char *row, unsigned char *stub, int *length) {
     int i = 0, rex = 0, wide = 0;
     if (at[i] == 0x66) wide = 1, i++;
@@ -391,7 +364,6 @@ static int buildPresetTestStub(unsigned char *at, const unsigned char *row, unsi
     return c.n;
 }
 
-// The gate stub at `cmp ebx, 28; jne`: a faction slot's gate from factionGates, any other slot the game's chain.
 static int buildWanderGateStub(unsigned char *at, unsigned char *stub, int *length) {
     *length = 5;
     unsigned char *next = at + 5 + (signed char)at[4], *fallAt = at + 5;
@@ -439,7 +411,6 @@ static int buildWanderGateStub(unsigned char *at, unsigned char *stub, int *leng
     return c.n;
 }
 
-// The independents' step onto another army through factionAvoidRefusal: a stub in RVA_INDEP_MOVE_TRY's frame.
 _Static_assert(PLAYER_SLOTS_PADDED == 64, "the avoid stub indexes its table by mover << 6");
 #define AVOID_STUB_CODE     0x10
 #define AVOID_STUB_SCRATCH  0x08
@@ -523,7 +494,6 @@ static int installFactionAvoidStub(void) {
     return ok;
 }
 
-// Sends the wanderers' slot tests and gate through their stubs; the number in.
 #define FACTION_WANDER_STUB_COUNT 33
 static int installFactionWanderStubs(void) {
     static const struct { unsigned int rva; unsigned char as; } TESTS[] = {
@@ -585,7 +555,6 @@ static int installFactionWanderStubs(void) {
 
 #endif
 
-// The Celestial's active test, for a faction on its home.
 static int factionCelestialActive(int slot, const Faction *f, int home, int *portalsOut) {
     int x0 = planeField(home, PLANE_X), y0 = planeField(home, PLANE_Y), w = planeField(home, PLANE_W), h = planeField(home, PLANE_H);
     int portals = 0;
@@ -608,7 +577,6 @@ static int factionCelestialActive(int slot, const Faction *f, int home, int *por
     return 0;
 }
 
-// RVA_MOVE_CELESTIAL_PLAYER for a faction: the active test, then the armies' move (the Celestial spawns nothing).
 static void factionCelestialMove(int slot, const Faction *f, void (*moveArmies)(int)) {
     int home = factionHomePlane(f), portals = 0;
     int active = home >= 0 && factionCelestialActive(slot, f, home, &portals);
@@ -622,10 +590,8 @@ static void factionCelestialMove(int slot, const Faction *f, void (*moveArmies)(
 }
 
 // ---- The Inferno's carriers and its infernal wanderers ------------------------------------------
-// The Inferno's carriers and infernal wanderers, for a faction like the Inferno.
 static const char *const INFERNO_GATEWAY_NEWS_TITLE = "World News";
 
-// One unit's carrier step, for a faction slot and its home.
 static void factionCarrierStep(int slot, const Faction *f, int home, int unit) {
     int (*total)(int, int, int, char *, int, int *) = GAME_FN(int (*)(int, int, int, char *, int, int *), RVA_UNIT_ABILITY_TOTAL);
     int most = total(unit, f->gatherAbility, 1, NULL, 0, NULL);
@@ -684,7 +650,6 @@ static void factionCarrierStep(int slot, const Faction *f, int home, int unit) {
     }
 }
 
-// RVA_TURN_UNIT_UPKEEP: the game's, then a faction like the Inferno's carriers.
 typedef void (*TurnUnitUpkeepFn)(int player);
 static TurnUnitUpkeepFn gameTurnUnitUpkeep;
 static void turnUnitUpkeepHook(int player) {
@@ -699,7 +664,6 @@ static void turnUnitUpkeepHook(int player) {
     }
 }
 
-// A random square of a plane's rectangle matching a terrain code, up to `tries` draws; -1, -1 for none.
 static void randomPlaneSquareOf(int plane, int code, int tries, int *x, int *y) {
     int (*random)(int) = GAME_FN(int (*)(int), RVA_RANDOM);
     int (*match)(int, int, int) = GAME_FN(int (*)(int, int, int), RVA_TERRAIN_MATCH);
@@ -714,7 +678,6 @@ static void randomPlaneSquareOf(int plane, int code, int tries, int *x, int *y) 
     *x = *y = -1;
 }
 
-// The infernal and Hades wanderers' raid target at home.
 static int wandererAttackHomeCitadel(int slot, int home, unsigned int *outX, unsigned int *outY) {
     int (*random)(int) = GAME_FN(int (*)(int), RVA_RANDOM);
     int (*match)(int, int, int) = GAME_FN(int (*)(int, int, int), RVA_TERRAIN_MATCH);
@@ -734,7 +697,6 @@ static int wandererAttackHomeCitadel(int slot, int home, unsigned int *outX, uns
     return 0;
 }
 
-// RVA_WANDERER_PICK_TARGET's objective 7, the Hades wanderer, for a faction like Hades (0x16bc00..0x16be14).
 static int factionHadesTarget(int slot, int home, int unit, unsigned int *outX, unsigned int *outY) {
     int x0 = planeField(home, PLANE_X), y0 = planeField(home, PLANE_Y), w = planeField(home, PLANE_W), h = planeField(home, PLANE_H);
     int portals = 0;
@@ -760,7 +722,6 @@ static int factionHadesTarget(int slot, int home, int unit, unsigned int *outX, 
     return 1;
 }
 
-// RVA_WANDERER_PICK_TARGET's objective 6, the infernal wanderer, for a faction like the Inferno (0x16b4f0..0x16bbbf).
 static int factionInfernalTarget(int slot, int home, int commander, int unit, unsigned int *outX, unsigned int *outY) {
     const Faction *f = factionInSlot(slot);
     int (*count)(int, int) = moverPortalsLinkedTo;
@@ -793,7 +754,6 @@ static int factionInfernalTarget(int slot, int home, int commander, int unit, un
     return 0;
 }
 
-// RVA_WANDERER_PICK_TARGET: a faction like the Inferno's infernal wanderer picks on its home; anything else the game's.
 typedef unsigned long long (*WandererPickTargetFn)(int commander, int objective, unsigned int *x, unsigned int *y);
 static WandererPickTargetFn gameWandererPickTarget;
 static unsigned long long wandererPickTargetHook(int commander, int objective, unsigned int *x, unsigned int *y) {
@@ -813,9 +773,7 @@ static unsigned long long wandererPickTargetHook(int commander, int objective, u
 }
 
 // ---- Hades ----------------------------------------------------------------------------------------
-// Hades' turn, for a faction like Hades.
 
-// The game's changeloyalty for a slot; the number of units changed.
 static int changeLoyaltyTo(int x, int y, const char *name, int from, int to) {
     if (x < 0 || y < 0) return 0;
     GAME_FN(void (*)(const char *, ...), RVA_TRACE_C)("changeloyalty %d,%d %d->%d (%s)\n", x, y, from, to, name);
@@ -833,21 +791,18 @@ static int changeLoyaltyTo(int x, int y, const char *name, int from, int to) {
     return changed;
 }
 
-// The plane of a faction's monuments; -1 when it isn't in this world.
 static int factionMonumentPlane(const Faction *f) {
     if (!f->spawnPlane[0]) return 0;
     int plane = vanillaPlaneNamed(f->spawnPlane);
     return plane >= 0 ? plane : customPlaneIndex(f->spawnPlane);
 }
 
-// Whether unit `u` is one of the faction's living monuments.
 static int isFactionMonument(const Faction *f, int u) {
     size_t at = (size_t)u * UNIT_SIZE;
     short monster = (short)G16(RVA_UNIT_MONSTER + at);
     return f->monument[0] && (short)G16(RVA_UNIT_HP + at) > 0 && monster >= 0 && !strcmp((const char *)monsterRecord(monster), f->monument);
 }
 
-// The faction's living monuments on `plane` (any owner's, as the game counts the Monument of Hades), or only `owner`'s.
 static int factionMonumentCount(const Faction *f, int plane, int owner) {
     if (!f->monument[0] || plane < 0) return 0;
     int count = 0, last = G32(RVA_UNIT_COUNT);
@@ -859,9 +814,7 @@ static int factionMonumentCount(const Faction *f, int plane, int owner) {
     return count;
 }
 
-// A faction's monument founding, at the start of its turns.
 static int changeLoyaltyTo(int x, int y, const char *name, int from, int to);
-// "<name> the <unit's shown name>": the game's RVA_COMMANDER_THE_NAME, or on Mac CoE5SE's copy (lua_ai.h).
 // @platform-split commander_the_name: Mac copied the commander's "the" name into each caller, so CoE5SE's copy runs there
 static const char *moverCommanderTheName(int commander) {
 #ifdef __APPLE__
@@ -899,7 +852,6 @@ static void factionMonumentFounding(int slot, const Faction *f) {
     writeLog("faction_monument_founded", "slot=%d x=%d y=%d commander=%d monster=%.40s", slot, x, y, commander, f->eventUnfinished);
 }
 
-// The monument's steps of a faction's turn, before its armies move.
 static void factionMonumentSteps(int slot, const Faction *f, int home, int monuments) {
     if (monuments <= 0) return;
     GAME_FN(void (*)(const char *, ...), RVA_TRACE)("planeshiftmonsters\n");
@@ -917,7 +869,6 @@ static void factionMonumentSteps(int slot, const Faction *f, int home, int monum
     }
 }
 
-// RVA_SQUARE_IS_SEA: the square's terrain is sea (TERRAIN_FLAGS bit 2), else its own flag bit 13; 0 off the map.
 static int moverSquareIsSea(int x, int y) {
     if (!squareInMap(x, y)) return 0;
     short terrain = sightTerrain(x, y);
@@ -927,7 +878,6 @@ static int moverSquareIsSea(int x, int y) {
     return (flags >> 13) & 1;
 }
 
-// A faction's caravan, at the start of its turns.
 static void factionCaravan(int slot, const Faction *f) {
     if (f->caravanTurn < 0 || G32(RVA_TURN) <= f->caravanTurn) return;
     int (*random)(int) = GAME_FN(int (*)(int), RVA_RANDOM);
@@ -980,7 +930,6 @@ static void factionHadesMove(int slot, const Faction *f, void (*moveArmies)(int)
     factionTurnSpawn(slot, f, home, 1);
 }
 
-// The monument site's spawns, for a faction.
 static void factionMonumentSpawns(int slot, const Faction *f) {
     int plane = factionMonumentPlane(f);
     if (factionMonumentCount(f, plane, -1) <= 0) return;
@@ -1002,7 +951,6 @@ static void factionMonumentSpawns(int slot, const Faction *f) {
 }
 
 // ---- The Horrors' spawns ------------------------------------------------------------------------
-// pophorrors' spawns at units marked by horrors go to the Horrors or a faction with factionhorrors, one each at random.
 static int horrorsPending = -1;
 static int pickHorrorsOwner(int vanilla) {
     if (!factionSlotsInUse()) return vanilla;
@@ -1033,7 +981,6 @@ static void pophorrorsSingleHook(int x, int y) {
     horrorsPending = -1;
 }
 #endif
-// Points pophorrors' spawn calls at the hooks above; the count in.
 static int installHorrorsSplit(void) {
     int ok = pointCustomPlaneCall(RVA_POPHORRORS_GROUP_CALL, RVA_SPAWN_HORROR_GROUP, (void *)horrorGroupHook, "pophorrors_group");
 #ifdef __APPLE__
@@ -1049,7 +996,6 @@ static int installHorrorsSplit(void) {
 }
 
 // ---- Elysium's rulership ---------------------------------------------------------------------------
-// Elysium's rulership check, factions included.
 typedef long long (*RulershipCheckFn)(long long a0);
 static RulershipCheckFn gameRulershipCheck;
 static int factionInfernalWanderersOnElysium(int slot) {
@@ -1063,7 +1009,6 @@ static int factionInfernalWanderersOnElysium(int slot) {
     }
     return count;
 }
-// Logs a change in which faction contests Elysium's rulership (the check runs every month and turn).
 static void noteFactionRulership(int slot, int pass) {
     static int last;
     int now = slot * 4 + pass;
@@ -1089,7 +1034,6 @@ static long long rulershipCheckHook(long long a0) {
     return 0;
 }
 
-// RVA_MOVE_ALL_INDEPENDENTS: a faction slot's preset mover around it; any other slot the game's.
 typedef void (*MoveAllIndependentsFn)(int player);
 static MoveAllIndependentsFn gameMoveAllIndependents;
 static void moveAllIndependentsHook(int player) {
@@ -1108,7 +1052,6 @@ static void moveAllIndependentsHook(int player) {
     }
 }
 
-// Hooks the plain mover, the turn's unit upkeep, the wanderers' targets and their slot tests once; 1 when all are in.
 #ifndef __APPLE__
 static int installFactionMovers(void) {
     static const struct { unsigned int rva; void *hook; void **game; } HOOKS[] = {
@@ -1131,22 +1074,18 @@ static int installFactionMovers(void) {
     return hooked == wanted && wander == FACTION_WANDER_STUB_COUNT && horrors && avoid && population;
 }
 #else
-// The refusal chance of a step by `mover` onto `owner`'s army (mac_site_stubs.h's MAC_SITE_AVOID), 0 none.
 static int macAvoidRefusal(int mover, int owner) {
     return mover >= 0 && mover < PLAYER_SLOTS_PADDED && owner >= 0 && owner < PLAYER_SLOTS_PADDED ? factionAvoidRefusal[mover][owner] : 0;
 }
-// The slot a faction passes a preset's test as (mac_site_stubs.h's MAC_SITE_SLOT_TEST): its row's.
 static int macSlotTestValue(int behaviour, int slot) {
     return slot >= 0 && slot < PLAYER_SLOTS_PADDED && behaviour >= 0 && behaviour < FACTION_AS_COUNT ? factionAsBySlot[behaviour][slot] : slot;
 }
-// A faction slot's wanderer gate (mac_site_stubs.h's MAC_SITE_WANDER_GATE): 1 waits, 0 goes on.
 static int macWanderGate(int slot, int plane, int value) {
     const FactionGate *g = &factionGates[slot];
     if (g->kind == 1) return plane == g->home && !g->active;
     if (g->kind == 2) return value == 12 && plane == 7 && !*(const unsigned char *)(gameBase + RVA_PRIMAL_PORTALS_OPEN);
     return 0;
 }
-// Mac's copied preset tests, pointed at the faction rows; 1 when every one is in.
 typedef struct { unsigned int rva; unsigned char kind, as; short field; const char *name; } MacPresetTest;
 #define MAC_TEST(rva, as, name) {rva, MAC_SITE_SLOT_TEST, as, 0, name}
 #define MAC_WANDER_GATE_SLOT_AT 0xf8
@@ -1201,7 +1140,6 @@ static int installFactionMovers(void) {
     return hooked == 4 && tests && horrors && population;
 }
 #endif
-// A faction slot's turn state, for its save chunk (faction_saves.h).
 static void saveFactionTurnState(SaveBuffer *b, int slot) {
     saveBufferInt(b, factionTurns[slot - PLAYER_SLOTS_GAME].active);
     saveBufferInt(b, factionTurns[slot - PLAYER_SLOTS_GAME].ownGateway);
@@ -1215,7 +1153,6 @@ static int readFactionTurnState(SaveCursor *c, int slot) {
 }
 
 // ---- Population ----------------------------------------------------------------------------------
-// A faction's share of its home plane's population.
 static void giveFactionsTheirPlane(const CustomPlane *p) {
     int x0 = planeField(p->index, PLANE_X), y0 = planeField(p->index, PLANE_Y);
     for (int i = 0; i < factionCount; i++) {
@@ -1240,7 +1177,6 @@ static void giveFactionsTheirPlane(const CustomPlane *p) {
     }
 }
 
-// The world squares of the plane named `name`; 0 for none.
 static int factionPlaneArea(const char *name, int *x0, int *y0, int *x1, int *y1) {
     int depth = G32(RVA_MAP_DEPTH), height = G32(RVA_MAP_H);
     if (depth > MAP_COLUMNS_MAX) depth = MAP_COLUMNS_MAX;
@@ -1256,7 +1192,6 @@ static int factionPlaneArea(const char *name, int *x0, int *y0, int *x1, int *y1
     return 1;
 }
 
-// A faction's own units and terrain stock, after the world's last population.
 static void populateFactions(void) {
     int any = 0;
     for (int i = 0; i < factionCount; i++) any |= factions[i].unitCount || factions[i].takeCount;

@@ -1,4 +1,3 @@
-// The Mac game's Workshop items.
 #pragma once
 #include <dirent.h>
 #include <limits.h>
@@ -9,26 +8,21 @@
 #include <sys/stat.h>
 
 #define WORKSHOP_CACHE_FILE     "oldworkshop"
-// The game's Workshop item table holds 500 items.
 #define WORKSHOP_CACHE_MAX      500
 #define WORKSHOP_ITEM_INSTALLED 2
-// The game keeps 1499 bytes of an item's path, so any path the system can resolve fits.
 _Static_assert(PATH_MAX < 1500, "a real path fits the game's Workshop path field");
 
-// A growing list of paths or mod names.
 typedef struct {
     char (*items)[PATH_MAX];
     int count, capacity;
 } TextList;
 
-// Adds `text` to `list`.
 static int addText(TextList *list, const char *text) {
     if (!growList((void **)&list->items, &list->capacity, list->count + 1, sizeof list->items[0])) return 0;
     snprintf(list->items[list->count++], sizeof list->items[0], "%s", text);
     return 1;
 }
 
-// The index of `text` in `list`, matched exactly and with case, or -1.
 static int findText(const TextList *list, const char *text) {
     for (int i = 0; i < list->count; i++)
         if (!strcmp(list->items[i], text)) return i;
@@ -40,19 +34,16 @@ static void freeTextList(TextList *list) {
     memset(list, 0, sizeof *list);
 }
 
-// The index in `folders` of the folder `dir` resolves to, or -1.
 static int findRealFolder(const TextList *folders, const char *dir) {
     char real[PATH_MAX];
     return realpath(dir, real) ? findText(folders, real) : -1;
 }
 
-// 1 if the folders `a` and `b` both exist and are one folder.
 static int sameRealFolder(const char *a, const char *b) {
     char realA[PATH_MAX], realB[PATH_MAX];
     return realpath(a, realA) && realpath(b, realB) && !strcmp(realA, realB);
 }
 
-// Adds the names of the mods in `dir` to `names`.
 static int readFolderModNames(const char *dir, TextList *names) {
     DIR *d = opendir(dir);
     if (!d) return 0;
@@ -73,7 +64,6 @@ static int readFolderModNames(const char *dir, TextList *names) {
     return added;
 }
 
-// What the mods folder at `root` lists.
 static int readLocalMods(const char *root, TextList *folders, TextList *paths, TextList *names) {
     DIR *d = opendir(root);
     if (!d) return 1;
@@ -88,13 +78,11 @@ static int readLocalMods(const char *root, TextList *folders, TextList *paths, T
     return ok;
 }
 
-// The Workshop folder's item ids in age order.
 static int compareItemIds(const void *a, const void *b) {
     size_t la = strlen((const char *)a), lb = strlen((const char *)b);
     return la != lb ? (la < lb ? -1 : 1) : strcmp((const char *)a, (const char *)b);
 }
 
-// Writes the cache file for the item folders in `items`.
 static int writeWorkshopCacheFile(const char *path, const TextList *items) {
     char temp[PATH_MAX];
     if (!buildPath(temp, sizeof temp, __func__, "%s.new", path)) return 0;
@@ -126,10 +114,8 @@ static int writeWorkshopCacheFile(const char *path, const TextList *items) {
     return 1;
 }
 
-// A Workshop item holding CoE5SE.
 #define WORKSHOP_CACHE_ALWAYS_MOD "CoE5SE"
 
-// Writes the game's Workshop cache at `cachePath`.
 static int writeWorkshopCacheFor(const char *cachePath, const char *localRoot, const char *workshopRoot, int coe5seOnly) {
     TextList localFolders = {0}, localPaths = {0}, names = {0}, ids = {0}, items = {0}, itemNames = {0};
     char workshopReal[PATH_MAX];
@@ -200,7 +186,6 @@ static int writeWorkshopCacheFor(const char *cachePath, const char *localRoot, c
     return written;
 }
 
-// Every Workshop item, as the Mac Workshop list is on by default.
 static __attribute__((unused)) int writeWorkshopCache(const char *cachePath, const char *localRoot, const char *workshopRoot) {
     return writeWorkshopCacheFor(cachePath, localRoot, workshopRoot, 0);
 }

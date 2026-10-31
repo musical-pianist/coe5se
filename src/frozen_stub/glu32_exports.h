@@ -1,4 +1,3 @@
-// Every export of 64-bit Windows' C:\Windows\System32\glu32.dll, with its ordinal, listed from that
 GLU_EXPORT(gluBeginCurve, 1)
 GLU_EXPORT(gluBeginPolygon, 2)
 GLU_EXPORT(gluBeginSurface, 3)

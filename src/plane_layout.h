@@ -1,4 +1,3 @@
-// What a mod's plane declares past its recipe: set pieces, zones and unit lists.
 #pragma once
 
 #define PLANE_PIECE_LINES_MAX     16
@@ -13,7 +12,6 @@
 
 enum { PIECE_CENTRE, PIECE_RANDOM, PIECE_AT, PIECE_NEAR_PORTAL };
 
-// A planepiece line: a .coem file found in its mod's folder, its size from its mapsize, and where it goes.
 typedef struct {
     char file[MAX_PATH];
     int w, h;
@@ -21,7 +19,6 @@ typedef struct {
     int line;
 } PlanePiece;
 
-// One monster of a unit list: how many (with Wilder off) and the chance per square, in percent.
 typedef struct {
     char monster[PLANE_UNIT_NAME_SIZE];
     int count, chance, line;
@@ -32,7 +29,6 @@ typedef struct {
     int count;
 } PlaneUnitList;
 
-// A planezone: the squares within `radius` (the game's square distance) of each copy of piece `piece`.
 typedef struct {
     char name[PLANE_NAME_SIZE];
     int piece, radius, line;
@@ -42,7 +38,6 @@ typedef struct {
     PlaneUnitList units;
 } PlaneZone;
 
-// A stamped piece's rectangle in world squares, at the last world build.
 typedef struct { int piece, x, y, w, h; } PlacedPiece;
 
 typedef struct {

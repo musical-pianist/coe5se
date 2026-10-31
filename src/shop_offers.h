@@ -1,5 +1,4 @@
 // ---- The shop's built-in offers, and mods' offer rows ------------------------------------------
-// The offers the game's shop build hardcodes, readable by scripts, and the rows scripts add or swap in.
 #define SHOP_ROWS_MAX           50
 #define SHOP_ROW_LIMITER_SIZE   SHOP_OFFER_TEXT_SIZE
 #define SHOP_TEAM_SQUARES       -997
@@ -15,7 +14,6 @@
 #define SHOP_ABILITY_MERCPRICE  0xe9
 #define SHOP_ABILITY_MERCBOOST  0xea
 
-// How a built-in line's chance is worked out.
 enum {
     RULE_STDTROOPS,
     RULE_STDTROOPS_ROLL,
@@ -34,7 +32,6 @@ enum {
     RULE_GRYPHON,
     RULE_ITEM,
 };
-// How a built-in line's price is worked out.
 enum {
     PRICE_PLAIN,
     PRICE_MERCENARY,
@@ -43,7 +40,6 @@ enum {
     PRICE_STALKER,
     PRICE_ITEM,
 };
-// How a line's gold die is rolled.
 enum { DIE_EXPLODES, DIE_PLAIN };
 
 typedef struct {
@@ -67,7 +63,6 @@ typedef struct {
 #define MERC(c, n, g, d, div)   {n, c, g, d, DIE_EXPLODES, 0, -1, 0, 0, 2, 0, 1, 1, RULE_MERCENARY, 0, 0, 0, div, 1000, {0}, PRICE_MERCENARY}
 #define WIZ(n, g, d, out, less, imp) {n, 1, g, d, DIE_EXPLODES, 0, -1, 0, 0, 2, 1, imp, 1, RULE_WIZARD, less, 0, 0, 1, out, {0}, PRICE_PLAIN}
 #define COM(n, g, d, iron, rule, base, per, cap, msg, ...) {n, 1, g, d, DIE_EXPLODES, iron, -1, 0, 0, 2, 1, 0, msg, rule, base, per, cap, 1, 100, {__VA_ARGS__}, PRICE_PLAIN}
-// The built-in offers, in the order the build adds them.
 static const BuiltinOffer BUILTIN_OFFERS[] = {
     STD("Spearman", 50, 0), STD("Swordsman", 50, 10), STD("Archer", 50, 0), STD("Crossbowman", 50, 5),
     STD("Heavy Infantry", 50, 25),
@@ -123,7 +118,6 @@ static const BuiltinOffer BUILTIN_OFFERS[] = {
 #undef GK
 #define BUILTIN_OFFER_COUNT ((int)(sizeof BUILTIN_OFFERS / sizeof BUILTIN_OFFERS[0]))
 
-// The flags RVA_SHOP_ADD writes for these arguments.
 static int shopAddFlags(int kind, int importance) {
     int flags = (kind & 3) ? SHOP_FLAG_ONCE : 0;
     if (kind & 2) flags |= SHOP_FLAG_EXTRA;
@@ -133,38 +127,31 @@ static int shopAddFlags(int kind, int importance) {
 }
 
 // ---- The game's numbers the chance rules read ---------------------------------------------------
-// The player's ability `ability`: its class's value plus its units' (RVA_PLAYER_ABILITY with sum 1).
 static int shopPlayerAbility(int player, int ability) {
     return GAME_FN(int (*)(int, int, int), RVA_PLAYER_ABILITY)(player, ability, 1);
 }
-// The player's guilds of `kind` on squares it (SHOP_OWN_SQUARES) or its team (SHOP_TEAM_SQUARES) holds.
 static int shopGuildCount(int player, int kind, int where) {
     return GAME_FN(int (*)(int, int, int, int), RVA_ENCHANT_COUNT)(player, kind, where, where);
 }
-// 1 when the player has a guild of one of `kinds` on its team's squares.
 static int shopHasGuild(int player, const int *kinds) {
     for (int k = 0; k < 3 && kinds[k]; k++)
         if (GAME_FN(int (*)(int, int, int, int), RVA_FIND_ENCHANT)(player, kinds[k], SHOP_TEAM_SQUARES, SHOP_TEAM_SQUARES) >= 0) return 1;
     return 0;
 }
-// The player's guilds of all of `kinds` on its team's squares.
 static int shopGuildsOf(int player, const int *kinds) {
     int n = 0;
     for (int k = 0; k < 3 && kinds[k]; k++) n += shopGuildCount(player, kinds[k], SHOP_TEAM_SQUARES);
     return n;
 }
-// The player's library levels, max 10.
 static int shopLibraryLevels(int player) {
     int n = GAME_FN(int (*)(int), RVA_PLAYER_LIBRARY_TOTAL)(player);
     return n < 10 ? n : 10;
 }
-// The terrain flags of the square (x, y), 0 for a square with no terrain.
 static unsigned long long shopSquareTerrainFlags(int x, int y) {
     short t = *(const short *)(squareRecordAt(x, y) + SQUARE_TERRAIN_TYPE);
     if (t < 0) return 0;
     return *(const unsigned long long *)(gameBase + RVA_TERRAIN_TABLE + (size_t)t * TERRAIN_SIZE + TERRAIN_FLAGS);
 }
-// The player's town points: town1 squares + 2 x town2 squares it owns, max 10.
 static int shopTownPoints(int player) {
     int w = G32(RVA_MAP_W), h = G32(RVA_MAP_H), towns = 0, cities = 0;
     for (int x = 0; x < w; x++)
@@ -177,7 +164,6 @@ static int shopTownPoints(int player) {
     int n = towns + 2 * cities;
     return n < 10 ? n : 10;
 }
-// 1 when the player owns a citadel in terrain group `group`.
 static int shopHasCitadelIn(int player, int group) {
     int w = G32(RVA_MAP_W), h = G32(RVA_MAP_H);
     for (int x = 0; x < w; x++)
@@ -188,7 +174,6 @@ static int shopHasCitadelIn(int player, int group) {
                 return 1;
     return 0;
 }
-// The Assassin's chance, which the Shadow Stalker's price also reads.
 static int shopAssassinChance(int player) {
     int c = shopPlayerAbility(player, CLASS_ABILITY_ASSASSIN_CHANCE);
     if (shopGuildCount(player, ENCHANT_KIND_GUILD_ASSASSINS, SHOP_OWN_SQUARES) > 0 ||
@@ -196,13 +181,11 @@ static int shopAssassinChance(int player) {
         c += 7;
     return c;
 }
-// Adventurers and Beastmasters guilds on the player's own squares, the Hero's count.
 static int shopAdventurerGuilds(int player) {
     return shopGuildCount(player, ENCHANT_KIND_GUILD_ADVENTURERS, SHOP_OWN_SQUARES) +
            shopGuildCount(player, ENCHANT_KIND_GUILD_BEASTMASTERS, SHOP_OWN_SQUARES);
 }
 
-// Built-in line `o`'s chance for `player` this month, in `o->outOf`; -1 when the line isn't offered at all.
 static int builtinOfferChance(const BuiltinOffer *o, int player) {
     static const int SAGE_GUILDS[3] = {ENCHANT_KIND_GUILD_SAGES, ENCHANT_KIND_GUILD_MAGES, ENCHANT_KIND_GUILD_ARCANE};
     static const int MAGE_GUILDS[3] = {ENCHANT_KIND_GUILD_MAGES, ENCHANT_KIND_GUILD_ARCANE};
@@ -256,7 +239,7 @@ static int builtinOfferChance(const BuiltinOffer *o, int player) {
         return (int)(fx + 2 * shopTownPoints(player)) * 10;
     }
     }
-    return 0;   // No log: every rule is handled above.
+    return 0;
 }
 
 // ---- Mods' rows -------------------------------------------------------------------------------
@@ -274,22 +257,18 @@ static ShopRow shopRows[SHOP_ROWS_MAX];
 static int shopRowCount;
 static int shopHooksInstalled;
 
-// 1 when row r's script is alive and may run.
 static int shopRowLive(const ShopRow *r) { return r->owner && !r->owner->dead; }
-// 1 when a live row replaces built-in line `line`.
 static int builtinOfferReplaced(int line) {
     for (int i = 0; i < shopRowCount; i++)
         if (shopRows[i].replaces == line && shopRowLive(&shopRows[i])) return 1;
     return 0;
 }
 
-// What the build did, for the hooks.
 static struct {
     int active, player;
     unsigned char entryFromRecords[SHOP_OFFERS_MAX];
 } shopBuild;
 
-// callLuaProtected's push for a row's chance function: the function, then the player.
 typedef struct { int ref, player; } ShopChanceCall;
 static int pushShopChanceCall(lua_State *L, void *ctx) {
     const ShopChanceCall *c = ctx;
@@ -297,13 +276,12 @@ static int pushShopChanceCall(lua_State *L, void *ctx) {
     lua_pushinteger(L, c->player);
     return 1;
 }
-// Row r's chance for `player`, in its outOf.
 static int shopRowChance(const ShopRow *r, int player) {
     if (r->chanceLua >= 0) {
         LuaCallback c = luaCallbacks[r->chanceLua];
-        if (!c.s || c.s->dead) return 0;   // No log: a stopped script's row doesn't roll
+        if (!c.s || c.s->dead) return 0;
         ShopChanceCall call = {c.ref, player};
-        if (!callLuaProtected(c.s, pushShopChanceCall, &call, 1)) return 0;   // Logged by callLuaProtected
+        if (!callLuaProtected(c.s, pushShopChanceCall, &call, 1)) return 0;
         int chance = lua_isinteger(c.s->L, -1) ? (int)lua_tointeger(c.s->L, -1) : 0;
         if (!lua_isinteger(c.s->L, -1)) refuseLuaCall(c.s->mod, "addShopOffer.chance", "not_an_integer", "offer=%s", r->name);
         lua_pop(c.s->L, 1);
@@ -314,7 +292,6 @@ static int shopRowChance(const ShopRow *r, int player) {
     int c = builtinOfferChance(&BUILTIN_OFFERS[r->replaces], player);
     return c < 0 ? r->outOf : c;
 }
-// Row r's gold for `player` this time, its die rolled with the game's own random numbers.
 static int shopRowGold(const ShopRow *r, int player, int chance) {
     int die = r->goldDie < 1 ? 0 : r->dieKind == DIE_PLAIN ? GAME_FN(int (*)(int), RVA_RANDOM)(r->goldDie) + 1
                                                          : GAME_FN(int (*)(int), RVA_DIE_OPEN_ENDED)(r->goldDie);
@@ -341,17 +318,16 @@ static int shopRowGold(const ShopRow *r, int player, int chance) {
     }
 }
 
-// Rolls row r for `player` and adds its offer when the roll comes up.
 static void rollShopRow(const ShopRow *r, int player) {
     int chance = shopRowChance(r, player);
-    if (chance < 1) return;   // No log: no offer this month
-    if (chance < r->outOf && GAME_FN(int (*)(int), RVA_RANDOM)(r->outOf) >= chance) return;   // No log: no offer this month
+    if (chance < 1) return;
+    if (chance < r->outOf && GAME_FN(int (*)(int), RVA_RANDOM)(r->outOf) >= chance) return;
     short xcost[3] = {(short)r->xcostType, (short)r->xcostAmount, -1};
     const char *name = r->name;
     int gold;
     if (r->count == -1) {
         int item = GAME_FN(int (*)(int, int, int, int, int), RVA_RANDOM_ITEM_PICK)(-1, -1, 0, 0, 0);
-        if (item < 0) return;   // No log: the game's pick found none, as the build's own does
+        if (item < 0) return;
         int dice = GAME_FN(int (*)(int), RVA_DIE_OPEN_ENDED)(r->goldDie) + GAME_FN(int (*)(int), RVA_DIE_OPEN_ENDED)(r->goldDie);
         int mult = shopPlayerAbility(player, SHOP_ABILITY_MERCPRICE);
         int pct = mult ? (mult + 1) * 50 : 100;
@@ -364,13 +340,12 @@ static void rollShopRow(const ShopRow *r, int player) {
     typedef int (*ShopAddFn)(int, const char *, int, int, int, int, int, int, short *, int, const char *);
     int entry = GAME_FN(ShopAddFn, RVA_SHOP_ADD)(r->count, name, gold, r->iron, r->named, r->kind, player, r->importance,
                                                 r->xcostType >= 0 ? xcost : NULL, r->terrain, r->limiter);
-    if (entry < 0) return;   // Logged by the game ("out of shop space", "failed to add")
+    if (entry < 0) return;
     if (r->message) GAME_FN(int (*)(int), RVA_SHOP_OFFER_MESSAGE)(player);
     writeLog("shop_row_offered", "mod=%s offer=%s player=%d gold=%d", r->owner->mod, name, player, gold);
 }
 
 // ---- After the build: the replaced lines' entries and their message lines ----------------------
-// 1 when shop entry `e` of the player's block is built-in line `o`'s.
 static int entryIsBuiltinLine(size_t block, int e, const BuiltinOffer *o) {
     int count = PG32(RVA_SHOP_OFFER_COUNTS + block + (size_t)e * 4);
     if (count != o->count) return 0;
@@ -382,7 +357,6 @@ static int entryIsBuiltinLine(size_t block, int e, const BuiltinOffer *o) {
 }
 static unsigned char *shopMessage(int m) { return GAME_PTR(RVA_MESSAGE_TABLE) + (size_t)m * MESSAGE_SIZE; }
 
-// The line RVA_SHOP_OFFER_MESSAGE wrote for shop entry `e`, and its message's title.
 static const char *shopOfferLine(size_t block, int e, char *line, size_t size) {
     int count = PG32(RVA_SHOP_OFFER_COUNTS + block + (size_t)e * 4), what = PG32(RVA_SHOP_OFFERS + block + (size_t)e * 4);
     int gold = PG32(RVA_SHOP_COSTS + block + (size_t)e * SHOP_COST_COUNT * 4);
@@ -397,7 +371,6 @@ static const char *shopOfferLine(size_t block, int e, char *line, size_t size) {
     return "Recruitment Offer";
 }
 
-// Removes `line` from the player's first message titled `title` that holds it; 1 when it did.
 static int dropShopOfferLine(int player, const char *title, const char *line) {
     size_t n = strlen(line);
     for (int m = 0; m <= G32(RVA_MESSAGE_LAST); m++) {
@@ -421,7 +394,6 @@ static int dropShopOfferLine(int player, const char *title, const char *line) {
     return 0;
 }
 
-// Merges the player's Recruitment Offer messages into its first, as the build's last step does.
 static void mergeShopMessages(int player) {
     int last = G32(RVA_MESSAGE_LAST), first = -1;
     for (int m = 0; m <= last; m++) {
@@ -444,7 +416,6 @@ static void mergeShopMessages(int player) {
     }
 }
 
-// Empties the entries of replaced built-in lines that the build made for `player`, and drops their lines.
 static void emptyReplacedOffers(int player) {
     size_t block = (size_t)player * PLAYER_BLOCK_SIZE;
     int last = PG32(RVA_SHOP_LAST + block), line = 0;
@@ -454,7 +425,7 @@ static void emptyReplacedOffers(int player) {
         while (l < BUILTIN_OFFER_COUNT && !entryIsBuiltinLine(block, e, &BUILTIN_OFFERS[l])) l++;
         if (l == BUILTIN_OFFER_COUNT) {
             writeLog("shop_offer_unmatched", "player=%d entry=%d", player, e);
-            return;   // Logged above; the rest stays as the game made it
+            return;
         }
         line = l + 1;
         const BuiltinOffer *o = &BUILTIN_OFFERS[l];
@@ -468,7 +439,6 @@ static void emptyReplacedOffers(int player) {
 }
 
 // ---- The hooks --------------------------------------------------------------------------------
-// The class list's and special locations' calls: a mod's recruitment bonuses, and marks what each record added.
 #ifndef __APPLE__
 typedef uintptr_t (*ShopProcessOfferFn)(int, void *, int, int, int);
 static uintptr_t shopProcessOfferHook(int player, void *record, int temples, int libraries, int terrain) {
@@ -496,13 +466,12 @@ static void shopProcessOfferHook(int player, void *record, int temples, int libr
 #endif
 }
 
-// player_turn_start's call of the shop build: the game's build, then the replaced lines and mods' rows.
 static void shopBuildHook(int player) {
     int any = 0;
     for (int i = 0; i < shopRowCount && !any; i++) any = shopRowLive(&shopRows[i]);
     if (!any || isNetworkGame() || player < 0 || player >= PLAYER_SLOTS) {
         GAME_FN(void (*)(int), RVA_SHOP_BUILD)(player);
-        return;   // No log: with no live row, in a network game, or for a slot outside 0-31 the build runs untouched
+        return;
     }
     memset(shopBuild.entryFromRecords, 0, sizeof shopBuild.entryFromRecords);
     shopBuild.active = 1, shopBuild.player = player;
@@ -514,7 +483,6 @@ static void shopBuildHook(int player) {
     mergeShopMessages(player);
 }
 
-// Points the shop build's call and its two record calls at CoE5SE, once; 1 when all three are in.
 static int installShopOfferHooks(void) {
     if (shopHooksInstalled) return shopHooksInstalled > 0;
     int ok = pointCustomPlaneCall(RVA_SHOP_CLASS_OFFER_CALL, RVA_SHOP_PROCESS_OFFER, (void *)shopProcessOfferHook, "shop_class_offer") &&
@@ -527,7 +495,6 @@ static int installShopOfferHooks(void) {
 }
 
 // ---- Lua: coe5.builtinOffers, builtinOfferChance, replaceBuiltinOffer, addShopOffer, guildCount ----
-// The fields of one built-in line or row, as the Lua functions give and take them.
 static void pushBuiltinOffer(lua_State *L, int line) {
     const BuiltinOffer *o = &BUILTIN_OFFERS[line];
     lua_createtable(L, 0, 20);
@@ -559,7 +526,6 @@ static void pushBuiltinOffer(lua_State *L, int line) {
     lua_setfield(L, -2, "price");
 }
 
-// coe5.builtinOffers(): the 61 offers the shop build adds from its own code, in its order.
 static int lBuiltinOffers(lua_State *L) {
     lua_createtable(L, BUILTIN_OFFER_COUNT, 0);
     for (int i = 0; i < BUILTIN_OFFER_COUNT; i++) {
@@ -569,7 +535,6 @@ static int lBuiltinOffers(lua_State *L) {
     return 1;
 }
 
-// coe5.builtinOfferChance(id, player): the line's chance this month for the player, and what it's out of.
 static int lBuiltinOfferChance(lua_State *L) {
     lua_Integer id = luaL_checkinteger(L, 1), player = luaCheckPlayer(L, 2);
     if (id < 1 || id > BUILTIN_OFFER_COUNT || player < 0 || player >= PLAYER_SLOTS) {
@@ -584,14 +549,12 @@ static int lBuiltinOfferChance(lua_State *L) {
     return 2;
 }
 
-// The guild kind ritual `name` sets up (its effect 1091), or -1.
 static int guildKindOfRitual(const char *name) {
     int r = ritualByName(name, 0);
-    if (r < 0) return -1;   // No log: lGuildCount refuses it
+    if (r < 0) return -1;
     return ritualFirstFx(gameBase + ritualTableRva() + (size_t)r * RITUAL_SIZE, SHOP_FX_GUILD_KIND, -1);
 }
 
-// coe5.guildCount(player, guild[, ownSquares]): the player's guilds of that guild ritual, as the shop counts them.
 static int lGuildCount(lua_State *L) {
     lua_Integer player = luaCheckPlayer(L, 1);
     const char *guild = luaL_checkstring(L, 2);
@@ -607,7 +570,6 @@ static int lGuildCount(lua_State *L) {
     return 1;
 }
 
-// Reads the optional integer field `key` of the table at 1 into *out; 0 with lua_refused when it isn't one.
 static int shopRowIntField(lua_State *L, const char *call, const char *key, int *out, int lo, int hi) {
     int t = lua_getfield(L, 1, key);
     int ok = 1;
@@ -620,13 +582,11 @@ static int shopRowIntField(lua_State *L, const char *call, const char *key, int 
     lua_pop(L, 1);
     return ok;
 }
-// Reads the optional boolean field `key` of the table at 1 into *out.
 static void shopRowBoolField(lua_State *L, const char *key, int *out) {
     if (lua_getfield(L, 1, key) != LUA_TNIL) *out = lua_toboolean(L, -1);
     lua_pop(L, 1);
 }
 
-// Fills row r from the fields of the table at 1; 0 with the refusal logged.
 static int readShopRowFields(lua_State *L, const char *call, ShopRow *r) {
     if (lua_getfield(L, 1, "name") != LUA_TNIL) {
         const char *name = lua_tostring(L, -1);
@@ -648,7 +608,7 @@ static int readShopRowFields(lua_State *L, const char *call, ShopRow *r) {
         !shopRowIntField(L, call, "goldDie", &r->goldDie, 0, 100000) || !shopRowIntField(L, call, "iron", &r->iron, 0, 1000000) ||
         !shopRowIntField(L, call, "terrain", &r->terrain, TERRAIN_MATCH_CODE_MIN, 11999) ||
         !shopRowIntField(L, call, "outOf", &r->outOf, 1, 1000000))
-        return 0;   // Logged by shopRowIntField
+        return 0;
     shopRowBoolField(L, "commander", &r->named);
     shopRowBoolField(L, "oncePerOffer", &once);
     shopRowBoolField(L, "extra", &extra);
@@ -697,7 +657,6 @@ static int readShopRowFields(lua_State *L, const char *call, ShopRow *r) {
     return 1;
 }
 
-// Adds row r for the running script; its number, or -1 with the refusal logged.
 static int addShopRow(lua_State *L, const char *call, ShopRow *r) {
     if (shopRowCount >= SHOP_ROWS_MAX) {
         refuseLuaCall(runningLuaMod(), call, "too_many_rows", "rows=%d max=%d", shopRowCount, SHOP_ROWS_MAX);
@@ -713,7 +672,6 @@ static int addShopRow(lua_State *L, const char *call, ShopRow *r) {
     return ++shopRowCount;
 }
 
-// coe5.replaceBuiltinOffer(id[, fields]): turns built-in line `id` off and adds a row in its place; the row's number or false.
 static int lReplaceBuiltinOffer(lua_State *L) {
     lua_Integer id = luaL_checkinteger(L, 1);
     if (lua_isnoneornil(L, 2)) {
@@ -743,7 +701,6 @@ static int lReplaceBuiltinOffer(lua_State *L) {
     return 1;
 }
 
-// coe5.addShopOffer{name=, chance=, ...}: a new offer every player's shop rolls each month; the row's number or false.
 static int lAddShopOffer(lua_State *L) {
     luaL_checktype(L, 1, LUA_TTABLE);
     lua_settop(L, 1);

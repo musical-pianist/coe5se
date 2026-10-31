@@ -1,19 +1,16 @@
-// The Mod Settings screen and the mods' settings files.
+#pragma once
 
 #include <ctype.h>
 
-// The sidecar's words that start a block (the game has none of them).
 #define SETTING_WORD        "newsetting"
 #define SETTING_PAGE_WORD   "newsettingpage"
 #define SETTING_HEADER_WORD "newsettingheader"
 
-// Which file a settings line is in: IniParse.sidecar, and the inSidecar of each setting, page, and ref.
 #define SETTINGS_IN_INI   0
 #define SETTINGS_IN_C5SE  1
 #define SETTINGS_IN_C5M   2
 #define SETTINGS_IN_INCLUDED 3
 
-// What a message names after the mod's name: ".c5m", ".c5se", ".ini", or an included file's "/<file>".
 static const char *settingsFileSuffix(int in) {
     return in >= SETTINGS_IN_INCLUDED ? includeLabelText(in - SETTINGS_IN_INCLUDED) : in == SETTINGS_IN_C5M ? MOD_FILE_SUFFIX : in ? SIDECAR_SUFFIX : ".ini";
 }
@@ -23,12 +20,10 @@ static const char *settingsFileSuffix(int in) {
 #define ID_PAGE_NEXT  11
 #define ID_RESET      12
 #define ID_MOD        50
-// Plugins' screen lines on the page use ID_SCREEN_FIRST to ID_SCREEN_END.
 #define ID_SUBPAGE    2000
 #define ID_ONOFF      3000
 #define ID_CHOICE     5000
 #define ID_KEY        20000
-// A page's ranges don't overlap.
 _Static_assert(ID_SCREEN_END <= ID_SUBPAGE && ID_SUBPAGE + SETTING_PAGES_MAX <= ID_ONOFF, "a mod page's id ranges overlap");
 #define SETTING_NAME_SIZE 64
 
@@ -56,14 +51,12 @@ typedef struct {
     char page[SETTING_NAME_MAX + 1];
 } ModSetting;
 
-// A page of a mod's settings files: a sub-page of the mod's page.
 typedef struct {
     char mod[MOD_NAME_MAX];
     char name[SETTING_NAME_MAX + 1], label[SETTING_TEXT_MAX + 1];
     int line, inSidecar;
 } ModPage;
 
-// A line CoE5SE left out.
 typedef struct {
     char mod[MOD_NAME_MAX];
     int line;
@@ -72,14 +65,12 @@ typedef struct {
     char source[160];
 } BadLine;
 
-// A +setting or -setting line, checked against the mod's settings once its reading ends.
 typedef struct {
     int line, hasIndex, index, trailing, inSidecar;
     char word[10], name[SETTING_NAME_SIZE];
 } SettingRef;
 
 static const PluginApi *api = &API;
-// The settings, each allocated on its own.
 static ModSetting **settings;
 static int settingCount, settingCapacity;
 static BadLine *badLines;
@@ -87,12 +78,10 @@ static int badLineCount, badLineCapacity;
 static ModPage *modPages;
 static int modPageCount, modPageCapacity;
 static void (*nextEventLine)(const char *, int);
-// The mods whose settings files CoE5SE has tried to read this launch.
 static char (*triedMods)[MOD_NAME_MAX];
 static int triedModCount, triedModCapacity;
 static unsigned int passReadings;
 
-// The mod whose .c5m is being read at level 1, and the +setting lines it has so far.
 static struct {
     int active;
     int disabled;
@@ -103,7 +92,6 @@ static struct {
 } reading;
 
 // ---- File stamps ---------------------------------------------------------------------------------
-// What tells CoE5SE that a file changed since it last read it.
 typedef struct {
     int exists;
     unsigned long long size, written, changed, node;
@@ -134,12 +122,10 @@ static int sameFileStamp(const FileStamp *a, const FileStamp *b) {
 }
 
 // ---- The players' picks ------------------------------------------------------------------------------
-// The picks files: each mod's own coe5seModMenu/<ModName>.ini, and settings.ini.
 typedef struct { const char *section, *key, *value; } SavedPick;
 
 static unsigned int settingKeyHash(const char *mod, const char *name);
 
-// One picks file as read.
 typedef struct {
     int unsure;
     char *text;
@@ -151,7 +137,6 @@ typedef struct {
     int sectionCount, sectionCapacity;
 } PickTable;
 
-// A mod's own picks file, as read.
 typedef struct {
     char mod[MOD_NAME_MAX];
     PickTable table;
@@ -167,7 +152,6 @@ static struct {
     int ownIncomplete;
 } savedPicks;
 
-// The pick for setting `name` of `mod` in `t`, or NULL.
 static const SavedPick *findSavedPick(const PickTable *t, const char *mod, const char *name) {
     if (!t->indexSize) return NULL;
     for (unsigned int h = settingKeyHash(mod, name) & (t->indexSize - 1); t->index[h]; h = (h + 1) & (t->indexSize - 1)) {
@@ -177,7 +161,6 @@ static const SavedPick *findSavedPick(const PickTable *t, const char *mod, const
     return NULL;
 }
 
-// Reads the line at `line` (cut at its end already) into `t`.
 static int readSavedPickLine(PickTable *t, char *line, const char **section) {
     size_t length = strlen(line);
     if (length && line[length - 1] == '\r') line[--length] = '\0';
@@ -233,7 +216,6 @@ static int readSavedPickLine(PickTable *t, char *line, const char **section) {
     return 1;
 }
 
-// Reads the picks file at `path` into `t`, as it is now.
 static void loadPickTable(PickTable *t, const char *path) {
     free(t->text);
     t->text = NULL;
@@ -258,7 +240,6 @@ static void loadPickTable(PickTable *t, const char *path) {
     }
 }
 
-// Calls `each` for every mod's own picks file in coe5seModMenu.
 static void forEachModPickFile(void (*each)(const char *mod, const char *path, void *data), void *data) {
     char pattern[MAX_PATH], path[MAX_PATH], old[MAX_PATH], mod[MOD_NAME_MAX];
     char (*seen)[MOD_NAME_MAX] = NULL;
@@ -306,7 +287,6 @@ static void freePickTable(PickTable *t) {
     memset(t, 0, sizeof *t);
 }
 
-// Reads every picks file into its table, as it is now.
 static void loadSavedPicks(void) {
     char path[MAX_PATH];
     savedPicks.loaded = 1;
@@ -317,14 +297,12 @@ static void loadSavedPicks(void) {
     else freePickTable(&savedPicks.legacy);
 }
 
-// The table of `mod`'s own picks file, or NULL when the mod has none.
 static ModPickFile *modPickFile(const char *mod) {
     for (int i = 0; i < savedPicks.ownCount; i++)
         if (!_stricmp(savedPicks.own[i].mod, mod)) return &savedPicks.own[i];
     return NULL;
 }
 
-// Adds what tells a file changed to the stamp `*hash`.
 static void addFileToStamp(unsigned long long *hash, const char *name, const FileStamp *s) {
     const unsigned char *bytes[2] = {(const unsigned char *)name, (const unsigned char *)s};
     size_t sizes[2] = {strlen(name) + 1, sizeof *s};
@@ -338,7 +316,6 @@ static void addModPickFileToStamp(const char *mod, const char *path, void *data)
     addFileToStamp(data, mod, &s);
 }
 
-// One stamp over every picks file.
 static unsigned long long picksFilesStamp(void) {
     unsigned long long hash = 0xcbf29ce484222325ull;
     char path[MAX_PATH];
@@ -350,7 +327,6 @@ static unsigned long long picksFilesStamp(void) {
     return hash;
 }
 
-// Notes a change to the picks files that CoE5SE didn't make.
 static void noteSettingsIniNow(void) {
     unsigned long long now = picksFilesStamp();
     if (now == savedPicks.seen) return;
@@ -359,14 +335,12 @@ static void noteSettingsIniNow(void) {
     savedPicks.loaded = 0;
 }
 
-// After CoE5SE wrote a picks file: reads the tables again.
 static void noteOwnSettingsWrite(int ok) {
     savedPicks.seen = picksFilesStamp();
     if (!ok) savedPicks.generation++;
     savedPicks.loaded = 0;
 }
 
-// The saved text of `mod`'s setting `name` into out[size].
 static int savedPickText(const char *mod, const char *name, char *out, size_t size) {
     out[0] = '\0';
     if (!savedPicks.loaded) loadSavedPicks();
@@ -381,7 +355,6 @@ static int savedPickText(const char *mod, const char *name, char *out, size_t si
     return (int)strlen(out);
 }
 
-// Returns the setting's saved value, or its default.
 static int loadValue(const ModSetting *s) {
     char text[16];
     if (!savedPickText(s->mod, s->name, text, sizeof text)) return s->defaultValue;
@@ -390,7 +363,6 @@ static int loadValue(const ModSetting *s) {
     return v < 0 || v > max ? s->defaultValue : v;
 }
 
-// Writes the setting's value to its mod's own picks file.
 static void saveValue(const ModSetting *s) {
     char path[MAX_PATH], text[16];
     noteSettingsIniNow();
@@ -403,7 +375,6 @@ static void saveValue(const ModSetting *s) {
     writeLog("setting_changed", "mod=%s name=%s value=%d", s->mod, s->name, s->value);
 }
 
-// Deletes the setting's saved value, so it reads the mod's default.
 static void forgetValue(const ModSetting *s) {
     char path[MAX_PATH];
     noteSettingsIniNow();
@@ -414,12 +385,10 @@ static void forgetValue(const ModSetting *s) {
     noteOwnSettingsWrite(WritePrivateProfileStringA(s->mod, s->name, NULL, path) != 0);
 }
 
-// The name of mod `mod` in the game's mod table, which is its .c5m's file name.
 static const char *modName(int mod) {
     return (const char *)(gameBase + RVA_MOD_NAMES + (size_t)mod * MOD_RECORD_SIZE);
 }
 
-// Logs c5m_refused for a line of mod `mod`'s .c5m that starts with `word`.
 static int readingSidecarNow(void);
 static int includedLabelNow(void);
 static unsigned int modFileNow(void);
@@ -432,7 +401,6 @@ static void logSidecarRefusal(const char *word, const char *mod, const char *rea
     va_end(ap);
 }
 
-// The file field of a sidecar line's refusal for `in` (SETTINGS_IN_C5SE or an included file's): its two parts.
 static void sidecarRefusalFile(int in, const char *mod, const char **name, const char **suffix) {
     *name = in >= SETTINGS_IN_INCLUDED ? "" : mod;
     *suffix = in >= SETTINGS_IN_INCLUDED ? includeLabelText(in - SETTINGS_IN_INCLUDED) + 1 : SIDECAR_SUFFIX;
@@ -454,7 +422,6 @@ static PRINTF_FORMAT(4, 5) void refuseC5mLine(const char *word, const char *mod,
     va_end(ap);
 }
 
-// Logs c5m_refused for a line of mod `mod`'s sidecar.
 static PRINTF_FORMAT(5, 6) void refuseSidecarLine(int in, const char *word, const char *mod, const char *reason, const char *fmt, ...) {
     char details[512];
     va_list ap;
@@ -470,7 +437,6 @@ static PRINTF_FORMAT(5, 6) void refuseSidecarLine(int in, const char *word, cons
     logSidecarRefusal(word, mod, reason, details, name, suffix);
 }
 
-// Logs ini_refused for a line of mod `mod`'s .ini.
 static PRINTF_FORMAT(4, 5) void refuseIniLine(const char *section, const char *mod, const char *reason, const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
@@ -478,7 +444,6 @@ static PRINTF_FORMAT(4, 5) void refuseIniLine(const char *section, const char *m
     va_end(ap);
 }
 
-// Returns mod `name`'s index in the game's mod table, or -1.
 static int modIndexByName(const char *name) {
     for (int m = 0; m <= G32(RVA_MOD_LAST_INDEX); m++)
         if (!_stricmp(modName(m), name)) return m;
@@ -490,7 +455,6 @@ static int modEnabledByName(const char *name) {
     return m >= 0 && modEnabled(m);
 }
 
-// 1 if the mod's folder is in the game's local mods folder, not a Workshop item.
 static int isInLocalModsFolder(const char *name) {
     int m = modIndexByName(name);
     if (m < 0) return 0;
@@ -509,7 +473,6 @@ static void skipSpaces(const char **p) {
     while (**p == ' ' || **p == '\t') (*p)++;
 }
 
-// Reads a number from *p and moves past it.
 static int readInt(const char **p, int *out) {
     skipSpaces(p);
     char *end;
@@ -520,7 +483,6 @@ static int readInt(const char **p, int *out) {
     return 1;
 }
 
-// Reads a word (anything up to a space or a quote) from *p into `out` and moves past it.
 static int readWord(const char **p, char *out, size_t size) {
     skipSpaces(p);
     size_t n = 0, len = 0;
@@ -530,7 +492,6 @@ static int readWord(const char **p, char *out, size_t size) {
     return (int)len;
 }
 
-// 1 if nothing but spaces is left at p.
 static int isLineEnd(const char *p) {
     while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
     return !*p;

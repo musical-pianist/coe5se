@@ -1,8 +1,6 @@
-// Key names: how a key value is written in a settings file and shown on a settings page.
 #pragma once
 #include <ctype.h>
 
-// The punctuation keys that have a character of their own on a US keyboard.
 #define KEY_OWN_PUNCTUATION "`-=[]\\;',./"
 
 typedef struct { const char *name; int key; } KeyName;
@@ -15,18 +13,15 @@ static const KeyName KEY_NAMES[] = {
 };
 #define KEY_NAME_COUNT (int)(sizeof KEY_NAMES / sizeof KEY_NAMES[0])
 
-// The name of a named key, or NULL.
 static const char *keyNamedName(int base) {
     for (int i = 0; i < KEY_NAME_COUNT; i++)
         if (KEY_NAMES[i].key == base) return KEY_NAMES[i].name;
     return NULL;
 }
 
-// The key without its modifier, and the modifier alone (0, KEY_CTRL, KEY_ALT, or KEY_CTRL_SHIFT).
 static int keyBase(int value) { return value % KEY_CTRL; }
 static int keyModifier(int value) { return value - keyBase(value); }
 
-// 1 if `value` is a key value (KEY_NONE included).
 static int keyValueIsValid(int value) {
     if (value == KEY_NONE) return 1;
     if (value < 0 || value >= KEY_CTRL_SHIFT + KEY_CTRL) return 0;
@@ -40,7 +35,6 @@ static int keyValueIsValid(int value) {
     return !(modifier == KEY_ALT && (base == KEY_TAB || base == KEY_ENTER));
 }
 
-// Writes the name of key value `value` into `out`: "ctrl+i", "Space", "B", "none".
 static void keyValueName(int value, char *out, size_t size) {
     if (!size) return;
     if (value == KEY_NONE) {
@@ -58,7 +52,6 @@ static void keyValueName(int value, char *out, size_t size) {
     else snprintf(out, size, "%s%c", prefix, base);
 }
 
-// Takes a modifier word (ctrl, alt, shift) and its +, with the spaces around it, from *p.
 static int takeKeyModifier(const char **p) {
     static const struct { const char *word; int modifier; } WORDS[] = {{"ctrl", KEY_CTRL}, {"alt", KEY_ALT}, {"shift", 1}};
     for (int i = 0; i < 3; i++) {
@@ -76,7 +69,6 @@ static int takeKeyModifier(const char **p) {
     return 0;
 }
 
-// Reads a key name (above) into *out.
 static int keyValueFromName(const char *text, int *out) {
     if (!text) return 0;
     while (*text == ' ') text++;

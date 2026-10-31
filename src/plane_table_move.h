@@ -1,4 +1,3 @@
-// The plane table move: PLANE_RECORDS_MOVED plane records instead of the game's 11, for mods' planes.
 #include <stdint.h>
 #ifndef __APPLE__
 #include "plane_table_sites.h"
@@ -20,7 +19,6 @@ static int planeTableMoved;
 static unsigned char *movedPlaneTable, *movedPlaneCameraX, *movedPlaneCameraY;
 static unsigned char *movedPlaneBuilt;
 
-// Each moved array: the game's address and one plane's entry size.
 static const struct { unsigned int rva; int entry; } PLANE_ARRAYS[PLANE_GROUP_COUNT] = {
     [PLANE_GROUP_TABLE] = {RVA_PLANES, PLANE_SIZE},       [PLANE_GROUP_CAMERA_X] = {RVA_PLANE_CAMERA_X, 4},
     [PLANE_GROUP_CAMERA_Y] = {RVA_PLANE_CAMERA_Y, 4},     [PLANE_GROUP_BG_BUILT] = {RVA_MAP_BG_BUILT, 4},
@@ -28,13 +26,11 @@ static const struct { unsigned int rva; int entry; } PLANE_ARRAYS[PLANE_GROUP_CO
     [PLANE_GROUP_BG_SIZE] = {RVA_MAP_BG_SIZE, 8},
 };
 
-// A mod's planes' background images, rebuilt: the game clears only 0 to 10 when a game ends.
 static void resetCustomPlaneImages(void) {
     if (!planeTableMoved) return;
     memset(movedPlaneBuilt + 4 * PLANE_RECORDS_GAME, 0, 4 * (PLANE_RECORDS_MOVED - PLANE_RECORDS_GAME));
 }
 
-// Where the game reads the plane table now, and how many records it holds.
 static unsigned char *planeTableAddress(void) { return planeTableMoved ? movedPlaneTable : gameBase + RVA_PLANES; }
 static int planeTableRecords(void) { return planeTableMoved ? PLANE_RECORDS_MOVED : PLANE_RECORDS_GAME; }
 static unsigned char *planeRecord(int plane) { return planeTableAddress() + (size_t)plane * PLANE_SIZE; }
@@ -45,10 +41,8 @@ static int planeField(int plane, int field) {
 }
 static void setPlaneField(int plane, int field, int value) { memcpy(planeRecord(plane) + field, &value, 4); }
 
-// The old address of each site group's array.
 static unsigned char *planeGroupOld(int group) { return gameBase + PLANE_ARRAYS[group].rva; }
 
-// Copies the game's 11 entries of each array into its new place, and notes the new places.
 static void finishPlaneArraysMove(unsigned char *const arrays[PLANE_GROUP_COUNT]) {
     for (int g = 0; g < PLANE_GROUP_COUNT; g++) memcpy(arrays[g], planeGroupOld(g), (size_t)PLANE_RECORDS_GAME * (size_t)PLANE_ARRAYS[g].entry);
     movedPlaneTable = arrays[PLANE_GROUP_TABLE], movedPlaneCameraX = arrays[PLANE_GROUP_CAMERA_X], movedPlaneCameraY = arrays[PLANE_GROUP_CAMERA_Y];
@@ -57,7 +51,6 @@ static void finishPlaneArraysMove(unsigned char *const arrays[PLANE_GROUP_COUNT]
 
 #ifndef __APPLE__
 // ---- Windows: the patch ------------------------------------------------------------------------
-// A rewrite whose new value isn't a distance: `value` written over `valueSize` bytes at rva + fieldOffset.
 typedef struct {
     unsigned int rva;
     int fieldOffset, valueSize;
@@ -77,7 +70,6 @@ static const PlaneValueSite PLANE_VALUE_SITES[] = {
     {PLANE_KEY_NEXT_STOP_JUMP,       0, 1, 0x7d,                   "view_next_stop"},
 };
 
-// The top bar's plane slot width, (free - x - 20) times 1/11: one of 19 instead.
 #define PLANE_SLOT_WIDTH_SIZE   9
 #define PLANE_SLOT_WIDTH_FIELD  5
 #define PLANE_VALUE_SITE_COUNT ((int)(sizeof PLANE_VALUE_SITES / sizeof PLANE_VALUE_SITES[0]))
@@ -92,7 +84,6 @@ static void queuePlaneWrite(unsigned char *at, int value, int size) {
     planeMoveWrites[planeMoveWriteCount++].size = size;
 }
 
-// Queues every site's new field.
 static int queuePlaneTableWrites(unsigned char *const arrays[PLANE_GROUP_COUNT], unsigned char *slotScale) {
     int matched = 0;
     planeMoveWriteCount = 0;
@@ -131,7 +122,6 @@ static int queuePlaneTableWrites(unsigned char *const arrays[PLANE_GROUP_COUNT],
     return matched;
 }
 
-// Moves the table, or changes nothing.
 static const unsigned short PLANE_BLOCK_AT[PLANE_GROUP_COUNT] = {
     [PLANE_GROUP_TABLE] = 0, [PLANE_GROUP_CAMERA_X] = 0x600, [PLANE_GROUP_CAMERA_Y] = 0x680, [PLANE_GROUP_BG_BUILT] = 0x700,
     [PLANE_GROUP_BG_DIRTY] = 0x780, [PLANE_GROUP_BG_PIXELS] = 0x800, [PLANE_GROUP_BG_SIZE] = 0x900,
@@ -185,7 +175,6 @@ static int installPlaneTableMove(void) {
 }
 #else
 // ---- Mac: the patch ----------------------------------------------------------------------------
-// The Mac side: the ADRPs move their page, and every other change is one instruction word.
 typedef struct { unsigned int rva; uint32_t mask, value; const char *name; } PlaneWordSite;
 
 #define PLANE_IMM12   (0xfffu << 10)
@@ -231,7 +220,6 @@ static uint32_t planeGameWord(unsigned int rva) {
     return word;
 }
 
-// Queues every site's new word.
 static int queuePlaneTableWrites(unsigned char *const arrays[PLANE_GROUP_COUNT]) {
     int matched = 0;
     planeMoveWriteCount = 0;
@@ -255,7 +243,6 @@ static int queuePlaneTableWrites(unsigned char *const arrays[PLANE_GROUP_COUNT])
     return matched;
 }
 
-// Writes the queued words, one protection change per run of words on the same page.
 static int writePlaneWords(void) {
     int i = 0;
     while (i < planeMoveWriteCount) {
@@ -271,7 +258,6 @@ static int writePlaneWords(void) {
     return i;
 }
 
-// Moves the table, or changes nothing.
 static int installPlaneTableMove(void) {
     if (!gameCodeMatches) {
         writeLog("plane_table_not_moved", "reason=game_code_differs sites=0 of %d", PLANE_MOVE_SITE_COUNT);
@@ -318,7 +304,6 @@ static int installPlaneTableMove(void) {
 }
 #endif
 
-// Moves the table once per launch, at the first plane a mod declares.
 static int ensurePlaneTableMoved(void) {
     static int tried;
     if (planeTableMoved || tried) return planeTableMoved;

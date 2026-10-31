@@ -1,4 +1,4 @@
-// The fan patch's host: what Alex the Beetrayer's three game fixes call in CoE5SE.
+// @platform-split entry_hooks: Windows jumps through a stub near the game, Mac through x16 in the function's first 16 bytes
 
 typedef struct {
     const char *name;
@@ -13,7 +13,6 @@ typedef struct {
 
 static struct { unsigned char *trampoline, *stub; void *detour; int enabled; unsigned char saved[16]; } entryHooks[ENTRY_HOOK_COUNT];
 
-// The hook at `target`, the start of a listed game function, or -1.
 static int entryHookAt(const void *target) {
     for (int i = 0; i < ENTRY_HOOK_COUNT; i++)
         if (gameBase + ENTRY_HOOK_SITES[i].rva == (const unsigned char *)target) return i;
@@ -131,7 +130,6 @@ void fanpatchLog(const char *fmt, ...) {
     writeLog("fanpatch_log", "text=%s", text);
 }
 
-// Whether the game's code is the build's, which every function a fix hooks or reads was checked on.
 int fanpatchGameCodeMatches(const char *fix) {
     if (gameCodeMatches) return 1;
     writeLog("fanpatch_check_failed", "fix=%s reason=game_code_differs", fix);
@@ -169,7 +167,6 @@ static void fanpatchReport(void) {
     fix_token_sprites_report();
 }
 
-// Installs the three fixes, each logging what it did ("fanpatch_log").
 static void fanpatchInstall(void) {
     int installed = fix_item_reset_install() + fix_feeblemind_install() + fix_token_sprites_install();
     writeLog("fanpatch_installed", "fixes=%d of 3", installed);

@@ -1,4 +1,3 @@
-// Every ADRP in coe5_mac that builds an address in the game's class_recruits table, and its bounds.
 #pragma once
 
 #define CLASS_RECRUITS_MAC_SITE_COUNT 17
@@ -22,7 +21,6 @@ static const TableMacSite CLASS_RECRUITS_MAC_SITES[CLASS_RECRUITS_MAC_SITE_COUNT
     {0x5312e8},
 };
 
-// The table's size in bytes, 200 records, built by a movz and a movk (the copies' and clears' sizes): each becomes the moved size.
 #define CLASS_RECRUITS_MAC_SIZE_COUNT 3
 static const TableMacSize CLASS_RECRUITS_MAC_SIZES[CLASS_RECRUITS_MAC_SIZE_COUNT] = {
     {0x3326f0},

@@ -1,5 +1,3 @@
-# CoE5SE's own Mod Settings. CoE5SE reads this file right after CoE5SE.c5m.
-
 newsetting auto_approve
 onoff
 default 1

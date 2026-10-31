@@ -1,20 +1,16 @@
-// Finds a mod's plugins that were built for the other platform only.
 #pragma once
 #include <string.h>
 
 #define WINDOWS_PLUGIN_SUFFIX ".c5plugin.dll"
 #define MAC_PLUGIN_SUFFIX     ".c5plugin.dylib"
 
-// Called with each plugin of the other platform and the file this platform needed.
 typedef void (*MissingPluginFn)(void *context, const char *otherFile, const char *missingFile);
 
-// 1 if `name` ends in `suffix`, ignoring case, with a base name before it.
 static int pluginHasSuffix(const char *name, const char *suffix) {
     size_t len = strlen(name), suffixLen = strlen(suffix);
     return len > suffixLen && !_stricmp(name + len - suffixLen, suffix);
 }
 
-// 1 if `dir` has a file named `base` followed by `suffix`, ignoring case.
 static int folderHasPluginNamed(const char *dir, const char *base, size_t baseLen, const char *suffix) {
     char pattern[MAX_PATH];
     if (!buildPath(pattern, sizeof pattern, __func__, "%s" PATH_SEP "*%s", dir, suffix)) return 0;
@@ -30,7 +26,6 @@ static int folderHasPluginNamed(const char *dir, const char *base, size_t baseLe
     return found;
 }
 
-// Calls onMissing for each plugin in `dir` built for the other platform only.
 static int findPluginsMissingHere(const char *dir, const char *hereSuffix, const char *otherSuffix,
                                   MissingPluginFn onMissing, void *context) {
     char pattern[MAX_PATH], missing[MAX_PATH];

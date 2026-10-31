@@ -1,4 +1,3 @@
-// Mac versions of the Win32 calls the plugins use, so one source builds for both platforms.
 #pragma once
 #include <ctype.h>
 #include <dirent.h>
@@ -79,7 +78,6 @@ typedef struct {
     char folder[MAX_PATH], pattern[256];
 } FindState;
 
-// Fills `fd` with the next entry that matches the pattern.
 static PLATFORM_UNUSED int findNextMatch(FindState *s, WIN32_FIND_DATAA *fd) {
     struct dirent *e;
     while ((e = readdir(s->dir))) {
@@ -117,7 +115,6 @@ static PLATFORM_UNUSED BOOL FindClose(HANDLE h) {
 }
 
 // ---- Profile (INI) files -------------------------------------------------------------------------
-// Reads the value of `key` in `[section]` into `out`, with spaces around it trimmed.
 static PLATFORM_UNUSED int iniRead(const char *file, const char *section, const char *key, char *out, size_t size) {
     FILE *f = fopen(file, "r");
     if (!f) return 0;
@@ -140,6 +137,10 @@ static PLATFORM_UNUSED int iniRead(const char *file, const char *section, const 
         char *v = eq + 1, *end = v + strlen(v);
         while (isspace((unsigned char)*v)) v++;
         while (end > v && isspace((unsigned char)end[-1])) *--end = '\0';
+        if (end - v >= 2 && (*v == '"' || *v == '\'') && end[-1] == *v) {
+            *--end = '\0';
+            v++;
+        }
         snprintf(out, size, "%s", v);
         found = 1;
     }
@@ -158,7 +159,6 @@ static PLATFORM_UNUSED UINT GetPrivateProfileIntA(const char *section, const cha
     return iniRead(file, section, key, text, sizeof text) ? (UINT)strtol(text, NULL, 10) : (UINT)fallback;
 }
 
-// Rewrites the file with `key` set to `value` in `[section]`.
 static PLATFORM_UNUSED BOOL WritePrivateProfileStringA(const char *section, const char *key, const char *value, const char *file) {
     char *old = NULL;
     size_t oldLen = 0;
@@ -212,14 +212,12 @@ static PLATFORM_UNUSED BOOL WritePrivateProfileStringA(const char *section, cons
 }
 
 // ---- Modules -----------------------------------------------------------------------------------
-// Returns the Mach-O header of the game's executable.
 static PLATFORM_UNUSED HMODULE mainExecutableHeader(void) {
     for (uint32_t i = 0; i < _dyld_image_count(); i++)
         if (_dyld_get_image_header(i)->filetype == MH_EXECUTE) return _dyld_get_image_header(i);
     return NULL;
 }
 
-// With NULL, returns the game.
 static PLATFORM_UNUSED HMODULE GetModuleHandleA(const char *name) {
     if (!name) return mainExecutableHeader();
     for (uint32_t i = 0; i < _dyld_image_count(); i++) {
@@ -253,7 +251,6 @@ static PLATFORM_UNUSED BOOL GetModuleHandleExA(DWORD flags, LPCSTR address, HMOD
     return *out != NULL;
 }
 
-// Calls DllMain with DLL_PROCESS_ATTACH when the dylib loads, if it has one.
 #ifndef PLATFORM_NO_DLLMAIN
 BOOL WINAPI DllMain(HINSTANCE dll, DWORD reason, LPVOID reserved);
 __attribute__((constructor)) static void platformRunDllMain(void) {

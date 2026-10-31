@@ -1,6 +1,3 @@
-; The linker's export list for CoE5SE's glu32.dll: every export of System32's glu32.dll, with the
-; same ordinal. glu32_exports.h lists the same names and ordinals for glu32_stub.c, which makes
-; each one a jump to the real export, so change the two files together.
 LIBRARY glu32.dll
 EXPORTS
     gluBeginCurve @1

@@ -1,4 +1,3 @@
-// The .c5m move words and the MONSTER_MOVE_FLAGS bits each sets.
 #pragma once
 typedef struct { const char *word; unsigned long long mask; } MoveWord;
 static const MoveWord GAME_MOVE_WORDS[] = {

@@ -1,4 +1,3 @@
-// The trace filter: which of the game's trace lines are written (Windows: log.txt; Mac: standard output).
 #pragma once
 
 #define TRACE_CACHE_SLOTS 4096
@@ -9,14 +8,11 @@ typedef struct {
     size_t *lengths;
 } TraceKeepList;
 
-// The list in use, NULL for every line.
 static TraceKeepList *volatile traceKeepList;
 static volatile unsigned traceKeepGeneration;
-// Each slot: the format's address << 16 | generation (15 bits) << 1 | kept.
 static volatile unsigned long long traceKeepCache[TRACE_CACHE_SLOTS];
 static const unsigned char *traceImageStart, *traceImageEnd;
 
-// 1 when `format` starts with one of the list's words.
 static int traceFormatKept(const TraceKeepList *list, const char *format) {
     if (!list || !format) return 1;
     while (*format == ' ' || *format == '\t' || *format == '\n' || *format == '\r') format++;
@@ -25,7 +21,6 @@ static int traceFormatKept(const TraceKeepList *list, const char *format) {
     return 0;
 }
 
-// Why a word can't go in a list, or NULL.
 static const char *traceKeepWordProblem(const char *word, size_t length) {
     if (!length) return "empty_word";
     if (word[0] == ' ' || word[0] == '\t' || word[0] == '\n' || word[0] == '\r') return "leading_space";
@@ -33,7 +28,6 @@ static const char *traceKeepWordProblem(const char *word, size_t length) {
     return NULL;
 }
 
-// Makes `words` the list in use; 0 words keep every line.
 static int setTraceKeepList(const char *const *words, const size_t *lengths, int count) {
     TraceKeepList *list = NULL;
     if (count > 0) {
@@ -63,7 +57,6 @@ static int setTraceKeepList(const char *const *words, const size_t *lengths, int
     return 1;
 }
 
-// Whether the trace line of `format` is written: every line with no list or in a network game.
 int coe5seTraceLineKept(const char *format);
 __attribute__((used)) int coe5seTraceLineKept(const char *format) {
     TraceKeepList *list = traceKeepList;
@@ -83,7 +76,6 @@ __attribute__((used)) int coe5seTraceLineKept(const char *format) {
 static int traceFilterState;
 
 #ifndef __APPLE__
-// coe5seTraceHook: entered by jumps from the game's trace functions.
 void coe5seTraceHook(void);
 __asm__(".text\n"
         ".globl coe5seTraceHook\n"
@@ -112,7 +104,6 @@ __asm__(".text\n"
         "1:  retq\n"
         ".seh_endproc\n");
 
-// Points the four trace functions at coe5seTraceHook, once.
 static int installTraceFilter(void) {
     if (traceFilterState) return traceFilterState > 0;
     traceFilterState = -1;
@@ -161,7 +152,6 @@ static int installTraceFilter(void) {
     return ok > 0;
 }
 #else
-// Asks coe5seTraceLineKept about the format in x0, with every argument register kept; the answer in x16.
 __asm__(
     ".text\n.p2align 2\n.globl _coe5seTraceKeptCall\n_coe5seTraceKeptCall:\n"
     "  sub sp, sp, #0xe0\n"
@@ -182,7 +172,6 @@ extern const unsigned char coe5seTraceKeptCall[];
 
 #define TRACE_STUB_WORDS 10
 
-// Fills the Mac entry stub of the trace function at `fn`, placed at `stub`, whose first instruction is `moved`.
 static void writeTraceStubMac(uint32_t code[TRACE_STUB_WORDS], const unsigned char *stub, const unsigned char *fn, uint32_t moved,
                               uint64_t routine) {
     code[0] = 0xf81f0ffeu;
@@ -196,7 +185,6 @@ static void writeTraceStubMac(uint32_t code[TRACE_STUB_WORDS], const unsigned ch
     memcpy(&code[8], &routine, 8);
 }
 
-// Points the four trace functions at their entry stubs, once.
 static int installTraceFilter(void) {
     if (traceFilterState) return traceFilterState > 0;
     traceFilterState = -1;

@@ -1,4 +1,3 @@
-// coe5config, the game's settings file in its user folder, read as the game reads it.
 #pragma once
 #include <stdio.h>
 #include <string.h>
@@ -18,14 +17,12 @@
 #define CONFIG_MODS_OFFSET   (4 + CONFIG_SETTINGS_INTS * 4)
 #endif
 #define CONFIG_MAX           65536
-// The layout file beside the loader: where coe5config's enabled list starts for each newer version.
 #define CONFIG_LAYOUT_FILE   "coe5config_layout.txt"
 
 static __attribute__((unused)) unsigned readLittleEndian32(const unsigned char *b) {
     return b[0] | b[1] << 8 | b[2] << 16 | (unsigned)b[3] << 24;
 }
 
-// Opens the coe5config at `path` at the start of its enabled list.
 static __attribute__((unused)) FILE *openConfigModList(const char *path, int *version, const char **reason) {
     FILE *f = fopen(path, "rb");
     *version = 0;
@@ -43,7 +40,6 @@ static __attribute__((unused)) FILE *openConfigModList(const char *path, int *ve
     return f;
 }
 
-// Reads the next enabled mod's name into `name`, cut to `size` - 1 bytes.
 static __attribute__((unused)) int readConfigModName(FILE *f, char *name, size_t size) {
     size_t len = 0;
     int c;
@@ -53,12 +49,10 @@ static __attribute__((unused)) int readConfigModName(FILE *f, char *name, size_t
     return c != EOF && len > 0;
 }
 
-// 1 if `version` is newer than any the game reads today.
 static __attribute__((unused)) int isNewerConfigVersion(int version) {
     return version > CONFIG_VERSION_MAX;
 }
 
-// 1 if coe5config's bytes `data[0..len)` hold `mod` as a whole name.
 static __attribute__((unused)) int configDataHasModName(const unsigned char *data, size_t len, const char *mod) {
     size_t modLen = strlen(mod);
     if (!modLen) return 0;
@@ -72,7 +66,6 @@ static __attribute__((unused)) int configDataHasModName(const unsigned char *dat
     return 0;
 }
 
-// Reads up to `size` bytes of the file at `path` into `data`.
 static __attribute__((unused)) size_t readConfigBytes(const char *path, unsigned char *data, size_t size) {
     FILE *f = fopen(path, "rb");
     if (!f) return 0;
@@ -81,7 +74,6 @@ static __attribute__((unused)) size_t readConfigBytes(const char *path, unsigned
     return len;
 }
 
-// Reads a decimal number of up to 9 digits at *p into *out and moves *p past it.
 static __attribute__((unused)) int readLayoutNumber(const char **p, int *out) {
     int digits = 0;
     *out = 0;
@@ -92,7 +84,6 @@ static __attribute__((unused)) int readLayoutNumber(const char **p, int *out) {
     return digits > 0;
 }
 
-// The byte where coe5config's enabled list starts for `version`.
 #define CONFIG_LAYOUT_MAX 16384
 static __attribute__((unused)) int configLayoutListStart(const char *path, int version, const char **why) {
     static char text[CONFIG_LAYOUT_MAX + 1];
@@ -126,7 +117,6 @@ static __attribute__((unused)) int configLayoutListStart(const char *path, int v
     return garbled ? -1 : at;
 }
 
-// 1 if the coe5config at `path` lists `mod` as enabled.
 static __attribute__((unused)) int configEnablesMod(const char *path, const char *mod, const char *layoutPath) {
     const char *reason;
     int version, enabled = 0;
@@ -154,7 +144,6 @@ static __attribute__((unused)) int configEnablesMod(const char *path, const char
     return enabled;
 }
 
-// Adds `mod` to the enabled list in coe5config's bytes, in place.
 static __attribute__((unused)) const char *addModToConfig(unsigned char *data, size_t *len, size_t cap, const char *mod) {
     if (*len < CONFIG_MODS_OFFSET) return "config_unreadable";
     unsigned version = readLittleEndian32(data);
@@ -178,7 +167,6 @@ static __attribute__((unused)) const char *addModToConfig(unsigned char *data, s
     return NULL;
 }
 
-// Writes `len` bytes to `path`.
 static __attribute__((unused)) int writeWholeFile(const char *path, const unsigned char *data, size_t len) {
     FILE *f = fopen(path, "wb");
     if (!f) return 0;
@@ -186,7 +174,6 @@ static __attribute__((unused)) int writeWholeFile(const char *path, const unsign
     return fclose(f) == 0 && ok;
 }
 
-// Adds `mod` to the enabled list of the coe5config at `path`, through a backup and a rename.
 static __attribute__((unused)) const char *addModToConfigFile(const char *path, const char *backup, const char *mod) {
     static unsigned char data[CONFIG_MAX];
     char fresh[MAX_PATH];

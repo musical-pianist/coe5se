@@ -1,10 +1,5 @@
 #!/bin/bash
-# Builds this mod's DLLs from this folder's code alone into the mod folder above, over the ones
-# there, with llvm-mingw 20260922 (x86_64-w64-mingw32-clang, from
-# https://github.com/mstorsjo/llvm-mingw/releases/download/20260922/). Set CC to its path if it isn't on PATH.
-# That compiler gives byte-identical DLLs on any machine: compare `shasum -a 256 ../*.dll` with
-# ../SHA256.txt. ../windows-verify.cmd (Windows) and ../mac-verify.command (Mac) download it and do
-# the whole check.
+# Builds this mod's DLLs into the mod folder above with llvm-mingw 20260922 (set CC if it isn't on PATH).
 set -e
 cd "$(dirname "$0")"
 CC=${CC:-x86_64-w64-mingw32-clang}

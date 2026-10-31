@@ -1,4 +1,3 @@
-// The mach_vm calls our Mac dylibs make, declared as in Apple's SDK.
 #ifndef COE5SE_MAC_SDK_MACH_VM_H
 #define COE5SE_MAC_SDK_MACH_VM_H
 

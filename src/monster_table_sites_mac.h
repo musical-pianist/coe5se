@@ -1,4 +1,3 @@
-// Every ADRP in coe5_mac that builds an address in the game's monster table, and its bounds.
 #pragma once
 
 #define MONSTER_MAC_SITE_COUNT 534
@@ -539,7 +538,6 @@ static const TableMacSite MONSTER_MAC_SITES[MONSTER_MAC_SITE_COUNT] = {
     {0x590b2c},
 };
 
-// The compares of a record number against the game's 6000, or the mov that holds it: each becomes the moved size.
 #define MONSTER_MAC_BOUND_COUNT 14
 static const TableMacBound MONSTER_MAC_BOUNDS[MONSTER_MAC_BOUND_COUNT] = {
     {0x372794, (MONSTER_RECORDS_MOVED + 15) / 16},
@@ -557,9 +555,7 @@ static const TableMacBound MONSTER_MAC_BOUNDS[MONSTER_MAC_BOUND_COUNT] = {
     {0x48292c, (MONSTER_RECORDS_MOVED + 15) / 16},
     {0x52f8c0, MONSTER_RECORDS_MOVED - 3},
 };
-// A shifted bound rounds up when the moved size isn't a multiple of 1 << s.
 
-// The table's size in bytes, 6000 records, built by a movz and a movk (the copies' and clears' sizes): each becomes the moved size.
 #define MONSTER_MAC_SIZE_COUNT 3
 static const TableMacSize MONSTER_MAC_SIZES[MONSTER_MAC_SIZE_COUNT] = {
     {0x3326a0},

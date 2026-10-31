@@ -1,10 +1,10 @@
-// Lua wraps of a step the Mac build copied into its caller: the chain split at next().
+// @platform-split ai_steps_mac: Mac's copied AI steps run their Lua wraps split at next() (Windows calls them)
+#pragma once
 #ifdef __APPLE__
 
 #define SPLIT_LEVELS_MAX 64
 enum { SPLIT_PASS, SPLIT_WAITING, SPLIT_DONE };
 
-// One wrap of a split call.
 typedef struct {
     LuaWrap *w;
     lua_State *co;
@@ -16,7 +16,6 @@ typedef struct {
     int refusedTwice;
 } SplitLevel;
 
-// One running call of a split site.
 typedef struct SplitCall {
     struct SplitCall *up;
     CallSite site;
@@ -33,13 +32,11 @@ typedef struct SplitCall {
 } SplitCall;
 static SplitCall *splitChainCalls;
 
-// The innermost function of a split site's chain: the game's step, copied into its caller.
 static u64 splitStepGame(void) {
     writeLog("split_step_called", "reason=unexpected");
     return 0;
 }
 
-// next() inside a split wrap: yields the arguments to the driver, which runs the rest.
 static int lNextSplit(lua_State *L) {
     SplitLevel *level = lua_touserdata(L, lua_upvalueindex(1));
     lua_Integer serial = lua_tointeger(L, lua_upvalueindex(2));
@@ -62,7 +59,6 @@ static int lNextSplit(lua_State *L) {
     return lua_yield(L, 0);
 }
 
-// callLuaProtected's push for a split wrap's coroutine, left on the script's stack.
 static int makeSplitThread(lua_State *L) {
     SplitLevel *level = lua_touserdata(L, 1);
     lua_State *co = lua_newthread(L);
@@ -80,7 +76,6 @@ static int pushMakeSplitThread(lua_State *L, void *level) {
     return 1;
 }
 
-// Logs a split wrap's error and turns its script off, as callLuaProtected does.
 static void stopSplitScript(LuaScript *s, lua_State *co) {
     char line[600];
     int type = lua_type(co, -1);
@@ -93,7 +88,6 @@ static void stopSplitScript(LuaScript *s, lua_State *co) {
     s->stopLogged = 1;
 }
 
-// Resumes a split wrap's coroutine with `nargs` values on it, as callLuaProtected runs a call.
 static int resumeSplitLevel(SplitLevel *level, int nargs, int *nresults) {
     LuaScript *s = level->w->s;
     if (s->stepsFrame != gameFrames) startLuaSteps(s);
@@ -106,7 +100,6 @@ static int resumeSplitLevel(SplitLevel *level, int nargs, int *nresults) {
     return rc;
 }
 
-// What a split wrap returned, with its results on its coroutine: the call's result, as runLuaWrap takes it.
 static u64 takeSplitResult(SplitCall *c, SplitLevel *level, int nresults) {
     const LuaSite *ls = &luaSites[level->w->site];
     LuaScript *s = level->w->s;
@@ -129,7 +122,6 @@ static u64 takeSplitResult(SplitCall *c, SplitLevel *level, int nresults) {
     return result;
 }
 
-// Ends level `i`, which waits at its next(), with the rest's `result`: the wrap's own result.
 static u64 finishSplitLevel(SplitCall *c, int i, u64 result) {
     SplitLevel *level = &c->levels[i];
     if (level->state != SPLIT_WAITING) return result;
@@ -148,7 +140,6 @@ static u64 finishSplitLevel(SplitCall *c, int i, u64 result) {
     return result;
 }
 
-// Drops the call's coroutines and lets their scripts close if they were turned off.
 static void releaseSplitCall(SplitCall *c) {
     for (int i = 0; i < c->count; i++) {
         SplitLevel *level = &c->levels[i];
@@ -165,7 +156,6 @@ static void releaseSplitCall(SplitCall *c) {
     free(c);
 }
 
-// Starts a split site's call: runs its wraps up to their next(), innermost last.
 static SplitCall *startSplitChain(CallSite site, const LuaArgs *in, LuaArgs *out) {
     if (isNetworkGame()) return NULL;
     int luaSite = -1;
@@ -235,7 +225,6 @@ static SplitCall *startSplitChain(CallSite site, const LuaArgs *in, LuaArgs *out
     return c;
 }
 
-// Ends a split call that wasn't skipped: resumes the wraps, innermost first, with the step's `result`.
 static u64 endSplitChain(SplitCall *c, u64 result) {
     for (int i = c->count - 1; i >= 0; i--) result = finishSplitLevel(c, i, result);
     return result;
@@ -298,12 +287,10 @@ static int splitStepIndex(CallSite site) {
     return -1;
 }
 
-// Where a place's 32-bit value is (PLACE_REG: the register's low half; arm64 is little-endian).
 static uint32_t *splitPlace(StepContext *ctx, SplitPlace p) {
     if (p.in == PLACE_REG) return (uint32_t *)&ctx->x[p.at];
     return (uint32_t *)(uintptr_t)((p.in == PLACE_SP ? ctx->sp : ctx->x[29]) + (int64_t)p.at);
 }
-// An argument as the game has it at the start.
 static u64 splitArg(StepContext *ctx, SplitPlace p) {
     if (p.in == PLACE_REG) return ctx->x[p.at];
     if (p.in == PLACE_SP) return *(u64 *)(uintptr_t)(ctx->sp + (int64_t)p.at);
@@ -314,7 +301,6 @@ static void putSplitArg(StepContext *ctx, SplitPlace p, u64 value) {
     if (p.in == PLACE_REG) ctx->x[p.at] = value;
     else if (p.in == PLACE_SP) *(u64 *)(uintptr_t)(ctx->sp + (int64_t)p.at) = value;
 }
-// Puts a step's result where the step leaves its own (a register's high half cleared, as a w write does).
 static void putSplitResult(StepContext *ctx, const SplitStepMac *m, u64 score, int x, int y) {
     if (m->score.in == PLACE_NONE) return;
     const SplitPlace places[3] = {m->score, m->x, m->y};
@@ -324,13 +310,11 @@ static void putSplitResult(StepContext *ctx, const SplitStepMac *m, u64 score, i
         else *splitPlace(ctx, places[k]) = values[k];
     }
 }
-// The running call of `site` started at this frame, or NULL.
 static SplitCall *splitCallHere(StepContext *ctx, CallSite site) {
     SplitCall *c = splitChainCalls;
     return c && c->site == site && c->frameSp == ctx->sp ? c : NULL;
 }
 
-// The start hook: runs the site's wraps up to their next(), then the game's step, or skips it.
 static void splitStepStart(StepContext *ctx, const StepHook *hook) {
     int i = splitStepIndex(hook->site);
     if (i < 0) return;
@@ -373,7 +357,6 @@ static void splitStepStart(StepContext *ctx, const StepHook *hook) {
     releaseSplitCall(c);
 }
 
-// Ends this hook's call with the step's score and square; returns 1 if a call ran.
 static int finishSplitStep(StepContext *ctx, const StepHook *hook, u64 score, int x, int y) {
     int i = splitStepIndex(hook->site);
     SplitCall *c = splitCallHere(ctx, hook->site);
@@ -389,7 +372,6 @@ static int finishSplitStep(StepContext *ctx, const StepHook *hook, u64 score, in
     return 1;
 }
 
-// The end hook: resumes the wraps with the step's result and puts the outermost's back.
 static void splitStepEnd(StepContext *ctx, const StepHook *hook) {
     int i = splitStepIndex(hook->site);
     if (i < 0) return;
@@ -401,14 +383,12 @@ static void splitStepEnd(StepContext *ctx, const StepHook *hook) {
     finishSplitStep(ctx, hook, (u64)(int64_t)(int)*splitPlace(ctx, m->score), (int)*splitPlace(ctx, m->x), (int)*splitPlace(ctx, m->y));
 }
 
-// The second end of a step whose early way out goes past its end, where the step's score is 0.
 static void splitStepNone(StepContext *ctx, const StepHook *hook) {
     int i = splitStepIndex(hook->site);
     if (i < 0) return;
     if (finishSplitStep(ctx, hook, 0, AI_NO_SQUARE, AI_NO_SQUARE)) ctx->pc = splitEndHooksMac[i].resume;
 }
 
-// A value hook: the instruction's work with the argument the innermost next() passed on.
 static void splitStepValue(StepContext *ctx, const StepHook *hook) {
     int i = splitStepIndex(hook->site);
     if (i < 0) return;
@@ -425,7 +405,6 @@ static void splitStepValue(StepContext *ctx, const StepHook *hook) {
     ctx->nzcv = (n << 31) | (z << 30) | (carry << 29) | (overflow << 28);
 }
 
-// installSite for a split site: its hooks.
 static int installSplitSiteMac(CallSite site) {
     int i = splitStepIndex(site);
     if (i < 0) {

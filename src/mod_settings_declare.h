@@ -1,7 +1,6 @@
-// Mod Settings: the settings index, left-out lines, and the checks a declared setting passes.
+#pragma once
 
 // ---- Settings and left-out lines -----------------------------------------------------------------
-// The settings index: entries found by mod and name through a hash table.
 static int *settingIndex;
 static unsigned int settingIndexSize;
 
@@ -21,7 +20,6 @@ static void indexSetting(int i) {
     settingIndex[h] = i + 1;
 }
 
-// Makes room in the index for one more entry.
 static int growSettingIndex(void) {
     if ((unsigned int)(settingCount + 1) * 2 < settingIndexSize) return 1;
     unsigned int size = settingIndexSize ? settingIndexSize * 2 : 1024;
@@ -34,7 +32,6 @@ static int growSettingIndex(void) {
     return 1;
 }
 
-// Calls `match` for each entry of the mod's setting `name`, and returns the one it picks.
 static ModSetting *findSetting(const char *mod, const char *name, ModSetting *(*match)(ModSetting *best, ModSetting *s)) {
     ModSetting *best = NULL;
     if (!settingIndexSize) return NULL;
@@ -45,7 +42,6 @@ static ModSetting *findSetting(const char *mod, const char *name, ModSetting *(*
     return best;
 }
 
-// A declared entry: the first kept one in the list, else the last left-out one.
 static ModSetting *betterDeclared(ModSetting *best, ModSetting *s) {
     if (!s->declared) return best;
     if (!best) return s;
@@ -53,17 +49,14 @@ static ModSetting *betterDeclared(ModSetting *best, ModSetting *s) {
     return best->rejected && s->entry > best->entry ? s : best;
 }
 
-// The first entry in the list.
 static ModSetting *firstEntry(ModSetting *best, ModSetting *s) {
     return !best || s->entry < best->entry ? s : best;
 }
 
-// Returns the mod's setting that its latest reading declared with this name, or NULL.
 static ModSetting *findDeclaredSetting(const char *mod, const char *name) {
     return findSetting(mod, name, betterDeclared);
 }
 
-// Returns the entry for the mod's setting `name`, declared or not, creating it if there is none.
 static ModSetting *settingEntry(const char *mod, const char *name, int *created) {
     *created = 0;
     ModSetting *s = findSetting(mod, name, firstEntry);
@@ -82,7 +75,6 @@ static ModSetting *settingEntry(const char *mod, const char *name, int *created)
     return s;
 }
 
-// Adds line `line` of `mod`'s file to the mod's list of left-out lines.
 static void addBadLine(const char *mod, const char *ext, int line, const SettingProblem *p, const char *source) {
     leftOutVersion++;
     if (!growList((void **)&badLines, &badLineCapacity, badLineCount + 1, sizeof badLines[0])) return;
@@ -94,34 +86,28 @@ static void addBadLine(const char *mod, const char *ext, int line, const Setting
     snprintf(b->source, sizeof b->source, "%.150s", source);
 }
 
-// Leaves out a +setting line of `mod`'s .c5m.
 static void rejectC5mLine(const char *mod, const char *word, int line, const SettingProblem *p, const char *source) {
     refuseC5mLine(word, mod, p->reason, "line=%d problem=%s text=%.150s", line, p->text, source);
     addBadLine(mod, ".c5m", line, p, source);
 }
 
-// Leaves out line `line` of `mod`'s .ini.
 static void rejectIniLine(const char *mod, const char *section, int line, const SettingProblem *p, const char *source) {
     refuseIniLine(section, mod, p->reason, "file=%s.ini line=%d problem=%s text=%.150s", mod, line, p->text, source);
     addBadLine(mod, ".ini", line, p, source);
 }
 
-// Leaves out line `line` of `mod`'s sidecar, or of a #!@ line of its .c5m.
 static void rejectSidecarLine(int in, const char *mod, const char *word, int line, const SettingProblem *p, const char *source) {
     refuseSidecarLine(in, word, mod, p->reason, "line=%d problem=%s text=%.150s", line, p->text, source);
     addBadLine(mod, settingsFileSuffix(in), line, p, source);
 }
 
-// The lines a mod's plugins take on its page.
 static int pluginPageLines(const char *mod);
 
 // ---- The mod's settings files: checking and declaring ---------------------------------------------
-// CoE5SE's own readers of the sidecar's settings blocks and the .ini's sections.
 enum { SECTION_NONE, SECTION_ONOFF, SECTION_CHOICE, SECTION_KEY, SECTION_HEADER, SECTION_PAGE, SECTION_UNKNOWN, SECTION_SETTING };
 
 #define INI_LINE_MAX 1024
 
-// One section of the .ini, or one block of the sidecar, as read so far.
 typedef struct {
     int type, line;
     char word[16];
@@ -136,7 +122,6 @@ typedef struct {
     int problems;
 } IniSection;
 
-// What the files' sections so far leave open.
 typedef struct {
     const char *mod;
     const char *dir;
@@ -151,7 +136,6 @@ typedef struct {
     char page[SETTING_NAME_MAX + 1], pageSource[160];
 } IniParse;
 
-// The sidecar word that starts a block of type `section`, for the log.
 static const char *sidecarWordOf(const char *section) {
     if (!strcmp(section, "-")) return "-";
     if (!strcmp(section, "header")) return SETTING_HEADER_WORD;
@@ -159,24 +143,20 @@ static const char *sidecarWordOf(const char *section) {
     return SETTING_WORD;
 }
 
-// Leaves out line `line` of the file being read.
 static void rejectSettingsLine(const IniParse *r, const char *section, int line, const SettingProblem *p, const char *source) {
     if (r->sidecar) rejectSidecarLine(r->sidecar, r->mod, sidecarWordOf(section), line, p, source);
     else rejectIniLine(r->mod, section, line, p, source);
 }
 
-// Lists a problem with line `line` of the file; its section's setting is then left out.
 static void iniLineProblem(IniParse *r, IniSection *s, int line, const SettingProblem *p, const char *source) {
     rejectSettingsLine(r, s->type == SECTION_NONE ? "-" : s->word, line, p, source);
     if (s->type != SECTION_NONE) s->problems++;
 }
 
-// A problem with section `s` as a whole, listed at its [section] line.
 static void iniSectionProblem(IniParse *r, IniSection *s, const SettingProblem *p) {
     iniLineProblem(r, s, s->line, p, s->source);
 }
 
-// The same, from the problem's reason word and printf-style text.
 static PRINTF_FORMAT(4, 5) void rejectIniSection(IniParse *r, IniSection *s, const char *reason, const char *fmt, ...) {
     SettingProblem p;
     va_list ap;
@@ -193,14 +173,12 @@ static void rejectPendingHeader(IniParse *r) {
     r->headerPending = 0;
 }
 
-// The mod's kept page named `name` (ignoring case), or NULL.
 static ModPage *findModPage(const char *mod, const char *name) {
     for (int i = 0; i < modPageCount; i++)
         if (!_stricmp(modPages[i].mod, mod) && !_stricmp(modPages[i].name, name)) return &modPages[i];
     return NULL;
 }
 
-// Ends the [page] the settings go on, if one is open.
 static void endIniPage(IniParse *r) {
     if (!r->pageOpen) return;
     r->pageOpen = 0;
@@ -217,20 +195,17 @@ static void endIniPage(IniParse *r) {
     r->page[0] = '\0';
 }
 
-// Where an earlier setting or page of the mod is, for "already used" texts.
 static void usedAt(const IniParse *r, int inSidecar, int line, char *out, size_t size) {
     if (inSidecar == r->sidecar) snprintf(out, size, "on line %d", line);
     else snprintf(out, size, "in %.40s%s line %d", r->mod, settingsFileSuffix(inSidecar), line);
 }
 
-// The text for a section with no `key` line.
 static const char *noKeyLineText(const IniParse *r, const char *key) {
     static char text[40];
     snprintf(text, sizeof text, r->sidecar ? "no %.16s line" : "no %.16s = line", key);
     return text;
 }
 
-// Ends a page section: checks it, and opens its page for the settings after it (rule 9).
 static void finishIniPage(IniParse *r, IniSection *s) {
     SettingProblem p;
     endIniPage(r);
@@ -268,7 +243,6 @@ static void finishIniPage(IniParse *r, IniSection *s) {
     snprintf(r->pageSource, sizeof r->pageSource, "%s", s->source);
 }
 
-// 1 if `text` is a whole number, in *out.
 static int parseWholeNumber(const char *text, int *out) {
     char *end;
     long v = strtol(text, &end, 10);
@@ -277,7 +251,6 @@ static int parseWholeNumber(const char *text, int *out) {
     return 1;
 }
 
-// Reads a [section] line, `text` (starting at its [), into `s`.
 static void startIniSection(IniParse *r, IniSection *s, const char *text, int line) {
     memset(s, 0, sizeof *s);
     s->line = line;
@@ -318,7 +291,6 @@ static void startIniSection(IniParse *r, IniSection *s, const char *text, int li
     }
 }
 
-// Reads a quoted text value into `out`.
 static int readQuotedText(const char *key, const char *raw, char *out, size_t size, SettingProblem *p) {
     if (raw[0] != '"') return settingProblem(p, "needs_quotes", "%.16s needs quotes: %.16s = \"...\"", key, key);
     size_t n = 0;
@@ -334,11 +306,9 @@ static int readQuotedText(const char *key, const char *raw, char *out, size_t si
     return 0;
 }
 
-// The keys a section can have.
 typedef enum { INI_KEY_UNKNOWN, INI_KEY_LABEL, INI_KEY_DEFAULT, INI_KEY_TIP, INI_KEY_RESTART, INI_KEY_GROUP, INI_KEY_FIXED,
                INI_KEY_OPTION, INI_KEY_OPTION_TIP } IniKey;
 
-// Which key `key` is, ignoring case.
 static IniKey iniKeyNamed(const char *key, int *option) {
     static const struct { const char *name; IniKey key; } NAMED[] = {
         {"label", INI_KEY_LABEL}, {"default", INI_KEY_DEFAULT}, {"tip", INI_KEY_TIP},
@@ -355,7 +325,6 @@ static IniKey iniKeyNamed(const char *key, int *option) {
     return INI_KEY_UNKNOWN;
 }
 
-// The line field of `s` that records where key `k` was set, or NULL for no such key.
 static int *iniKeyLine(IniSection *s, IniKey k, int option) {
     switch (k) {
     case INI_KEY_LABEL: return &s->labelLine;
@@ -370,7 +339,6 @@ static int *iniKeyLine(IniSection *s, IniKey k, int option) {
     }
 }
 
-// Returns 1, and fills *p, if section `s` can't have key `k` (written `key`), or already has it.
 static int iniKeyRefused(const IniSection *s, const char *key, IniKey k, int option, const int *seen, SettingProblem *p) {
     if (s->type == SECTION_HEADER) return settingProblem(p, "unknown_key", "a [header] has no keys, only its title");
     if (!key[0]) return settingProblem(p, "unknown_key", "no key before the =");
@@ -385,7 +353,6 @@ static int iniKeyRefused(const IniSection *s, const char *key, IniKey k, int opt
     return 0;
 }
 
-// Stores key `k`'s value, `value` as read, in section `s`.
 static int storeIniKey(IniSection *s, const char *key, IniKey k, int option, const char *value, SettingProblem *p) {
     switch (k) {
     case INI_KEY_DEFAULT:
@@ -422,7 +389,6 @@ static int storeIniKey(IniSection *s, const char *key, IniKey k, int option, con
     }
 }
 
-// Reads a `key = value` line of section `s`.
 static void readIniKey(IniParse *r, IniSection *s, const char *key, const char *raw, int line, const char *source) {
     if (s->type == SECTION_UNKNOWN) return;
     SettingProblem p;
@@ -450,7 +416,6 @@ static void readIniKey(IniParse *r, IniSection *s, const char *key, const char *
     if (bad) iniLineProblem(r, s, line, &p, source);
 }
 
-// Ends a [header] section: it titles the box that the next on/off or key setting opens.
 static void finishIniHeader(IniParse *r, IniSection *s) {
     SettingProblem p;
     if (checkSettingText("header", s->name, SETTING_TEXT_MAX, &p)) iniSectionProblem(r, s, &p);
@@ -462,7 +427,6 @@ static void finishIniHeader(IniParse *r, IniSection *s) {
     snprintf(r->headerSource, sizeof r->headerSource, "%s", s->source);
 }
 
-// Checks an on/off, choice, or key section as a whole (rules 1, 4, and 5), listing each problem.
 static int checkIniSetting(IniParse *r, IniSection *s) {
     SettingProblem p;
     int optionCount = 0;
@@ -493,7 +457,6 @@ static int checkIniSetting(IniParse *r, IniSection *s) {
     return optionCount;
 }
 
-// A left-out setting whose name and default could be read.
 static void declareLeftOutSetting(IniParse *r, const IniSection *s, int optionCount) {
     int created;
     ModSetting *hidden = settingEntry(r->mod, s->name, &created);
@@ -507,7 +470,6 @@ static void declareLeftOutSetting(IniParse *r, const IniSection *s, int optionCo
     hidden->isKey = s->type == SECTION_KEY;
 }
 
-// Declares the setting of section `s`.
 static void declareKeptSetting(IniParse *r, IniSection *s, int optionCount, int lines, int startsBox) {
     int created, isKey = s->type == SECTION_KEY;
     ModSetting *kept = settingEntry(r->mod, s->name, &created);
@@ -546,7 +508,6 @@ static void declareKeptSetting(IniParse *r, IniSection *s, int optionCount, int 
     kept->launchSet = 1;
 }
 
-// 1 if `name` holds only letters, digits, and _, and fits a setting's name buffer.
 static int isPlainSettingName(const char *name) {
     if (!name[0] || strlen(name) >= SETTING_NAME_SIZE) return 0;
     for (const char *c = name; *c; c++)
@@ -554,7 +515,6 @@ static int isPlainSettingName(const char *name) {
     return 1;
 }
 
-// Ends section `s`: checks it as a whole, then declares its setting, or leaves it out.
 static void finishIniSection(IniParse *r, IniSection *s) {
     if (s->type == SECTION_NONE) return;
     if (s->type == SECTION_HEADER) {
@@ -601,7 +561,6 @@ static void finishIniSection(IniParse *r, IniSection *s) {
     }
 }
 
-// The kept key of `s`'s mod and group, other than `s`, that holds `key`, or NULL (rule 8).
 static ModSetting *keyHolder(const ModSetting *s, int key) {
     if (key == KEY_NONE) return NULL;
     for (int i = 0; i < settingCount; i++) {
@@ -613,7 +572,6 @@ static ModSetting *keyHolder(const ModSetting *s, int key) {
     return NULL;
 }
 
-// After a reading: settles two keys of one group on one key.
 static void resolveKeyConflicts(const char *mod) {
     for (int i = 0; i < settingCount; i++) {
         ModSetting *s = settings[i];
@@ -633,20 +591,17 @@ static void resolveKeyConflicts(const char *mod) {
     }
 }
 
-// Starts reading `mod`'s settings files into `r`.
 static void startSettingsReading(IniParse *r, const char *mod) {
     memset(r, 0, sizeof *r);
     r->mod = mod;
     r->pageLines = pluginPageLines(mod);
 }
 
-// Ends one file of the reading.
 static void endSettingsFile(IniParse *r) {
     if (r->headerPending) rejectPendingHeader(r);
     endIniPage(r);
 }
 
-// Copies line `line` of a file's text into raw[INI_LINE_MAX + 1].
 static const char *copySettingsLine(const char *text, char *raw, int *tooLong) {
     size_t len = strcspn(text, "\n");
     const char *next = text + len + (text[len] == '\n');

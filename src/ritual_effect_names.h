@@ -1,4 +1,3 @@
-// The .c5m word for each ritual effect id.
 #pragma once
 typedef struct { int id; const char *name; } RitualEffectName;
 #define RITUAL_EFFECT_ID_COUNT 1502

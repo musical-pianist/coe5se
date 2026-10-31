@@ -1,16 +1,12 @@
-// Every instruction in CoE5.exe that the Ritual Expansion rewrites.
 #pragma once
 
-// END_REL32: a rel32 to the table's end (init_rituals' loop end), which moves with the table's end.
 enum { RITUAL_FIELD_REL32, RITUAL_FIELD_DISP32, RITUAL_FIELD_IMM32, RITUAL_FIELD_END_REL32 };
 
-// One rewrite: the 4-byte field at rva + fieldOffset, and its kind.
 typedef struct {
     unsigned int rva;
     unsigned char fieldOffset, kind;
 } RitualPatchSite;
 
-// The instructions that build an address in the ritual table.
 #define RITUAL_TABLE_SITE_COUNT 400
 static const RitualPatchSite RITUAL_TABLE_SITES[RITUAL_TABLE_SITE_COUNT] = {
     {0x06adea, 3, RITUAL_FIELD_REL32},
@@ -415,7 +411,6 @@ static const RitualPatchSite RITUAL_TABLE_SITES[RITUAL_TABLE_SITE_COUNT] = {
     {0x3349e4, 3, RITUAL_FIELD_DISP32},
 };
 
-// The instructions that address the players' cast counts.
 #define RITUAL_CAST_SITE_COUNT 9
 static const RitualPatchSite RITUAL_CAST_SITES[RITUAL_CAST_SITE_COUNT] = {
     {0x06d201, 5, RITUAL_FIELD_DISP32},
@@ -429,7 +424,6 @@ static const RitualPatchSite RITUAL_CAST_SITES[RITUAL_CAST_SITE_COUNT] = {
     {0x1882a6, 3, RITUAL_FIELD_DISP32},
 };
 
-// The bounds and ritual screen row ids: a 32-bit immediate or displacement each.
 #define RITUAL_NAMED_SITE_COUNT 16
 static const RitualPatchSite RITUAL_NAMED_SITES[RITUAL_NAMED_SITE_COUNT] = {
     {RVA_ALLOC_RITUAL_BOUND, 1, RITUAL_FIELD_IMM32},
@@ -450,5 +444,4 @@ static const RitualPatchSite RITUAL_NAMED_SITES[RITUAL_NAMED_SITE_COUNT] = {
     {RVA_RITUAL_RIGHT_CLICK_GREYED, 2, RITUAL_FIELD_IMM32},
 };
 
-// The first 14 bytes of random_ritual (RVA_RANDOM_RITUAL), which a jump to CoE5SE's copy replaces.
 #define RITUAL_RANDOM_ENTRY_SIZE 14

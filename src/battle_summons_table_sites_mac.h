@@ -1,4 +1,3 @@
-// Every ADRP in coe5_mac that builds an address in the game's battle_summons table, and its bounds.
 #pragma once
 
 #define BATTLE_SUMMONS_MAC_SITE_COUNT 7

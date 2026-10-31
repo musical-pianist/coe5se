@@ -1,4 +1,3 @@
-// The game functions CoE5SE's fan patch fixes hook at their start: how many bytes each hook replaces.
 #pragma once
 
 #define ENTRY_HOOK_COUNT 26

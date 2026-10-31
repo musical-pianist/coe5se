@@ -1,24 +1,20 @@
 // @platform-split game_save: Windows' calls pass (name, FILE *); CoE5SE's outermost wrapper passes (path, name) on
-// SITE_GAME_SAVE on Windows.
 #ifndef __aarch64__
 
 static void *saveFileOpened;
 static const char *saveFileOpenedPath;
 
-// Notes the file a save is about to be written to and its path.
 static void noteSaveFileOpened(const char *path, void *file) {
     saveFileOpened = file;
     saveFileOpenedPath = path;
 }
 
-// A save caller's fopen(path, "wb").
 static void *saveFileOpenHook(const char *path, const char *mode) {
     void *file = GAME_FN(void *(*)(const char *, const char *), RVA_FOPEN)(path, mode);
     if (file) noteSaveFileOpened(path, file);
     return file;
 }
 
-// The chain's inner end: save_game with the file the outermost wrapper was given.
 static void *gameSaveFile;
 static int saveGameToOpenFile(const char *path, const char *name) {
     (void)path;
@@ -31,7 +27,6 @@ static int saveGameToOpenFile(const char *path, const char *name) {
     return GAME_FN(int (*)(const char *, void *), RVA_SAVE_GAME)(name, file);
 }
 
-// CoE5SE's outermost wrapper: the game's (name, file) becomes the chain's (path, name).
 static int (*nextGameSave)(const char *path, const char *name);
 static int gameSaveOutermost(const char *name, void *file) {
     const char *path = file && file == saveFileOpened ? saveFileOpenedPath : "";
@@ -48,7 +43,6 @@ static int gameSaveOutermost(const char *name, void *file) {
 }
 
 #define GAME_SAVE_STUB_SIZE 0x20
-// Points the four save callers' fopen at saveFileOpenHook, all or none.
 static int hookSaveFileOpens(void) {
     static const unsigned int CALLS[] = {RVA_AUTORUN_SAVE_FOPEN_CALL, RVA_AUTOSAVE_SAVE_FOPEN_CALL,
                                          RVA_AUTOSAVE_FUNCTION_SAVE_FOPEN_CALL, RVA_SAVE_DIALOG_SAVE_FOPEN_CALL};
@@ -77,7 +71,6 @@ static int hookSaveFileOpens(void) {
     return 1;
 }
 
-// CoE5SE's outermost wrapper, which installs the site, before any plugin or script wraps it.
 static void gameSaveInit(void) {
     char owner[64];
     moduleFileName((void *)gameSaveOutermost, owner, sizeof owner);

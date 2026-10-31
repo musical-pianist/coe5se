@@ -1,6 +1,5 @@
-// The spells changed pop-up.
+#pragma once
 
-// The text, one line per string, so each is easy to change.
 #define SPELLS_CHANGED_TITLE              "CoE5SE: Spells changed"
 #define SPELLS_CHANGED_INTRO_1            "Mod spells changed since this save."
 #define SPELLS_CHANGED_INTRO_2            "Save may behave oddly."
@@ -15,9 +14,7 @@
 #define SPELLS_CHANGED_LOAD               "Load anyway"
 #define SPELLS_CHANGED_BACK               "Back to the menu"
 
-// Lines of text the pop-up has at most, blank lines and mod headers included.
 #define SPELLS_CHANGED_TEXT_LINES 30
-// The lines that aren't the list.
 #define SPELLS_CHANGED_FIXED_LINES 5
 
 enum { SPELLS_CHANGED_CHOICE_LOAD_ANYWAY = 1 };
@@ -27,7 +24,6 @@ static int isNameEndingInDigit(const char *name) {
     return length && name[length - 1] >= '0' && name[length - 1] <= '9';
 }
 
-// Writes one changed spell's line: "<old> is now <new>".
 static void appendChangedSpellLine(char *text, size_t size, size_t *n, const ChangedSpell *c) {
     char now[SPELL_NAME_MAX + 96];
     if (!c->newName[0]) snprintf(now, sizeof now, SPELLS_CHANGED_NO_SPELL);
@@ -41,7 +37,6 @@ static void appendChangedSpellLine(char *text, size_t size, size_t *n, const Cha
     appendText(text, size, n, isNameEndingInDigit(old) ? SPELLS_CHANGED_PAIR_AFTER_NUMBER "\n" : SPELLS_CHANGED_PAIR "\n", old, now);
 }
 
-// Writes the pop-up's text for the `count` changed spells.
 static void writeChangedSpellsText(char *text, size_t size, int count, const ChangedSpell *(*entryAt)(int)) {
     size_t n = 0;
     text[0] = '\0';
@@ -71,7 +66,6 @@ static void writeChangedSpellsText(char *text, size_t size, int count, const Cha
     appendText(text, size, &n, "\n" SPELLS_CHANGED_END);
 }
 
-// Asks the player whether to play a loaded save whose units hold mods' spells that changed.
 static int askAboutChangedSpells(void) {
     int count = changedSpellTotal();
     if (!count || !isLoadedGame()) {

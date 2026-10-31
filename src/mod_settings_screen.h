@@ -1,10 +1,8 @@
-// The Mod Settings screen: the mod list, a mod's pages, the key list, and the pop-up for local mods.
+#pragma once
 
 // ---- The Mod Settings screen ---------------------------------------------------------------------
-// One row in the mod list.
 typedef struct { char mod[MOD_NAME_MAX], label[80]; int plugin; } ListedMod;
 
-// The kept settings of the mod's page `page` ("" for the mod's own page), in file order.
 static int subPageSettings(const char *mod, const char *page, ModSetting ***out, int *capacity) {
     int n = 0;
     for (int i = 0; i < settingCount; i++) {
@@ -18,12 +16,10 @@ static int subPageSettings(const char *mod, const char *page, ModSetting ***out,
     return n;
 }
 
-// The kept settings of a mod's own page, in file order.
 static int settingsOfModPage(const char *mod, ModSetting ***out, int *capacity) {
     return subPageSettings(mod, "", out, capacity);
 }
 
-// The mod's pages ([page] sections), in file order, into out[SETTING_PAGES_MAX].
 static int modPagesOf(const char *mod, const ModPage **out) {
     int n = 0;
     for (int i = 0; i < modPageCount && n < SETTING_PAGES_MAX; i++)
@@ -34,7 +30,6 @@ static int modPagesOf(const char *mod, const ModPage **out) {
 static void drawPluginRejections(const char *mod, int *open);
 
 // ---- A mod's pages -------------------------------------------------------------------------------
-// A mod's settings take as many pages as they need, each at most SETTINGS_PAGE_LINES lines (rule 7).
 typedef struct {
     int first, count;
     int titleFrom;
@@ -43,7 +38,6 @@ typedef struct {
     int page;
 } PageBox;
 
-// Lays out a mod's settings, sub-pages, and plugin screen lines on pages.
 static int layoutPageBoxesOf(ModSetting **page, int count, int subPages, int screenLines, int pageLines, PageBox **boxes,
                              int *capacity) {
     int n = 0;
@@ -94,7 +88,6 @@ static int layoutPageBoxesOf(ModSetting **page, int count, int subPages, int scr
     return n;
 }
 
-// Lays out a mod's pages.
 static int layoutPageBoxes(ModSetting **page, int count, int subPages, int screenLines, PageBox **boxes, int *capacity) {
     int n = layoutPageBoxesOf(page, count, subPages, screenLines, SETTINGS_PAGE_LINES, boxes, capacity);
     if (n && (*boxes)[n - 1].page > 0)
@@ -103,7 +96,6 @@ static int layoutPageBoxes(ModSetting **page, int count, int subPages, int scree
     return n;
 }
 
-// The line a key setting shows: "End turn: y", or "End turn: (none)".
 static void keySettingLine(const ModSetting *s, char *out, size_t size) {
     char key[24];
     if (s->value == KEY_NONE) snprintf(key, sizeof key, "(none)");
@@ -111,12 +103,10 @@ static void keySettingLine(const ModSetting *s, char *out, size_t size) {
     snprintf(out, size, "%s: %s", s->label, key);
 }
 
-// A text line drawn at half alpha, like a button the game doesn't allow.
 static void greyedButton(int id, const char *text) {
     GAME_FN(void (*)(int, float, float, float, float, FMT_ARGS), RVA_BUTTON_CORE)(id, -1.0f, -1.0f, -1.0f, 0.5f, "%s", text);
 }
 
-// Draws the boxes of page `pageNumber`.
 static void drawPageBoxes(ModSetting **page, const ModPage *const *subPages, const PageBox *boxes, int boxCount, int pageNumber,
                           int plugin) {
     char title[SETTING_TEXT_MAX + 16], line[SETTING_TEXT_MAX + 32];
@@ -162,7 +152,6 @@ static void drawPageBoxes(ModSetting **page, const ModPage *const *subPages, con
     }
 }
 
-// Draws all of a page's settings on one screen.
 static void drawIniSettings(ModSetting **page, int count) {
     static PageBox *boxes;
     static int capacity;
@@ -172,7 +161,6 @@ static void drawIniSettings(ModSetting **page, int count) {
 }
 
 // ---- The key list --------------------------------------------------------------------------------
-// The key list a key setting's line opens.
 #define PICK_WIDTH       460.0f
 #define PICK_ID_BACK     9
 #define PICK_ID_NONE     7
@@ -181,7 +169,6 @@ static void drawIniSettings(ModSetting **page, int count) {
 #define PICK_ID_KEY      100
 #define PICK_KEYS_MAX    160
 
-// A row of the Settings layout with several texts side by side.
 #ifdef __APPLE__
 static void gridRowOpen(void) { rowBegin(1); }
 static void gridRowClose(void) { rowBegin(0); }
@@ -192,10 +179,8 @@ static void gridRowClose(void) { GAME_FN(void (*)(int), RVA_ROW_BEGIN)(1); }
 static void gridColumn(float x) { GAME_FN(void (*)(float), RVA_COLUMN_X)(x); }
 #endif
 
-// One item of a pick grid: its id and text.
 typedef struct { int id; char text[24]; int selected; const char *tip; } PickItem;
 
-// Draws `count` items in rows of `columns`: a list to pick one item from.
 static void drawPickGrid(const PickItem *items, int count, int columns, float width) {
     char text[32];
     for (int i = 0; i < count; i += columns) {
@@ -215,7 +200,6 @@ static void drawPickGrid(const PickItem *items, int count, int columns, float wi
     }
 }
 
-// The keys the list offers with `modifier`.
 static int pickKeyList(int modifier, int *keys, int groupEnd[3]) {
     int n = 0;
     for (int c = 'a'; c <= 'z'; c++) keys[n++] = modifier + c;
@@ -233,12 +217,10 @@ static int pickKeyList(int modifier, int *keys, int groupEnd[3]) {
     return n;
 }
 
-// The tooltip of a key that `holder` holds, in the key list: "Used by End turn".
 static void keyHeldTip(const ModSetting *holder, char *out, size_t size) {
     snprintf(out, size, holder->fixed ? "Used by %s, which can't change" : "Used by %s", holder->label);
 }
 
-// Asks whether to move key `key` from `holder` to `s`; a fixed holder's key can't move.
 static int askKeyMove(ModSetting *holder, const ModSetting *s, int key) {
     char name[24], text[400];
     keyValueName(key, name, sizeof name);
@@ -257,7 +239,6 @@ static int askKeyMove(ModSetting *holder, const ModSetting *s, int key) {
     return 1;
 }
 
-// Runs the key list for key setting `s`.
 static int keyPickerScreen(const ModSetting *s) {
     static const int MODIFIERS[4] = {0, KEY_CTRL, KEY_ALT, KEY_CTRL_SHIFT};
     static const char *const TAB_NAMES[4] = {"No modifier", "ctrl", "alt", "ctrl+shift"};
@@ -330,7 +311,6 @@ static int keyPickerScreen(const ModSetting *s) {
     }
 }
 
-// Handles a click on one of the page's settings (drawPageBoxes) and saves the new value.
 static int clickIniSetting(int id, ModSetting **page, int count) {
     if (id >= ID_ONOFF && id < ID_ONOFF + count && !page[id - ID_ONOFF]->optionCount && !page[id - ID_ONOFF]->isKey) {
         saveValue(page[id - ID_ONOFF]);
@@ -355,7 +335,6 @@ static int clickIniSetting(int id, ModSetting **page, int count) {
     return 0;
 }
 
-// Draws the "Settings left out" box of a mod's page.
 static void drawLeftOut(const char *mod) {
     int open = 0;
     char tip[400];
@@ -371,7 +350,6 @@ static void drawLeftOut(const char *mod) {
     if (open) api->ui->sectionEnd();
 }
 
-// The settings of `mod` that Reset to defaults resets: declared, kept, and not fixed.
 static int resettableSettings(const char *mod, int *count) {
     int changed = 0;
     *count = 0;
@@ -384,7 +362,6 @@ static int resettableSettings(const char *mod, int *count) {
     return changed;
 }
 
-// Sets every setting of `mod`, on all its pages, back to its default and deletes its saved value.
 static void resetModToDefaults(const char *mod) {
     int changed = 0;
     for (int i = 0; i < settingCount; i++) {
@@ -398,7 +375,6 @@ static void resetModToDefaults(const char *mod) {
     resolveKeyConflicts(mod);
 }
 
-// Draws the page's Reset to defaults, greyed out when every setting is at its default.
 static void drawResetButton(const char *mod) {
     int count;
     if (!resettableSettings(mod, &count)) {
@@ -411,7 +387,6 @@ static void drawResetButton(const char *mod) {
     api->ui->tooltip("Sets every setting of this mod, on all its pages, back to the mod's default.");
 }
 
-// Asks before Reset to defaults, then resets.
 static void clickResetButton(const ListedMod *m) {
     int count;
     if (!resettableSettings(m->mod, &count)) return;
@@ -420,7 +395,6 @@ static void clickResetButton(const ListedMod *m) {
     if (messageBox("CoE5SE: Reset to defaults", text, "Yes", "No", 0, 0, 0) == 1) resetModToDefaults(m->mod);
 }
 
-// Runs one mod's pages.
 static void modScreen(const ListedMod *m, const char *subPage) {
     static ModSetting **page;
     static PageBox *boxes;
@@ -471,7 +445,6 @@ static void modScreen(const ListedMod *m, const char *subPage) {
     }
 }
 
-// Adds `mod` to the list unless it is there, and returns its row.
 static ListedMod *listedRow(ListedMod **list, int *count, int *capacity, const char *mod) {
     for (int k = 0; k < *count; k++)
         if (!_stricmp((*list)[k].mod, mod)) return &(*list)[k];
@@ -483,7 +456,6 @@ static ListedMod *listedRow(ListedMod **list, int *count, int *capacity, const c
     return row;
 }
 
-// Fills `list` with every mod that has a page, and returns its length.
 static int listMods(ListedMod **list, int *capacity) {
     finishReading();
     int count = 0;
@@ -510,7 +482,6 @@ static int listMods(ListedMod **list, int *capacity) {
     return count;
 }
 
-// After the player leaves a mod's page: offers a restart when a setting needs one.
 static void offerRestartForSettings(void) {
     int changed = 0;
     for (int i = 0; i < settingCount; i++) {
@@ -527,7 +498,6 @@ static void offerRestartForSettings(void) {
     for (int i = 0; i < settingCount; i++) settings[i]->promptedValue = settings[i]->value;
 }
 
-// Runs the main menu's Mod Settings screen.
 static void settingsScreen(void) {
     static ListedMod *list;
     static int capacity;
@@ -552,11 +522,9 @@ static void settingsScreen(void) {
 }
 
 // ---- The pop-up for local mods -------------------------------------------------------------------
-// The pop-up of a local mod's left-out setting lines and plugin calls.
 #define POPUP_LINES 16
 static unsigned int shownLeftOutHash, checkedLeftOutVersion;
 
-// Appends mod `mod`'s left-out lines and calls to the pop-up's text.
 static int appendLeftOut(const char *mod, char *text, size_t size, size_t *n, int *room) {
     int count = 0;
     char label[80];
@@ -575,7 +543,6 @@ static int appendLeftOut(const char *mod, char *text, size_t size, size_t *n, in
     return count;
 }
 
-// 1 if `mod` is enabled, in the local mods folder, and not yet in the pop-up.
 static int popupTakesMod(const char *mod, int firstIndex, int inEntries) {
     for (int d = 0; d < (inEntries ? badLineCount : firstIndex); d++)
         if (!_stricmp(badLines[d].mod, mod)) return 0;
@@ -616,7 +583,6 @@ static void popupSettingErrors(void) {
     okBox("CoE5SE: Mod Settings", text);
 }
 
-// Wraps each mod pass.
 static void (*nextModsRun)(int);
 static void syncLuaScriptsBeforePass(int level);
 static void syncLuaScriptsAfterPass(int level);

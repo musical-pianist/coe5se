@@ -1,6 +1,5 @@
-// The .c5m line hook (modCommandHook): the game's own words, mods' commands, and the word that needs CoE5SE.
+#pragma once
 
-// isGameC5mWord's answer from a hash table.
 #define GAME_WORD_SLOTS 2048
 _Static_assert(sizeof GAME_C5M_WORDS / sizeof GAME_C5M_WORDS[0] * 2 <= GAME_WORD_SLOTS, "GAME_WORD_SLOTS is too small");
 static short gameWordSlots[GAME_WORD_SLOTS];
@@ -30,7 +29,6 @@ static int isGameWord(const char *word) {
     return 0;
 }
 
-// Wraps each .c5m line outside an event.
 static int modCommandMod = -1, modCommandLevel = -1;
 static void modCommandHook(const char *line, int mod, int level) {
     modCommandMod = mod;
@@ -90,7 +88,6 @@ static void modCommandHook(const char *line, int mod, int level) {
     nextModCommand(line, mod, level);
 }
 
-// The .c5m line hook used when the player declined mods on an unknown game build.
 static void declinedModCommandHook(const char *line, int mod, int level) {
     char word[64];
     size_t len = strcspn(line, " \t");
@@ -104,7 +101,6 @@ static void declinedModCommandHook(const char *line, int mod, int level) {
     nextModCommand(line, mod, level);
 }
 
-// Why `name` can't be a new mod command, as a reason word, or NULL when it can.
 static const char *modCommandNameProblem(const char *name) {
     if (!name || !name[0]) return "no_name";
     if (strlen(name) >= sizeof modCommands[0].name || strcspn(name, " \t") != strlen(name)) return "bad_name";
@@ -115,7 +111,6 @@ static const char *modCommandNameProblem(const char *name) {
     return NULL;
 }
 
-// Adds command `name`, a good name: a plugin's `handler`, or script callback `lua` (-1 for a plugin's).
 static int addModCommandEntry(const char *name, ModCommandHandler handler, int lua) {
     if (!growList((void **)&modCommands, &modCommandCapacity, modCommandCount + 1, sizeof modCommands[0])) return 0;
     snprintf(modCommands[modCommandCount].name, sizeof modCommands[0].name, "%s", name);
@@ -135,12 +130,10 @@ static int apiAddModCommand(const char *name, ModCommandHandler handler) {
     return 1;
 }
 
-// The .c5m line that makes a mod stop the game without CoE5SE.
 static void needsCoe5seLine(const char *args, int mod, int level) {
     (void)args; (void)mod; (void)level;
 }
 
-// Adds the needs words: needs_script_extender, needs_coe5se, and the long one they stand for.
 static void needsCoe5seInit(void) {
     int ok = apiAddModCommand("needs_script_extender", needsCoe5seLine);
     ok &= apiAddModCommand("needs_coe5se", needsCoe5seLine);

@@ -1,4 +1,3 @@
-// Every call through which the game writes and reads back its battle snapshot file, in CoE5.exe.
 #pragma once
 
 #define BATTLE_SNAPSHOT_SITE_COUNT 112

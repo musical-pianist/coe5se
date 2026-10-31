@@ -1,4 +1,3 @@
-// The game's user folder, and in it the approved plugin DLLs (coe5se/approved.txt).
 #pragma once
 #ifdef _WIN32
 #include <windows.h>
@@ -13,7 +12,6 @@
 #define SHA256_HEX_LEN 64
 
 // ---- The game's user folder -------------------------------------------------------------------------
-// The game picks its user folder once at startup.
 #ifdef _WIN32
 #define USER_DIR_ENV     "APPDATA"
 #define USER_DIR_FMT     "%s\\coe5"
@@ -29,10 +27,8 @@
 #define USER_DIR_FALLBACK "coe5fallback"
 #define GAME_PATH_SIZE    2500
 
-// CoE5SE's folder inside the game's user folder.
 #define COE5SE_USER_DIR "coe5se"
 
-// Writes a, b, and c one after another to out[size], cut to fit, as the game's snprintf cuts.
 static __attribute__((unused)) void joinGamePath(char *out, size_t size, const char *a, const char *b, const char *c) {
     const char *parts[3] = {a, b, c};
     size_t n = 0;
@@ -41,7 +37,6 @@ static __attribute__((unused)) void joinGamePath(char *out, size_t size, const c
     out[n] = '\0';
 }
 
-// The game's expand_path on `path`, which holds `size` bytes.
 static __attribute__((unused)) void expandGamePath(char *path, size_t size, int backslashes) {
     char name[GAME_PATH_SIZE], rest[GAME_PATH_SIZE];
     if (path[0] == '%') {
@@ -67,7 +62,6 @@ static __attribute__((unused)) void expandGamePath(char *path, size_t size, int 
         if (*c == '/') *c = '\\';
 }
 
-// The game's make_dir: 0 when the folder is there, 1 once made, -1 when it can't be made.
 static __attribute__((unused)) int makeGameDir(const char *path) {
     char dir[GAME_PATH_SIZE];
     size_t len = strlen(path);
@@ -87,7 +81,6 @@ static __attribute__((unused)) int makeGameDir(const char *path) {
     return CreateDirectoryA(dir, NULL) ? 1 : -1;
 }
 
-// Writes the folder the game will use as its user folder to `out`.
 static __attribute__((unused)) int findGameUserDir(char *out, size_t size, const char **reason) {
     char dir[GAME_PATH_SIZE];
 #ifdef _WIN32
@@ -117,19 +110,16 @@ static __attribute__((unused)) int findGameUserDir(char *out, size_t size, const
     return 1;
 }
 
-// Writes the user folder that stubs up to version 7 read to `out`.
 static __attribute__((unused)) int legacyUserDir(char *out, size_t size) {
     const char *root = getenv(USER_DIR_ENV);
     return buildPath(out, size, __func__, USER_DIR_FMT, root ? root : ".");
 }
 
-// The user folder this process uses, once set.
 static char userDirPath[MAX_PATH];
 
 #ifdef USER_DIR_FROM_INCLUDER
 static const char *userDir(void);
 #else
-// The user folder, found by the game's rule when nothing set it.
 static __attribute__((unused)) const char *userDir(void) {
     const char *reason;
     if (!userDirPath[0] && !findGameUserDir(userDirPath, sizeof userDirPath, &reason))
@@ -138,7 +128,6 @@ static __attribute__((unused)) const char *userDir(void) {
 }
 #endif
 
-// Writes the full path of `file` in CoE5SE's folder to `out`, creating the folder first if needed.
 static __attribute__((unused)) int coe5seUserFile(const char *file, char *out, size_t size) {
     if (!buildPath(out, size, __func__, "%s" USER_DIR_SEP COE5SE_USER_DIR, userDir())) return 0;
     CreateDirectoryA(out, NULL);
@@ -146,9 +135,7 @@ static __attribute__((unused)) int coe5seUserFile(const char *file, char *out, s
 }
 
 // ---- CoE5SE's files left in the folder older stubs read --------------------------------------------
-// The user folder that a stub up to version 7 read, when it differs from the game's.
 
-// Writes the old folder's path of `file` to `out`, when the old folder has the file.
 static __attribute__((unused)) int oldUserFile(const char *folder, const char *file, char *out, size_t size) {
     char old[MAX_PATH];
     if (!legacyUserDir(old, sizeof old) || !strcmp(old, userDir())) return 0;
@@ -156,7 +143,6 @@ static __attribute__((unused)) int oldUserFile(const char *folder, const char *f
            GetFileAttributesA(out) != INVALID_FILE_ATTRIBUTES;
 }
 
-// Writes the path to read `file` from to `out`: the user folder's, or the old folder's.
 static __attribute__((unused)) int userFileToRead(const char *folder, const char *file, char *out, size_t size) {
     char old[MAX_PATH];
     if (!buildPath(out, size, __func__, "%s" USER_DIR_SEP "%s" USER_DIR_SEP "%s", userDir(), folder, file)) return 0;
@@ -165,7 +151,6 @@ static __attribute__((unused)) int userFileToRead(const char *folder, const char
     return 1;
 }
 
-// Copies the file at `from` to `to`, through `to`.new and a rename.
 static __attribute__((unused)) int copyUserFile(const char *from, const char *to) {
     char fresh[MAX_PATH], buf[4096];
     if (!buildPath(fresh, sizeof fresh, __func__, "%s.new", to)) return 0;
@@ -185,7 +170,6 @@ static __attribute__((unused)) int copyUserFile(const char *from, const char *to
     return ok;
 }
 
-// Writes the user folder's path of `file` to `out`, copying the old folder's file there first if needed.
 static __attribute__((unused)) int userFileToWrite(const char *folder, const char *file, char *out, size_t size) {
     char old[MAX_PATH];
     if (!buildPath(out, size, __func__, "%s" USER_DIR_SEP "%s", userDir(), folder)) return 0;
@@ -213,7 +197,6 @@ static __attribute__((unused)) int isHashApproved(const char *hash) {
     return approved;
 }
 
-// Adds the hash to approved.txt.
 static __attribute__((unused)) int approveHash(const char *hash, const char *dllName) {
     char path[MAX_PATH];
     if (!userFileToWrite(COE5SE_USER_DIR, "approved.txt", path, sizeof path)) return 0;
