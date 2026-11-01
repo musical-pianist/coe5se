@@ -244,7 +244,7 @@ static void emitWeaponHitRel32(unsigned char **p, unsigned char *target) {
 
 static int patchWeaponHit(unsigned char *page) {
     if (!copyWeaponHitUnwind(page + WEAPON_HIT_UNWIND)) {
-        writeLog("weapon_hit_patched", "ok=0 reason=unwind_info");
+        writeLogError("weapon_hit_patched", "ok=0 reason=unwind_info");
         return 0;
     }
     static const unsigned char ARGS[] = {0x44, 0x89, 0xf1, 0x89, 0xf2, 0x44, 0x8b, 0x45, 0x60, 0x45, 0x89, 0xf9};
@@ -266,7 +266,7 @@ static int patchWeaponHit(unsigned char *page) {
     function->EndAddress = (DWORD)(p - page);
     function->UnwindData = WEAPON_HIT_UNWIND;
     if (!RtlAddFunctionTable(function, 1, (DWORD64)(uintptr_t)page)) {
-        writeLog("weapon_hit_patched", "ok=0 reason=unwind_not_added");
+        writeLogError("weapon_hit_patched", "ok=0 reason=unwind_not_added");
         return 0;
     }
     makePagesReadExecute(page, 0x1000);
@@ -274,7 +274,7 @@ static int patchWeaponHit(unsigned char *page) {
     int rel = (int)(stub - (at + 5));
     memcpy(code + 1, &rel, 4);
     if (!writeGameCode(at, code, sizeof code)) {
-        writeLog("weapon_hit_patched", "ok=0 reason=code_unwritable");
+        writeLogError("weapon_hit_patched", "ok=0 reason=code_unwritable");
         return 0;
     }
     writeLog("weapon_hit_patched", "ok=1 address=%p stub=%p", (void *)at, (void *)stub);
@@ -294,7 +294,7 @@ static int pointWeaponTraitCalls(unsigned char *page) {
 static int installWeaponTraitHooks(int *hit) {
     unsigned char *page = allocNear(GAME_PTR(RVA_WEAPON_HIT_DAMAGE_CHECK));
     if (!page) {
-        writeLog("weapon_hit_patched", "ok=0 reason=no_near_page");
+        writeLogError("weapon_hit_patched", "ok=0 reason=no_near_page");
         return 0;
     }
     *hit = patchWeaponHit(page);
@@ -394,7 +394,7 @@ static int patchWeaponHit(void) {
     unsigned char *at = GAME_PTR(RVA_WEAPON_HIT_DAMAGE_CHECK), *trampoline = newTrampoline((void *)coe5seWeaponHitStub);
     uint32_t word = trampoline ? ARM64_B | ((uint32_t)((trampoline - at) >> 2) & 0x3ffffffu) : 0;
     if (!trampoline || !writeGameCode(at, &word, 4)) {
-        writeLog("weapon_hit_patched", "ok=0 reason=%s", trampoline ? "code_unwritable" : "no_padding");
+        writeLogError("weapon_hit_patched", "ok=0 reason=%s", trampoline ? "code_unwritable" : "no_padding");
         return 0;
     }
     writeLog("weapon_hit_patched", "ok=1 address=%p stub=%p", (void *)at, (void *)coe5seWeaponHitStub);
@@ -422,5 +422,5 @@ static void weaponTraitsInit(void) {
     int hit = 0, calls = 0;
     if (checkGameFunction("weapon_hit_check", "part=prologue ") && checkGameFunction("weapon_hit_check", "part=multiply "))
         calls = installWeaponTraitHooks(&hit);
-    writeLog("weapon_trait_words_installed", "words=%d of 3 hit=%d calls=%d of 4", words, hit, calls);
+    writeResultLog(words == 3 && hit && calls == 4, "weapon_trait_words_installed", "words=%d of 3 hit=%d calls=%d of 4", words, hit, calls);
 }

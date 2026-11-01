@@ -240,7 +240,7 @@ static void noteUnitSpell(const SavedSpells *saved, int unit, int slot, int modR
         snprintf(entry.newName, sizeof entry.newName, "%s", newName);
     }
     if (!growList((void **)&changedSpells, &changedSpellCapacity, changedSpellCount + 1, sizeof entry)) {
-        writeLog("save_spells_changed_out_of_memory", "mod=%s slot=%d name=%s", entry.mod, slot, name);
+        writeLogError("save_spells_changed_out_of_memory", "reason=out_of_memory mod=%s slot=%d name=%s", entry.mod, slot, name);
         return;
     }
     int at = changedSpellCount;

@@ -99,7 +99,7 @@ static void takeCodeModSnapshot(void) {
         if (!modHasCode(m)) continue;
         if (!growList((void **)&codeMods, &codeModCapacity, codeModCount + 1, sizeof codeMods[0])) {
             codeModSnapshotFailed = 1;
-            writeLog("mods_with_code_snapshot_failed", "reason=out_of_memory count=%d", codeModCount);
+            writeLogError("mods_with_code_snapshot_failed", "reason=out_of_memory count=%d", codeModCount);
             return;
         }
         snprintf(codeMods[codeModCount].folder, MAX_PATH, "%s", modFolder(m));
@@ -144,7 +144,7 @@ static void relaunchGame(const char *reason) {
     pid_t pid;
     int error = posix_spawn(&pid, exe, NULL, NULL, *_NSGetArgv(), *_NSGetEnviron());
     if (error) {
-        writeLog("restart_failed", "error=%d", error);
+        writeLogError("restart_failed", "reason=launch_failed error=%d", error);
         return;
     }
     writeLog("restarting", "reason=%s", reason);
@@ -163,7 +163,7 @@ static void relaunchGame(const char *reason) {
     si.cb = sizeof si;
     PROCESS_INFORMATION pi;
     if (!CreateProcessA(exe, cmd, NULL, NULL, FALSE, 0, NULL, dir, &si, &pi)) {
-        writeLog("restart_failed", "error=%lu", GetLastError());
+        writeLogError("restart_failed", "reason=launch_failed error=%lu", GetLastError());
         return;
     }
     CloseHandle(pi.hThread);

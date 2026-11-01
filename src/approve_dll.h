@@ -93,7 +93,7 @@ static __attribute__((unused)) int approveDll(const char *name, const char *mod,
     }
     if (autoApprove) writeLog("loader_plugin_auto_approved", "name=%s source=%s sha256=%s", name, source, hash);
     else writeLog("loader_plugin_approved", "name=%s source=%s sha256=%s via=prompt", name, source, hash);
-    if (!approveHash(hash, name)) writeLog("loader_approval_not_saved", "name=%s reason=write_failed", name);
+    if (!approveHash(hash, name)) STUB_SAFE_ERROR("loader_approval_not_saved", "name=%s reason=write_failed", name);
     return 1;
 }
 

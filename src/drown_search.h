@@ -14,7 +14,7 @@ static void emitDrownRel32(unsigned char **p, const unsigned char *target) {
 static int installDrownSearch(void) {
     unsigned char *at = GAME_PTR(RVA_DROWN_COMMANDER_SEARCH), *page = allocNearBytes(at, DROWN_SEARCH_STUB_SIZE);
     if (!page) {
-        writeLog("drown_search_installed", "ok=0 of 1 reason=no_near_page");
+        writeLogError("drown_search_installed", "ok=0 of 1 reason=no_near_page");
         return 0;
     }
     unsigned long long lastCommander = (unsigned long long)(uintptr_t)GAME_PTR(RVA_LAST_COMMANDER);
@@ -36,7 +36,7 @@ static int installDrownSearch(void) {
     int rel = (int)(page - (at + 5));
     memcpy(jump + 1, &rel, 4);
     if (!writeGameCode(at, jump, sizeof jump)) {
-        writeLog("drown_search_installed", "ok=0 of 1 reason=code_unwritable");
+        writeLogError("drown_search_installed", "ok=0 of 1 reason=code_unwritable");
         return 0;
     }
     writeLog("drown_search_installed", "ok=1 of 1 address=%p stub=%p bytes=%d", (void *)at, (void *)page, (int)(p - page));
@@ -95,8 +95,8 @@ static int installDrownSearch(void) {
         if (trampoline && writeGameCode(at, &word, 4)) ok++;
         else reason = trampoline ? "code_unwritable" : "no_padding";
     }
-    if (reason) writeLog("drown_search_installed", "ok=%d of 2 reason=%s", ok, reason);
-    else writeLog("drown_search_installed", "ok=%d of 2", ok);
+    if (reason) writeResultLog(ok == 2, "drown_search_installed", "ok=%d of 2 reason=%s", ok, reason);
+    else writeResultLog(ok == 2, "drown_search_installed", "ok=%d of 2", ok);
     return ok;
 }
 #endif
@@ -104,9 +104,9 @@ static int installDrownSearch(void) {
 static void drownSearchInit(void) {
     if (!checkGameFunction("drown_search_check", "")) {
 #ifdef __APPLE__
-        writeLog("drown_search_installed", "ok=0 of 2 reason=game_code_changed");
+        writeLogError("drown_search_installed", "ok=0 of 2 reason=%s", gameCodeReason());
 #else
-        writeLog("drown_search_installed", "ok=0 of 1 reason=game_code_changed");
+        writeLogError("drown_search_installed", "ok=0 of 1 reason=%s", gameCodeReason());
 #endif
         return;
     }

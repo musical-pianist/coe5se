@@ -27,7 +27,7 @@ static void readLoadOrder(int logIt) {
         for (int i = 0; i < orderedModCount && !seen; i++) seen = !strcmp(orderedMods[i].name, modName(m));
         if (seen) continue;
         if (!growList((void **)&orderedMods, &orderedModCapacity, orderedModCount + 1, sizeof *orderedMods)) {
-            writeLog("mod_order_cut", "reason=out_of_memory mods=%d", orderedModCount);
+            writeLogWarning("mod_order_cut", "reason=out_of_memory mods=%d", orderedModCount);
             break;
         }
         ModInfo *info = &orderedMods[orderedModCount++];
@@ -46,12 +46,13 @@ static void readLoadOrder(int logIt) {
             refuseC5mLine(p->word, orderedMods[i].name, p->reason, "line=%d text=%s", p->line, p->text);
         }
     static const char *const EVENTS[] = {"mod_requirement_missing", "mod_requirement_old", "mod_requirement_cycle"};
+    static const char *const REASONS[] = {"not_enabled", "too_old", "cycle"};
     for (int k = 0; k < orderIssueCount; k++) {
         const ModInfo *m = &orderedMods[orderIssues[k].mod];
         const ModRequirement *q = &m->requirements[orderIssues[k].requirement];
         const char *have = q->target >= 0 && orderedMods[q->target].version[0] ? orderedMods[q->target].version : "-";
-        writeLog(EVENTS[orderIssues[k].kind], "mod=%s required=%s have=%s want=%s line=%d", m->name, q->mod, have,
-                 q->want[0] ? q->want : "-", q->line);
+        writeLogWarning(EVENTS[orderIssues[k].kind], "reason=%s mod=%s required=%s have=%s want=%s line=%d", REASONS[orderIssues[k].kind], m->name,
+                        q->mod, have, q->want[0] ? q->want : "-", q->line);
     }
 }
 

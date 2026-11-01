@@ -58,6 +58,10 @@
 --   Change a key of the game's own coe5.rebindKey(coe5.keyAction.mapEndTurn, string.byte("k"))
 --   Hide the Read Tip button       coe5.hideMainMenuButton(coe5.mainMenu.readTip, function() return true end)
 --   Keep data in a file            coe5.writeIni("last", {Player1 = {Class = 3}}), coe5.readIni("last").Player1.Class
+--   A battle with no game          coe5.testBattle(coe5.findMonster("Old Wizard"), -1, coe5.findMonster("Spearman"), 40)
+--   Text to the clipboard          coe5.copyText("newweapon \"Laser\"\n")
+--   Text as a new mod              coe5.saveNewMod("My Laser", "newweapon \"Laser\"\ndmg 12\n")
+--   Change your own weapon         coe5.set("weapon", w, "dmg", 12), w a weapon your mod made
 --   Build a screen                 coe5.ui.screenBegin("My Mod") ... coe5.ui.wait()
 --   A row with a monster's sprite  coe5.ui.monsterRow(20, coe5.findMonster("Spearman"), "Spearman", "Recruit")
 --   A commander's rituals          coe5.get("commanderRitual", c, 0), coe5.get("ritualString", r, 0)   (nil past the last)
@@ -112,6 +116,11 @@
 --   Keep an AI commander from being picked up  coe5.wrap("AI_PICK_UP_LONER", function(next, c, unit) if busy(unit) then return 0 end return next(c, unit) end)
 --   Split AI armies of 30 units or more  coe5.wrap("AI_SPLIT_ARMY", function(next, c, minUnits) next(c, 30) end)
 --   Route onto an army with a group's strength  coe5.wrap("AI_MOVE_COMSTR", function(next, c) return next(c) + helpers(c) end)
+--   Let the AI cross frozen water  coe5.wrap("AI_DANGEROUS_STEP", function(next, c, dx, dy) if frozenAhead(c, dx, dy) then return 0 end return next(c, dx, dy) end)
+--   Two guards where the AI leaves one  coe5.wrap("AI_MAKE_GUARDS", function(next, p, x, y, n) next(p, x, y, n * 2) end)
+--   Cast an AI ritual at a square you pick  coe5.wrap("AI_RITUAL_TARGET", function(next, c, ritual) local found, x, y = next(c, ritual) if found == 1 then x, y = better(c, ritual, x, y) end return found, x, y end)
+--   No random villages on a terrain  coe5.wrap("DECORATE_SQUARE", function(next, x, y) if coe5.get("squareTerrain", x, y) ~= t then next(x, y) end end)
+--   A random enemy, the AI's way   coe5.aiRandomEnemy(p)   (-1 for none)
 --   The commander a unit follows   coe5.get("unitCommander", u)   (-1 for none)
 --   Every army a player sees now   for _, a in ipairs(coe5.armies(p)) do coe5.log(a.x .. "," .. a.y .. " " .. a.owner .. " " .. a.units) end
 --   Does a monster fly             coe5.get("monsterMoveFlags", coe5.get("unitMonster", u)) & 1 ~= 0   (unitMoveFlags adds its items)
@@ -204,6 +213,7 @@ function require(name) end
 ---| "MAP_EDITOR"                # fn(next): the whole map editor, opened from the Mods screen's Start Map Editor or the --mapeditor launch option; next returns when the player quits it. With --mapeditor the editor opens before the main menu: the scripts load just before it, and the game exits when it closes.
 ---| "MAP_EDITOR_DRAW"           # fn(next): once per frame of the map editor's map, after the map's squares and before the toolbox, the plane buttons, and the hover box. Draw with coe5.ui.drawLine, drawText and drawRect: before next lands over the map and under the toolbox, after next over everything but the hover box. coe5.mapView says where each square is. next returns nothing.
 ---| "MAP_DRAW"                  # fn(next): once per frame of the world map in a player's turn, after the squares and the units and before the top bar, the commander panel, and the hover box. Draw with coe5.ui.drawLine, drawText and drawRect: before next lands over the map and under the game's panels, after next over everything but the hover box. coe5.mapView says where each square is. next returns nothing. Windows only for now: on Mac coe5.wrap returns false.
+---| "BATTLE_DRAW"               # fn(next): once per frame of a battle's screen, after the battlefield and its units and before the battle's GUI. Draw with coe5.ui.drawLine, drawText and drawRect here; after next, over everything. Take a click on what you drew in a BATTLE_WAIT wrap, after next, with uiPointerX, uiPointerY and mouseButtons. Windows only.
 ---| "MESSAGES_WAIT"             # fn(next, block, mode): each frame of the Messages screen, as a human turn starts (View messages shares it). next returns the clicked id; return coe5.box.messagesOk to close it, as the player's Ok does.
 ---| "WARN_WAIT"                 # fn(next, block, mode): each frame of the game's warning box ("<name> has been eliminated" and the like). next returns the clicked id; return coe5.box.warnOk to press its Ok.
 ---| "MESSAGE_BOX_WAIT"          # fn(next, block, mode): each frame of the game's message box (the End Turn Warning, and any question the game asks with one or two buttons). next returns the clicked id, 0 for none; return coe5.box.firstButton, secondButton or cancel to answer it as the player would. Its text reads as messageBoxText meanwhile. Windows only for now: on Mac coe5.wrap returns false.
@@ -225,6 +235,10 @@ function require(name) end
 ---| "AI_PICK_UP_LONER"          # fn(next, commander, unit): the AI's pick-up of one lone commander (unit is its unit) into the army of commander, a caster of a higher ritual level on its square, after the game's checks passed it: from then on the lone commander and its followers follow commander and never move on their own again. next(commander, unit) joins them and returns how many units joined; don't call it (return 0) to keep the lone commander free. Another commander or unit in next is refused (commander_changed, unit_changed). A wrap that errors runs it. coe5.scrapRitualPlan works inside it. Not in network games.
 ---| "AI_SPLIT_ARMY"             # fn(next, commander, minUnits): the AI's split of a commander's army, at the end of its routine before its moves, in 25% of the calls: with minUnits units or more following it (the game's own is 240), the best commander that follows it leaves with some of its troops (each troop of strength up to 100 to 299 with a 10% chance, in two passes, until the larger of a fifth and 40 to 99 units went). minUnits is the game's minimum for this call; next(commander, minUnits) runs the split with the minimum given, 1 or more, for this call only (lua_refused reason=out_of_range keeps the game's). Don't call next to skip it. No commander follows another unless the AI picked it up (AI_PICK_UP_LONER), so with none nothing splits. Another commander in next is refused (commander_changed). A wrap that errors runs it. coe5.scrapRitualPlan works inside it. Not in network games.
 ---| "AI_MOVE_COMSTR"            # fn(next, commander): the strength the AI commander's route takes for one move step, right after AI_GATHER_TROOPS and before the game routes it to the square its steps kept. next(commander) returns the game's own, the strength of the commander's army. The route won't end on a square whose army is stronger than the strength allows (times 100, divided by aiAttackDivOther, aiAttackDivAi or aiAttackDivHuman by that army's owner, less 15, aiAttackMargin's value), so return a larger one, such as several commanders' strength together, to let it route onto a stronger army; the square itself was picked by the steps. Returns a whole number from -1 to 21474836, as coe5.route's comstr; another value is refused (lua_refused reason=not_a_number or out_of_range) and next's kept. Return nothing for next's. Another commander in next is refused (commander_changed). coe5.route works inside it. A wrap that errors gives the game's. Not in network games.
+---| "AI_DANGEROUS_STEP"         # fn(next, commander, dx, dy): whether an AI commander's step from its square by (dx, dy) is refused ("aborted dangerous move"), in the AI's move loop and in the independents' wandering moves: the Void off its plane, frozen water in Winter or Spring with 2 or fewer turns of the season left, a burning army (burnforest 100 or more) into burnable terrain while its fire resistance is under 100, Dispersing Clouds without flying, the sky or water while Fatigued. It reads the commander's unit only. next(commander, dx, dy) returns the game's answer, 1 to refuse and 0 to let the step go; return either. Another commander or step in next is refused (commander_changed, step_changed). A wrap that errors gives the game's. Not in network games.
+---| "AI_MAKE_GUARDS"            # fn(next, player, x, y, n): n of the player's units on square (x, y) become guards, which never leave it; x and y are -1 for the player's units anywhere: at game start for each player's army (-1, -1, n 4), and in the AI's turn on each square it defends with an Enchanted Gate, Mirror Wall, Wall of Torment or Murderous Mist (n 1). next(player, x, y, n) makes them; pass another n (1 or more) for this call, or don't call it for none. Another player or square in next is refused (player_changed, square_changed), and an n below 1 (out_of_range) keeps the game's. A wrap that errors runs it. Not in network games.
+---| "AI_RITUAL_TARGET"          # fn(next, commander, ritual): the square an AI commander casts its planned ritual at, from up to 25,000 random squares of Elysium, the Sky and Agartha: a seen square with an enemy army for an aitarg 1 ritual, a seen square with 5 corpses or more for aitarg 2, the first square for any other. next(commander, ritual) returns 1, x, y for a square found, 0 for none (the plan waits). Return 1, x, y for a square on a plane, or 0 for none; 1 with no square, a square off the map or off every plane, or another value is refused (lua_refused reason=no_square, off_map, no_plane, out_of_range, not_a_score, not_a_square) and next's kept. Return nothing for next's. Another commander or ritual in next is refused (commander_changed, ritual_changed). A wrap that errors gives the game's. Not in network games.
+---| "DECORATE_SQUARE"           # fn(next, x, y): one square's random special terrain by its terrain (villages, farms, mines, ports; towers, castles and ancient ruins only on Elysium): in world building, a map file's random squares, and the map editor's Create Fancy Terrain. next(x, y) places them; don't call it to keep the square as it is. Another square in next is refused (square_changed). A wrap that errors runs it. Not in network games.
 ---| "CEREMONY_PERFORM"          # fn(next, ceremony, commander, target): one of the Voice of El's ceremonies, a player's (the Ceremonies screen, a map order) or the AI's. ceremony is the game's number for it: match it by coe5.get("ceremonyName", ceremony), never by the number. target is the player a Start Crusade goes against, -1 for every other ceremony. next(ceremony, commander, target) is the game's own: it checks the rank, limits and cost (and does nothing when one fails), charges the cost and action points, and does the ceremony. Skip next and none of it happens: no cost, no action points, no effect, and no message. Code after next adds effects of your own. Another ceremony, commander or target in next is refused (ceremony_changed, commander_changed, target_changed) and the game's kept. A wrap that errors runs it. Not in network games.
 ---| "CEREMONY_COSTS"            # fn(next, commander): the game works out every ceremony's cost for a priest of El: at the top of the Ceremonies screen, before a map order's ceremony, and before the AI's. After next(commander), coe5.get("ceremonyCost", ceremony) holds each one and coe5.set("ceremonyCost", ceremony, value) changes it: the screen shows that cost, the ceremony checks and charges it, and the AI weighs it, until the next time the game works them out. The game multiplies some: Break Seal's by the seal's number (1 for the first), Bolster Devotion's by one more than the player's earlier Bolster Devotions, Increase Divine Favor's by the level it raises the favor to, Convert Settlement's by a fifth of the square's gold income (its action points too). Each is gold, or relics for Break Seal, Bolster Devotion and Increase Divine Favor. Another commander in next is refused (commander_changed). Not in network games.
 ---| "SEAL_BREAK"                # fn(next, slot, seal): one of the Seven Seals breaking, by a player's Break Seal ceremony or an item, slot that player; seal is the seal it breaks, 1 to 7. Inside the wrap the seals broken are still seal - 1; next(slot, seal) breaks it, as the game does. Skip next and the seal stays unbroken, so none of what follows from it happens (its event, SEAL_EVENT; El's minions for the Voice of El players get no stronger), and the next Break Seal ceremony breaks the same seal again. The ceremony's cost and action points are spent either way. To break the seal but replace its event, wrap SEAL_EVENT instead. The seals the game breaks on its own at a month's end ("Cardinal Intervenes", "Heavenly Surge of Power") don't come here. Another slot or seal in next is refused (slot_changed, seal_changed). A wrap that errors breaks it. Not in network games.
@@ -322,7 +336,7 @@ function require(name) end
 ---| "terrainName"           # index 0 to terrainLastIndex, string. Read-only.
 ---| "fortPartWord"          # index 0 to 31, a fort part bit, string: the terrain word that sets it ("irongate" for 11, the bit of 2048), from the game's terrain reader; nil for a bit none sets. Read-only.
 ---| "monster"               # index: a monster 0-5999, then a word of a .c5m monster block, the parser's spelling: a field (hp, str, armor, mor, rank, mr) is an integer, a flag or move word (undead, flying, wateronly) a boolean, an ability word ("aihold", "mastery") its value, 0 for none. An unknown word is an error. Read-only.
----| "weapon"                # index: a weapon (weaponDmgType's), then a word of a .c5m weapon block: a field (dmg, dmgtype, aoe, range, init, trgrank, nextdmg, nextalwayswep, look, sound, flymode, flylook, flysound) an integer, a special word (drain, sweep, ...) a boolean. Read-only.
+---| "weapon"                # index: a weapon (weaponDmgType's), then a word of a .c5m weapon block: a field (dmg, dmgtype, aoe, range, init, trgrank, nextdmg, nextalwayswep, look, sound, flymode, flylook, flysound, sndvol, reloadsnd) an integer, a special word (drain, sweep, ...) a boolean. nextalwayswep holds the chained weapon as the game keeps it: the weapon's number for nextwep, its negative for nextalwayswep, -1 for none. coe5.set writes a weapon your own mod made with newweapon (any other is refused, reason=not_own_weapon), until the game next reads the mods.
 ---| "item"                  # index: an item 0-999, then a word of a .c5m magic item block: a field (type, rarity, itemwep) an integer, a flag or move word a boolean, an ability word (armor, protection, hp, and the monster ability words) its value. Read-only.
 ---| "class"                 # index: a class 0-199, then a word of a .c5m class block: hometerr an integer, an ability word (startplane, aiclass, stdtroops, goldbonus, likesnorth, ...) its value, 0 for none. Read-only.
 ---| "terrain"               # index: a terrain 0-999, then a word of a .c5m terrain block: a field (gold, iron, trade, herbs, fungus, weed, sacr, dead, hands, pop, lifeforce, gems, apcost, batmap) an integer, a flag or fort word (citadel, cave, walls, irongate) a boolean, ritrebate, bonusrelics, destroyto, mistrare their values. Read-only.
@@ -500,6 +514,7 @@ function require(name) end
 ---| "unitReturns"           # index 0-98999, boolean: the unit comes back from death (immortal, reforming), as the game decides it. Nil for an empty record. Read-only.
 ---| "ceremonyCost"          # index 0 to ceremonyLastIndex, integer: a ceremony's cost as the game worked it out for the commander of the running CEREMONY_COSTS wrap (see there for the ceremonies the game multiplies it for), after that wrap's next (before it, the last costs the game worked out); nil outside the wrap, and for a number with no cost. Writable in it, 0 to 100000: the screen shows, the ceremony charges, and the AI weighs the new one (lua_refused reason=no_cost for a number with none, out_of_range past the bounds).
 ---| "weaponAoe"             # index 0-4999, integer: the weapon's area (aoe): 0 a single target, n a burst of n, -n n strikes, 1000s beams and cones. Read-only.
+---| "weaponName"            # index 0-6998, string: the weapon's name, "" for an empty slot. Read-only.
 ---| "unitMoveFlags"         # index 0-98999, integer: the unit's move flags, the game's sum of its monster's move words and its items' (boots of flying): flying 1, immobile 4, slow 8, fast 16, swamp 32, water 64 (swims or sails), float 128, mountain 256, noland 512, passwall 2^32, stationary 2^35 (also for a unit the game holds in place), teleport 2^39, shipmove 2^40, tunnel 2^42, and the terrain words (forest1 2^23, snow 2^37 and the rest). Test a bit with &: coe5.get("unitMoveFlags", u) & 1 ~= 0 flies. It shows another player's unit with its items, which the game's AI never weighs: for what the AI may know, read monsterFlags or monsterMoveFlags of its unitMonster. Nil for an empty record. Read-only.
 ---| "unitFlags"             # index 0-98999, integer: the unit's flag words, its monster's and items' added as the game adds them (resrestrict's test): human 2^3, undead 2^4, spiritsight 2^5, stealth 2^17, invisible 2^22, ethereal 2^26, demonic 2^33, foreststealth 2^44, desertstealth 2^41, snowstealth 2^56, and the rest of the monster flag words. Shows another player's items, as unitMoveFlags does. Nil for an empty record. Read-only.
 ---| "monsterFlags"          # index 0-5999, integer: the monster's own flag words, as unitFlags' bits, as the .c5m set them: what anyone who knows the monster knows. Read-only.
@@ -1392,6 +1407,12 @@ function coe5.aiItemValue(unit, item) end
 ---@return integer|nil rating nil when refused (lua_refused: no_game, dead_unit, bad_item)
 function coe5.aiItemUseRating(unit, item) end
 
+---The game's pick of a random enemy of a player, as the AI and a ritual cast draw one: a human or AI slot
+---not on the player's team, from the game's own random numbers.
+---@param player integer a player slot
+---@return integer|nil enemy a player slot, -1 for none found in 1000 tries; nil when refused (lua_refused: no_game, bad_player)
+function coe5.aiRandomEnemy(player) end
+
 ---Whether square (x, y) counts for a terrain code, as the game checks a ritual's terrain
 ---(ritualTerrainAt): -1 any terrain, a terrain type (terrainName takes it) by its name, so another
 ---type of the same name counts, and a group (-2 to -1500, as ritualTerrain and the newlocplanes,
@@ -1581,6 +1602,74 @@ function coe5.listIni() end
 ---@param name string
 ---@return boolean deleted false when there was no such file, or it can't be deleted (logged as lua_refused)
 function coe5.deleteIni(name) end
+
+---Shows one battle with no game, from the main menu: a commander of `monster` against `count` units of
+---`enemy` (the independents), on a grass field with no fort, at the battle screen's default speed.
+---With `spell` (a spell's number, -1 for none) the commander knows and has memorized only that spell.
+---With `standIn`, a weapon your own mod made, the spell casts with that weapon's values in place of its
+---own weapon's, for this battle only. Returns when the battle ends; the units are gone afterwards.
+---@param monster integer a monster's index (coe5.findMonster)
+---@param spell integer|nil -1 or nil for none
+---@param enemy integer a monster's index
+---@param count? integer 1 to 200; 40 when left out
+---@param standIn? integer a weapon your mod made
+---@return boolean shown false when refused (lua_refused): in_game, bad_monster, bad_enemy, bad_count, bad_spell, no_spell_weapon, not_own_weapon, bad_weapon, no_free_slot
+function coe5.testBattle(monster, spell, enemy, count, standIn) end
+
+---One record of the game's spell table, mods' spells included: its name, path, level, the weapon that is
+---its effect, and the damage value the weapon is used with.
+---@param spell integer
+---@return {name: string, path: integer, level: integer, weapon: integer, dmg: integer}|nil info nil past the table or for an empty slot
+function coe5.spellInfo(spell) end
+
+---Opens a test field from the main menu, with no game: a commander of `monster` and `count` units of `enemy`
+---(the independents) deployed on a grass field, as coe5.testBattle has them, and left standing. Draw it a
+---frame at a time with coe5.drawTestField, attack with coe5.fireTestField, fight with coe5.fightTestField,
+---and coe5.closeTestField when done.
+---@param monster integer
+---@param spell integer|nil
+---@param enemy integer
+---@param count? integer
+---@param standIn? integer a weapon your mod made
+---@return boolean opened false when refused (lua_refused): coe5.testBattle's reasons, or already_open
+function coe5.openTestField(monster, spell, enemy, count, standIn) end
+
+---One frame of the battle screen on the open test field, its speed arrows working. BATTLE_DRAW and
+---BATTLE_WAIT run in it.
+function coe5.drawTestField() end
+
+---The test field's commander makes one attack, as in a battle, then every projectile flies to its end: its
+---first weapon, or its spell cast as an item casts it. The weapon reaches across the field for that attack.
+---Units it hits take the damage.
+function coe5.fireTestField() end
+
+---The battle on the test field, as the game fights one; returns when it ends.
+function coe5.fightTestField() end
+
+---Ends the test field's running battle (coe5.fightTestField) as the battle screen's skip to the end does:
+---nothing more drawn, no delay, the battle over. Call it from a BATTLE_WAIT wrap during the battle.
+function coe5.stopTestFight() end
+
+---Closes the test field: its units gone, and everything it borrowed put back.
+function coe5.closeTestField() end
+
+---A weapon look's name in the game's visual effect table, the numbers look and flylook take ("Fireball").
+---@param look integer
+---@return string|nil name nil past the table or for an unnamed row
+function coe5.lookName(look) end
+
+---Puts `text` on the system clipboard as plain text, for the player to paste.
+---@param text string
+---@return boolean copied false when the text holds a 0 byte (bad_string) or the system refused (clipboard_refused), logged as lua_refused
+function coe5.copyText(text) end
+
+---Makes a new mod in the player's mods folder: <name>/<name>.c5m, holding the icon and description
+---lines and then `text`, beside a plain banner. It starts disabled, as every mod the game finds.
+---It never writes into an existing mod: a name whose folder exists is refused.
+---@param name string 1 to 40 letters, digits, spaces and _, no space first or last
+---@param text string the .c5m lines after the icon and description
+---@return boolean saved false when refused (lua_refused): no_name, name_too_long, bad_name, bad_string, path_too_long, exists, folder_failed, write_failed
+function coe5.saveNewMod(name, text) end
 
 ---Call it in a Game Menu line's onClick, in a single player game. When onClick returns, CoE5SE
 ---ends the game the way Resign does, and after the Game Over screen it starts a new game's setup

@@ -23,7 +23,7 @@ static void fillLuaRandom(void *buf, size_t n) {
     if (BCRYPT_SUCCESS(BCryptGenRandom(NULL, buf, (ULONG)n, BCRYPT_USE_SYSTEM_PREFERRED_RNG))) return;
     static uint64_t calls;
     static int logged;
-    if (!logged++) writeLog("lua_random_fallback", "error=bcrypt_gen_random_failed");
+    if (!logged++) writeLogWarning("lua_random_fallback", "reason=bcrypt_gen_random_failed");
     LARGE_INTEGER now;
     QueryPerformanceCounter(&now);
     for (size_t i = 0; i < n; i += sizeof(uint64_t)) {

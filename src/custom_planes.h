@@ -111,7 +111,7 @@ typedef void (*SetGroundRectFn)(int x, int y, int w, int h, int terrain);
 static void fillCustomPlane(const CustomPlane *p, int x, int y) {
     int fill = p->fill;
     if (fill > G32(RVA_LAST_TERRAIN)) {
-        writeLog("plane_fill_refused", "mod=%s name=%s fill=%d reason=no_such_terrain last_terrain=%d", p->mod, p->name, fill, G32(RVA_LAST_TERRAIN));
+        writeLogWarning("plane_fill_refused", "mod=%s name=%s fill=%d reason=no_such_terrain last_terrain=%d", p->mod, p->name, fill, G32(RVA_LAST_TERRAIN));
         fill = 0;
     }
     short terrain = (short)fill;
@@ -367,7 +367,7 @@ static void readLoadedSavePlanes(const char *path) {
     }
     fclose(f);
     if (!payload) {
-        if (strcmp(result, "none")) writeLog("save_planes_read", "result=%s", result);
+        if (strcmp(result, "none")) writeResultLog(strcmp(result, "bad"), "save_planes_read", "result=%s%s", result, strcmp(result, "bad") ? "" : " reason=bad_chunk");
         return;
     }
     loadedSavePlanesPresent = 1;
@@ -411,7 +411,7 @@ static void readLoadedSavePlanes(const char *path) {
             resolvePlaneNames(1);
         }
     } else
-        writeLog("save_planes_refused", "reason=%s planes=%d missing=%s", !readBack ? "bad_chunk" : missing ? "plane_not_declared" : "table_not_moved",
+        writeLogError("save_planes_refused", "reason=%s planes=%d missing=%s", !readBack ? "bad_chunk" : missing ? "plane_not_declared" : "table_not_moved",
                  count, missingNames[0] ? missingNames : "-");
     free(payload);
 }
@@ -439,7 +439,7 @@ static void applyLoadedSavePlanes(int level) {
         writeLog("save_planes_given", "planes=%d", loadedSavePlanes.count);
         return;
     }
-    writeLog("save_planes_refused", "reason=plane_not_declared_after_pass planes=%d missing=%s", loadedSavePlanes.count, missingNames);
+    writeLogError("save_planes_refused", "reason=plane_not_declared_after_pass planes=%d missing=%s", loadedSavePlanes.count, missingNames);
     static char text[POPUP_TEXT_SIZE];
     snprintf(text, sizeof text, "Planes missing from this save's mods:\n%s\n", missingNames);
     okBox("CoE5SE: Not a proper save file", text);
@@ -536,7 +536,7 @@ static int installSaveMagicHooks(void) {
     int ok = 0, wanted = (int)(sizeof CALLS / sizeof CALLS[0]);
     for (int i = 0; i < wanted; i++) ok += pointCustomPlaneCall(CALLS[i].callRva, CALLS[i].targetRva, CALLS[i].hook, CALLS[i].name);
     saveMagicHooksState = ok == wanted ? 1 : -1;
-    writeLog("save_magic_hooks_installed", "ok=%d of %d", ok, wanted);
+    writeInstallLog("save_magic_hooks_installed", ok, wanted);
     return saveMagicHooksState > 0;
 }
 
@@ -565,11 +565,11 @@ static int installCustomPlaneHooks(void) {
     int viewOk = installCustomPlaneViewHooks(&viewWanted);
     installPlaneGroundHooks();
     installPlaneTintHooks();
-    writeLog("custom_plane_hooks_installed", "ok=%d of %d buttons=%d of %d", ok, wanted, viewOk, viewWanted);
+    writeInstallLogFields("custom_plane_hooks_installed", ok, wanted, "buttons=%d of %d", viewOk, viewWanted);
     return ok == wanted;
 }
 
 static void installSaveCountHook(void) {
-    writeLog("save_count_hook_installed", "ok=%d of 1",
-             pointCustomPlaneCall(RVA_COUNT_SAVES_MAGIC_READ, RVA_FREAD, (void *)countSaveMagicHook, "count_saves_magic"));
+    int ok = pointCustomPlaneCall(RVA_COUNT_SAVES_MAGIC_READ, RVA_FREAD, (void *)countSaveMagicHook, "count_saves_magic");
+    writeResultLog(ok == 1, "save_count_hook_installed", "ok=%d of 1", ok);
 }

@@ -83,5 +83,5 @@ static void modSettingsInit(void) {
     int ok = wrapSite(SITE_EVENT_LINE, (void *)eventLineHook, (void **)&nextEventLine) +
              wrapSite(SITE_MODS_RUN, (void *)modsRunHook, (void **)&nextModsRun) +
              api->addMainMenuButtonAfter("Mod Settings", settingsScreen, MAIN_MENU_MODS);
-    writeLog("mod_settings_installed", "ok=%d of 3", ok);
+    writeResultLog(ok == 3, "mod_settings_installed", "ok=%d of 3", ok);
 }

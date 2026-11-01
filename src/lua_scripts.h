@@ -90,6 +90,8 @@ static void stopLuaScript(LuaScript *s, int why, const char *detail) {
     s->dead = 1;
     if (why != LUA_STOP_CLOSED) s->noticesDue |= LUA_NOTICE_STOPPED;
     refuseLuaCall(s->mod, "script", LUA_STOPS[why].reason, "%s", detail);
+    if (why != LUA_STOP_CLOSED && !s->stopLogged) writeLogError("lua_script_stopped", "mod=%s reason=%s", s->mod, LUA_STOPS[why].reason);
+    if (why != LUA_STOP_CLOSED) s->stopLogged = 1;
     if (s->L) lua_sethook(s->L, luaStepHook, LUA_MASKCOUNT, 1);
 }
 static int raiseLuaStop(lua_State *L, LuaScript *s) {
@@ -186,7 +188,7 @@ static int luaMemoryFits(LuaScript *s, size_t grow) {
                  luaMemoryTotalMax, s->mod);
         stopLuaScript(big, LUA_STOP_MEMORY_TOTAL, detail);
         if (big == s) return 0;
-        if (!big->stopLogged) writeLog("lua_script_stopped", "mod=%s", big->mod);
+        if (!big->stopLogged) writeLogError("lua_script_stopped", "mod=%s reason=%s", big->mod, LUA_STOPS[LUA_STOP_MEMORY_TOTAL].reason);
         big->stopLogged = 1;
         if (big->depth) return 1;
         closeLuaScriptState(big);
@@ -212,7 +214,7 @@ static void *luaAlloc(void *ud, void *ptr, size_t osize, size_t nsize) {
 }
 static int luaPanic(lua_State *L) {
     LuaScript *s = luaScriptOf(L);
-    writeLog("lua_panic", "mod=%s error=%s", s ? s->mod : "?", lua_type(L, -1) == LUA_TSTRING ? lua_tostring(L, -1) : "(not a string)");
+    writeLogError("lua_panic", "reason=lua_panic mod=%s error=%s", s ? s->mod : "?", lua_type(L, -1) == LUA_TSTRING ? lua_tostring(L, -1) : "(not a string)");
     return 0;
 }
 
@@ -254,10 +256,10 @@ static int callLuaProtected(LuaScript *s, LuaPushFn push, void *ctx, int nresult
     else if (type == LUA_TNUMBER && lua_isinteger(s->L, -1)) snprintf(line, sizeof line, "%lld", (long long)lua_tointeger(s->L, -1));
     else if (type == LUA_TNUMBER) snprintf(line, sizeof line, "%.14g", (double)lua_tonumber(s->L, -1));
     else snprintf(line, sizeof line, "(error object is a %s value)", lua_typename(s->L, type));
-    writeLog("lua_error", "mod=%s error=%s", s->mod, line);
+    writeLogError("lua_error", "mod=%s error=%s", s->mod, line);
     lua_pop(s->L, 1);
     s->dead = 1;
-    if (!s->stopLogged) writeLog("lua_script_stopped", "mod=%s", s->mod);
+    if (!s->stopLogged) writeLogError("lua_script_stopped", "mod=%s reason=script_error", s->mod);
     s->stopLogged = 1;
     closeDeadLuaScript(s);
     return 0;

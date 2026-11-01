@@ -891,6 +891,17 @@ static int lAiItemUseRating(lua_State *L) {
     return 1;
 }
 
+static int lAiRandomEnemy(lua_State *L) {
+    lua_Integer player = luaL_checkinteger(L, 1);
+    const char *reason = G32(RVA_ACTIVE_PLAYER) < 0 ? "no_game" : player < 0 || player >= playerSlotCount() ? "bad_player" : NULL;
+    if (reason) {
+        refuseLuaCall(runningLuaMod(), "coe5.aiRandomEnemy", reason, "player=%lld", (long long)player);
+        return 0;
+    }
+    lua_pushinteger(L, GAME_FN(int (*)(int), RVA_AI_RANDOM_ENEMY)((int)player));
+    return 1;
+}
+
 static int lPlanRitual(lua_State *L) {
     lua_Integer commander = luaL_checkinteger(L, 1), ritual = luaL_checkinteger(L, 2);
     int owner = -1, controller = CONTROLLER_REMOVED, plan = 0, known = 0;

@@ -48,7 +48,7 @@ static int listModsMissingPlugins(int logIt) {
         for (int k = 0; k < missingPluginModCount && !seen; k++) seen = !strcmp(missingPluginMods[k].mod, modName(m));
         if (seen) continue;
         if (!growList((void **)&missingPluginMods, &missingPluginModCapacity, missingPluginModCount + 1, sizeof missingPluginMods[0])) {
-            writeLog("plugin_missing_list_cut", "reason=out_of_memory listed=%d", missingPluginModCount);
+            writeLogWarning("plugin_missing_list_cut", "reason=out_of_memory listed=%d", missingPluginModCount);
             break;
         }
         ModMissingPlugin *entry = &missingPluginMods[missingPluginModCount];

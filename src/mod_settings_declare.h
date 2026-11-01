@@ -500,7 +500,7 @@ static void declareKeptSetting(IniParse *r, IniSection *s, int optionCount, int 
     }
     kept->value = kept->fixed ? kept->defaultValue : loadValue(kept);
     if (kept->isKey && !kept->fixed && kept->value == KEY_ESC) {
-        writeLog("setting_key_esc_dropped", "mod=%s name=%s", kept->mod, kept->name);
+        writeLogWarning("setting_key_esc_dropped", "reason=esc_not_allowed mod=%s name=%s", kept->mod, kept->name);
         kept->value = KEY_NONE;
         saveValue(kept);
     }

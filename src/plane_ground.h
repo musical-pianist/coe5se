@@ -90,6 +90,6 @@ static int patchPlaneGroundLike(void) {
 static int installPlaneGroundHooks(void) {
     setPlaneGroundLikes();
     int ok = patchPlaneGroundLike();
-    writeLog("plane_ground_hook_installed", "ok=%d of 1", ok);
+    writeResultLog(ok == 1, "plane_ground_hook_installed", "ok=%d of 1", ok);
     return ok;
 }

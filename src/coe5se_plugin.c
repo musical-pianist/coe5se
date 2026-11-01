@@ -76,7 +76,7 @@ static void logRefusal(const char *event, const char *call, const char *modField
     for (unsigned int i = 0; i < seen; i++)
         if (refusalsSeen[i] == hash) return;
     refusalsSeen[refusalSeenCount++ % MAX_REFUSALS_SEEN] = hash;
-    writeLog(event, "%s", line);
+    writeLogWarning(event, "%s", line);
 }
 
 static const char *apiCallerName(void *caller, char *out, size_t size) {
@@ -328,7 +328,7 @@ static int arrangeMainMenu(const int *slots, const int *buttons, int count, int 
     if (!growList((void **)&column, &columnCap, n, sizeof column[0]) || !growList((void **)&saved, &savedCap, n, sizeof saved[0]) ||
         !growList((void **)&order, &orderCap, n, sizeof order[0]) || !growList((void **)&placed, &placedCap, count + 1, sizeof placed[0])) {
         static int logged;
-        if (!logged) writeLog("main_menu_arrange_failed", "reason=out_of_memory buttons=%d", count);
+        if (!logged) writeLogError("main_menu_arrange_failed", "reason=out_of_memory buttons=%d", count);
         logged = 1;
         return 0;
     }
@@ -600,7 +600,7 @@ static int isSiteCall(const unsigned char *call, const unsigned char *target, co
     return (call[0] == 0xe8 || call[0] == 0xe9) && call + 5 + rel == target;
 }
 
-static int siteRunByCoe5se(CallSite site) { return site == SITE_MAP_DRAW || site == SITE_TOP_BAR_INCOME; }
+static int siteRunByCoe5se(CallSite site) { return site == SITE_MAP_DRAW || site == SITE_BATTLE_DRAW || site == SITE_TOP_BAR_INCOME; }
 
 static int installSite(CallSite site) {
     const SiteInfo *info = &SITES[site];
@@ -826,7 +826,7 @@ static void gameStartPrepOnce(void) {
 }
 static int checkGameStartOnceCode(void) {
     if (gameCodeMatches) return 1;
-    writeLog("game_start_once_check", "ok=0 reason=game_code_differs address=%p", (void *)GAME_PTR(RVA_GAME_START_ONCE_TEST));
+    writeLogError("game_start_once_check", "ok=0 reason=game_code_differs address=%p", (void *)GAME_PTR(RVA_GAME_START_ONCE_TEST));
     return 0;
 }
 static void removeGameStartOnceJump(void) {
@@ -1175,6 +1175,8 @@ static const GameBuild KNOWN_BUILDS[] = {
 };
 #define KNOWN_BUILD_COUNT (int)(sizeof KNOWN_BUILDS / sizeof KNOWN_BUILDS[0])
 static const GameBuild *gameBuild;
+
+static const char *gameCodeReason(void) { return gameBuild ? "game_code_differs" : "unknown_game_build"; }
 static char gameBuildId[40];
 static int pluginsDeclined;
 static int notStartedByLoader;
@@ -1187,15 +1189,16 @@ static void checkGameCode(void) {
     size_t size;
     char hex[GAME_CODE_SHA256_HEX_LEN + 1] = "";
     if (!findGameCode(gameBase, &code, &size)) {
-        writeLog("game_code_check", "match=0 reason=no_code_section");
+        writeLogError("game_code_check", "match=0 reason=no_code_section");
         return;
     }
     if (!hashMemorySha256(code, size, hex)) {
-        writeLog("game_code_check", "match=0 reason=hash_failed bytes=%zu", size);
+        writeLogError("game_code_check", "match=0 reason=hash_failed bytes=%zu", size);
         return;
     }
     gameCodeMatches = gameBuild && !strcmp(hex, gameBuild->codeSha256);
-    writeLog("game_code_check", "match=%d bytes=%zu sha256=%s", gameCodeMatches, size, hex);
+    if (gameCodeMatches) writeLog("game_code_check", "match=1 bytes=%zu sha256=%s", size, hex);
+    else writeLogError("game_code_check", "match=0 reason=%s bytes=%zu sha256=%s", gameCodeReason(), size, hex);
 }
 
 static void identifyGameBuild(void) {
@@ -1412,7 +1415,7 @@ static int readPlugins(PluginEntry **listOut, int *capacity) {
     int n = 0;
     while (fgets(line, sizeof line, f)) {
         if (!growList((void **)listOut, capacity, n + 1, sizeof **listOut)) {
-            writeLog("coe5se_page_plugins_cut", "reason=out_of_memory listed=%d", n);
+            writeLogWarning("coe5se_page_plugins_cut", "reason=out_of_memory listed=%d", n);
             break;
         }
         PluginEntry *list = *listOut, *p = &list[n];
@@ -1531,7 +1534,7 @@ static u64 modErrorDialogWrapper(u64 title, u64 text, u64 a3, u64 a4, u64 a5, u6
     char line[512];
     snprintf(line, sizeof line, "%.500s", text ? (const char *)text : "");
     for (char *c = line; *c; c++) if (*c == '\n' || *c == '\r') *c = ' ';
-    writeLog("game_mod_error", "text=%s", line);
+    writeLogError("game_mod_error", "reason=game_reported text=%s", line);
     return nextModErrorDialog(title, text, a3, a4, a5, a6, a7, a8);
 }
 
@@ -1595,7 +1598,9 @@ static u64 modErrorDialogWrapper(u64 title, u64 text, u64 a3, u64 a4, u64 a5, u6
 #include "rec_bonus.h"
 #include "lua_units.h"
 #include "lua_data_files.h"
+#include "lua_test_battle.h"
 #include "lua_ui.h"
+#include "lua_mod_export.h"
 #include "lua_loading.h"
 #include "plane_words.h"
 #include "class_names.h"
@@ -1631,7 +1636,7 @@ BOOL WINAPI DllMain(HINSTANCE dll, DWORD reason, LPVOID reserved) {
 #ifndef __APPLE__
     if (!GetModuleHandleA(LOADER_DLL_NAME)) {
         notStartedByLoader = 1;
-        writeLog("coe5se_inactive", "reason=not_started_by_loader loader=%s", LOADER_DLL_NAME);
+        writeLogError("coe5se_inactive", "reason=not_started_by_loader loader=%s", LOADER_DLL_NAME);
     }
 #endif
     return TRUE;
@@ -1656,10 +1661,10 @@ static void startCoe5se(const char *via) {
         pluginsDeclined = !askLoadOnUnknownGame();
         writeLog("unknown_game_answer", "load=%d", !pluginsDeclined);
         if (pluginsDeclined) {
-            writeLog("mod_command_hook_installed", "ok=%d declined=1",
-                     wrapSite(SITE_MOD_COMMAND, (void *)declinedModCommandHook, (void **)&nextModCommand));
-            writeLog("event_line_hook_installed", "ok=%d declined=1",
-                     wrapSite(SITE_EVENT_LINE, (void *)declinedEventLineHook, (void **)&nextEventLine));
+            int modCommand = wrapSite(SITE_MOD_COMMAND, (void *)declinedModCommandHook, (void **)&nextModCommand);
+            writeResultLog(modCommand, "mod_command_hook_installed", "ok=%d declined=1", modCommand);
+            int eventLine = wrapSite(SITE_EVENT_LINE, (void *)declinedEventLineHook, (void **)&nextEventLine);
+            writeResultLog(eventLine, "event_line_hook_installed", "ok=%d declined=1", eventLine);
             return;
         }
     }
@@ -1673,8 +1678,8 @@ static void startCoe5se(const char *via) {
     installStackCookieHook();
 #endif
     installMenuHook();
-    writeLog("mod_error_hook_installed", "ok=%d",
-              wrapSite(SITE_MOD_ERROR_DIALOG, (void *)modErrorDialogWrapper, (void **)&nextModErrorDialog));
+    int modErrorHook = wrapSite(SITE_MOD_ERROR_DIALOG, (void *)modErrorDialogWrapper, (void **)&nextModErrorDialog);
+    writeResultLog(modErrorHook, "mod_error_hook_installed", "ok=%d", modErrorHook);
 #ifdef __APPLE__
     int textFormat = 0, textBuild = 0;
 #else
@@ -1683,8 +1688,8 @@ static void startCoe5se(const char *via) {
 #endif
     int modCommand = wrapSite(SITE_MOD_COMMAND, (void *)modCommandHook, (void **)&nextModCommand);
     int modsScreen = wrapSite(SITE_MAIN_MENU_MODS_SCREEN, (void *)modsScreenWrapper, (void **)&nextModsScreen);
-    writeLog("restart_prompt_installed", "ok=%d", modsScreen);
-    writeLog("mod_command_hook_installed", "ok=%d", modCommand);
+    writeResultLog(modsScreen, "restart_prompt_installed", "ok=%d", modsScreen);
+    writeResultLog(modCommand, "mod_command_hook_installed", "ok=%d", modCommand);
     writeLog("translation_reach_installed", "text_format=%d text_build=%d", textFormat, textBuild);
     installGameMenuHooks();
     installFileBrowserBounds();

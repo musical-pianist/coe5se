@@ -71,7 +71,7 @@ static __attribute__((unused)) int settingsWritePath(const char *mod, char *out,
     size_t length;
     char *text = readWholeSettingsFile(legacy, &missing, &length);
     if (!text && !missing) {
-        writeLog("settings_file_not_made", "mod=%s reason=settings_ini_unreadable", mod);
+        STUB_SAFE_ERROR("settings_file_not_made", "reason=settings_ini_unreadable mod=%s", mod);
         return 0;
     }
     FILE *f = fopen(fresh, "wb");
@@ -85,7 +85,7 @@ static __attribute__((unused)) int settingsWritePath(const char *mod, char *out,
 #endif
     if (!ok) {
         remove(fresh);
-        writeLog("settings_file_not_made", "mod=%s reason=write_failed", mod);
+        STUB_SAFE_ERROR("settings_file_not_made", "reason=write_failed mod=%s", mod);
         return 0;
     }
     writeLog("settings_file_made", "mod=%s from_settings_ini=%d", mod, !missing);

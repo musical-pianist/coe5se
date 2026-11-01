@@ -2,11 +2,11 @@
 
 static int checkGameFunction(const char *event, const char *head) {
     if (!gameBuild) {
-        writeLog(event, "%schecked=0 reason=unknown_game_build", head);
+        writeLogError(event, "%schecked=0 reason=unknown_game_build", head);
         return 0;
     }
     if (!gameCodeMatches) {
-        writeLog(event, "%smatch=0 reason=game_code_differs", head);
+        writeLogError(event, "%smatch=0 reason=game_code_differs", head);
         return 0;
     }
     writeLog(event, "%smatch=1 build=%s", head, gameBuild->gameVersion);

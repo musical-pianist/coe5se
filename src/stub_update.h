@@ -118,7 +118,7 @@ static void rememberStubOffered(void) {
     FILE *f = fopen(path, "w");
     int ok = f && fprintf(f, "%s\nCoE5SE asked about this " STUB_FILE ". Delete this file to be asked again.\n", SHIPPED_STUB_SHA256) > 0;
     if (f && fclose(f)) ok = 0;
-    if (!ok) writeLog("stub_update_not_remembered", "path=%s", path);
+    if (!ok) writeLogError("stub_update_not_remembered", "reason=write_failed path=%s", path);
 }
 
 #define STUB_OFFER_TEXT \
@@ -131,7 +131,7 @@ static const char *updateStubAndRestart(const char *shipped, const char *install
     unsigned long error;
     const char *reason = installStub(shipped, installed, fresh, old, &error);
     if (reason) {
-        writeLog("stub_update_failed", "reason=%s error=%lu from=%s to=%s", reason, error, shipped, installed);
+        writeLogError("stub_update_failed", "reason=%s error=%lu from=%s to=%s", reason, error, shipped, installed);
         return reason;
     }
     writeLog("stub_updated", "file=" STUB_FILE " version=%d path=%s", SHIPPED_STUB_VERSION, installed);

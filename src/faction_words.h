@@ -199,7 +199,7 @@ static int installFactionResetHook(void) {
     if (!factionResetHookState) {
         void *target = gameBase + RVA_RESET_GAME_STATE;
         factionResetHookState = fanpatchHookCreate(target, (void *)resetGameStateHook, (void **)&gameResetGameState) && fanpatchHookEnable(target, 1) ? 1 : -1;
-        if (factionResetHookState < 0) writeLog("faction_reset_hook_not_installed", "reason=entry_hook");
+        if (factionResetHookState < 0) writeLogError("faction_reset_hook_not_installed", "reason=entry_hook");
     }
     return factionResetHookState > 0;
 }
@@ -1075,5 +1075,5 @@ static void factionWordsInit(void) {
                 apiAddModCommand("factioncaravan", factioncaravanLine) + apiAddModCommand("factionhorrors", factionhorrorsLine) +
                 apiAddModCommand("factionavoid", factionavoidLine) + apiAddModCommand("factionunits", factionunitsLine) +
                 apiAddModCommand("factionpopulateterrain", factionpopulateterrainLine);
-    writeLog("faction_words_installed", "words=%d of 27", words);
+    writeResultLog(words == 27, "faction_words_installed", "words=%d of 27", words);
 }

@@ -145,7 +145,7 @@ static void noteModContent(int mod) {
     ModContentNote *note = findModContentNote(modName(mod));
     if (!note) {
         if (!growList((void **)&modContentNotes, &modContentNoteCapacity, modContentNoteCount + 1, sizeof *note)) {
-            writeLog("mod_content_note_out_of_memory", "mod=%s", modName(mod));
+            writeLogError("mod_content_note_out_of_memory", "reason=out_of_memory mod=%s", modName(mod));
             return;
         }
         note = &modContentNotes[modContentNoteCount++];
@@ -338,7 +338,7 @@ static void notePlayerModStates(void) {
     int count = G32(RVA_MOD_LAST_INDEX) + 1;
     playerModStates.noted = 0;
     if (count > 0 && !growList((void **)&playerModStates.enabled, &playerModStates.capacity, count, 1)) {
-        writeLog("player_mod_states_not_kept", "mods=%d reason=out_of_memory", count);
+        writeLogError("player_mod_states_not_kept", "mods=%d reason=out_of_memory", count);
         return;
     }
     for (int m = 0; m < count; m++) playerModStates.enabled[m] = (unsigned char)modEnabled(m);
@@ -348,7 +348,7 @@ static void notePlayerModStates(void) {
 
 static int keepPlayerModStates(void) {
     if (!playerModStates.noted) {
-        writeLog("player_mod_states_not_kept", "reason=not_noted");
+        writeLogError("player_mod_states_not_kept", "reason=not_noted");
         return -1;
     }
     playerModStates.noted = 0;
@@ -421,7 +421,7 @@ static int isSkippableMissingMod(const char *name) {
         writeLog("save_mod_skipped", "mod=%s reason=added_no_content", name);
         return 1;
     }
-    writeLog("save_mod_missing", "mod=%s reason=%s record=%s", name,
+    writeLogWarning("save_mod_missing", "mod=%s reason=%s record=%s", name,
              entry ? "added_content" : strcmp(savedMods.result, "found") ? "no_record" : "not_in_record", savedMods.result);
     return 0;
 }
@@ -434,8 +434,10 @@ static void *openLoadedSave(const char *path, void *file) {
     if (file) {
         notePlayerModStates();
         readSavedModContent(path, &savedMods, &savedModHashes);
-        writeLog("save_mod_record_read", "result=%s mods=%d", savedMods.result, savedMods.count);
-        writeLog("save_mod_hashes_read", "result=%s mods=%d", savedModHashes.result, savedModHashes.count);
+        writeResultLog(strcmp(savedMods.result, "bad"), "save_mod_record_read", "result=%s%s mods=%d", savedMods.result,
+                       strcmp(savedMods.result, "bad") ? "" : " reason=bad_chunk", savedMods.count);
+        writeResultLog(strcmp(savedModHashes.result, "bad"), "save_mod_hashes_read", "result=%s%s mods=%d", savedModHashes.result,
+                       strcmp(savedModHashes.result, "bad") ? "" : " reason=bad_chunk", savedModHashes.count);
         readLoadedSavePlanes(path);
         readLoadedSaveFactions(path);
     }
@@ -559,6 +561,6 @@ static int installSaveModListHooks(void) {
 
 static void missingModsInit(void) {
     int wanted = 0, ok = installMissingModsHooks(&wanted);
-    writeLog("missing_mods_hooks_installed", "ok=%d of %d", ok, wanted);
-    writeLog("save_mod_list_hooks_installed", "ok=%d of %d", installSaveModListHooks(), SAVE_MOD_LIST_HOOKS);
+    writeInstallLog("missing_mods_hooks_installed", ok, wanted);
+    writeInstallLog("save_mod_list_hooks_installed", installSaveModListHooks(), SAVE_MOD_LIST_HOOKS);
 }

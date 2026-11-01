@@ -153,7 +153,13 @@ static UNUSED int logFileIsPath(void) {
 
 static int logRolling;
 static long long logRollFailedAt;
-static UNUSED PRINTF_FORMAT(2, 3) void writeLog(const char *event, const char *fmt, ...);
+static UNUSED PRINTF_FORMAT(3, 4) void writeLogLine(const char *level, const char *event, const char *fmt, ...);
+#define LOG_LEVEL_INFO ""
+#define LOG_LEVEL_WARNING "level=warning "
+#define LOG_LEVEL_ERROR "level=error "
+#define writeLog(event, ...) writeLogLine(LOG_LEVEL_INFO, event, __VA_ARGS__)
+#define writeLogWarning(event, ...) writeLogLine(LOG_LEVEL_WARNING, event, __VA_ARGS__)
+#define writeLogError(event, ...) writeLogLine(LOG_LEVEL_ERROR, event, __VA_ARGS__)
 
 static UNUSED void copyLogHeader(const char *from) {
     FILE *f = fopen(from, "rb");
@@ -200,17 +206,17 @@ static UNUSED void rollLogOverIfFull(void) {
     logRolling = 0;
 }
 
-static UNUSED PRINTF_FORMAT(4, 0) int formatLogLine(char *out, size_t size, const SYSTEMTIME *t, const char *event,
-                                                    const char *fmt, va_list ap) {
-    int head = snprintf(out, size, "%02d:%02d:%02d.%03d plugin=%s event=%s ", t->wHour, t->wMinute, t->wSecond,
-                        t->wMilliseconds, pluginName, event);
+static UNUSED PRINTF_FORMAT(5, 0) int formatLogLine(char *out, size_t size, const SYSTEMTIME *t, const char *level,
+                                                    const char *event, const char *fmt, va_list ap) {
+    int head = snprintf(out, size, "%02d:%02d:%02d.%03d plugin=%s event=%s %s", t->wHour, t->wMinute, t->wSecond,
+                        t->wMilliseconds, pluginName, event, level);
     if (head < 0) return -1;
     size_t at = (size_t)head < size ? (size_t)head : size;
     int body = vsnprintf(at < size ? out + at : NULL, at < size ? size - at : 0, fmt, ap);
     return body < 0 ? -1 : head + body;
 }
 
-static UNUSED PRINTF_FORMAT(2, 3) void writeLog(const char *event, const char *fmt, ...) {
+static UNUSED PRINTF_FORMAT(3, 4) void writeLogLine(const char *level, const char *event, const char *fmt, ...) {
     if (!logPath[0] || !openLogFile()) return;
     rollLogOverIfFull();
     SYSTEMTIME t;
@@ -219,7 +225,7 @@ static UNUSED PRINTF_FORMAT(2, 3) void writeLog(const char *event, const char *f
     size_t room = sizeof stackLine;
     va_list ap;
     va_start(ap, fmt);
-    int formatted = formatLogLine(line, room, &t, event, fmt, ap);
+    int formatted = formatLogLine(line, room, &t, level, event, fmt, ap);
     va_end(ap);
     if (formatted < 0) return;
     size_t length = (size_t)formatted;
@@ -228,7 +234,7 @@ static UNUSED PRINTF_FORMAT(2, 3) void writeLog(const char *event, const char *f
             line = heap;
             room = length + 1;
             va_start(ap, fmt);
-            formatLogLine(line, room, &t, event, fmt, ap);
+            formatLogLine(line, room, &t, level, event, fmt, ap);
             va_end(ap);
         } else {
             length = room - 1;
@@ -253,6 +259,32 @@ static UNUSED PRINTF_FORMAT(2, 3) void writeLog(const char *event, const char *f
     free(heap);
 }
 
+static UNUSED PRINTF_FORMAT(3, 4) void writeResultLog(int ok, const char *event, const char *fmt, ...) {
+    char fields[768];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(fields, sizeof fields, fmt, ap);
+    va_end(ap);
+    if (ok) writeLog(event, "%s", fields);
+    else writeLogError(event, "%s%s%s", strstr(fields, "reason=") ? "" : "reason=not_all_installed", strstr(fields, "reason=") || !fields[0] ? "" : " ", fields);
+}
+
+#define STUB_SAFE_WARNING writeLogWarning
+#define STUB_SAFE_ERROR writeLogError
+
+static UNUSED PRINTF_FORMAT(4, 5) void writeInstallLogFields(const char *event, int ok, int parts, const char *fmt, ...) {
+    char fields[768];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(fields, sizeof fields, fmt, ap);
+    va_end(ap);
+    if (ok >= parts) writeLog(event, "ok=%d of %d%s%s", ok, parts, fields[0] ? " " : "", fields);
+    else writeLogError(event, "ok=%d of %d%s%s%s", ok, parts, strstr(fields, "reason=") ? "" : " reason=not_all_installed",
+                       fields[0] ? " " : "", fields);
+}
+
+static UNUSED void writeInstallLog(const char *event, int ok, int parts) { writeInstallLogFields(event, ok, parts, "%s", ""); }
+
 static UNUSED void commonInit(const char *name) {
     pluginName = name;
     gameBase = (unsigned char *)GetModuleHandleA(NULL);
@@ -274,7 +306,7 @@ static UNUSED int writeGameCode(void *address, const void *bytes, size_t size) {
         return 1;
     }
     if (!VirtualProtect(address, size, PAGE_EXECUTE_READWRITE, &old)) {
-        writeLog("code_unwritable", "address=%p bytes=%zu error=%lu", address, size, GetLastError());
+        writeLogError("code_unwritable", "reason=protection_not_changed address=%p bytes=%zu error=%lu", address, size, GetLastError());
         return 0;
     }
     if (size == 8 && !((uintptr_t)address & 7)) {
@@ -285,14 +317,14 @@ static UNUSED int writeGameCode(void *address, const void *bytes, size_t size) {
         memcpy(address, bytes, size);
     }
     if (!VirtualProtect(address, size, old, &ignored))
-        writeLog("code_protection_not_restored", "address=%p bytes=%zu error=%lu", address, size, GetLastError());
+        writeLogError("code_protection_not_restored", "reason=protection_not_changed address=%p bytes=%zu error=%lu", address, size, GetLastError());
     FlushInstructionCache(GetCurrentProcess(), address, size);
     return 1;
 }
 
 static UNUSED int openGameCode(void *address, size_t size) {
     if (gameCodeOpenFrom || !VirtualProtect(address, size, PAGE_EXECUTE_READWRITE, &gameCodeOpenProtection)) {
-        writeLog("code_unwritable", "address=%p bytes=%zu error=%lu", address, size, gameCodeOpenFrom ? 0UL : GetLastError());
+        writeLogError("code_unwritable", "reason=protection_not_changed address=%p bytes=%zu error=%lu", address, size, gameCodeOpenFrom ? 0UL : GetLastError());
         return 0;
     }
     gameCodeOpenFrom = address;
@@ -305,7 +337,7 @@ static UNUSED void closeGameCode(void) {
     DWORD ignored;
     size_t size = (size_t)(gameCodeOpenTo - gameCodeOpenFrom);
     if (!VirtualProtect(gameCodeOpenFrom, size, gameCodeOpenProtection, &ignored))
-        writeLog("code_protection_not_restored", "address=%p bytes=%zu error=%lu", (void *)gameCodeOpenFrom, size, GetLastError());
+        writeLogError("code_protection_not_restored", "reason=protection_not_changed address=%p bytes=%zu error=%lu", (void *)gameCodeOpenFrom, size, GetLastError());
     FlushInstructionCache(GetCurrentProcess(), gameCodeOpenFrom, size);
     gameCodeOpenFrom = gameCodeOpenTo = NULL;
 }

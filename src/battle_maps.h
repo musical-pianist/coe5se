@@ -467,7 +467,7 @@ static void battleMapsAfterPass(int level) {
         }
         for (int k = 0; k < battleScatters[i].f.count; k++)
             if (monsterByName(battleScatters[i].f.names[k]) < 0) {
-                writeLog("battle_scatter_object_missing", "mod=%s terrain=%d name=%s", battleScatters[i].mod, battleScatters[i].f.terrain, battleScatters[i].f.names[k]);
+                writeLogWarning("battle_scatter_object_missing", "reason=no_such_object mod=%s terrain=%d name=%s", battleScatters[i].mod, battleScatters[i].f.terrain, battleScatters[i].f.names[k]);
                 addPlaneProblem(battleScatters[i].script, battleScatters[i].mod, battleScatters[i].file, battleScatters[i].line, "No monster called '%.60s'",
                                 battleScatters[i].f.names[k]);
             }
@@ -701,7 +701,7 @@ static int installBattleMapHooks(void) {
              pointCustomPlaneCall(RVA_BATTLE_TREES_TRACE_CALL, RVA_TRACE, (void *)battleTreesTraceHook, "battle_trees_trace") &&
              pointCustomPlaneCall(RVA_BATTLE_FORT_TRACE_CALL, RVA_TRACE, (void *)battleFortTraceHook, "battle_fort_trace");
     battleMapHooks = in ? 1 : -1;
-    writeLog("battle_map_hooks_installed", "ok=%d of 1", in);
+    writeResultLog(in == 1, "battle_map_hooks_installed", "ok=%d of 1", in);
     return in;
 }
 
@@ -813,7 +813,7 @@ static const char *battleMapCopyFor(const char *path) {
             snprintf(text, sizeof text, "%.*s", MONSTER_NAME_SIZE - 1, name);
             int monster = monsterByName(text);
             if (monster < 0) {
-                writeLog("battle_map_object_missing", "path=%s name=%s", path, text);
+                writeLogWarning("battle_map_object_missing", "reason=no_such_object path=%s name=%s", path, text);
                 dropped++;
                 continue;
             }
@@ -862,7 +862,7 @@ static const char *battleEditorSavePath(const char *path, char *out, size_t size
     if (!reason) CreateDirectoryA(maps, NULL);
     if (!reason && !buildPath(out, size, __func__, "%s" PATH_SEP "%s", maps, file)) reason = "path_too_long";
     if (reason) {
-        writeLog("battle_editor_save_refused", "name=%.*s reason=%s", (int)strlen(rest), rest, reason);
+        writeLogWarning("battle_editor_save_refused", "name=%.*s reason=%s", (int)strlen(rest), rest, reason);
         return NULL;
     }
     writeLog("battle_editor_save_to_mod", "mod=%s path=%s", mod, out);
@@ -920,7 +920,7 @@ static void installBattleEditorHooks(void) {
 #else
     in += pointCustomPlaneCall(RVA_BATTLE_EDITOR_LOAD_CALL, RVA_LOAD_BATMAP, (void *)battleEditorLoadHook, "battle_editor_load");
 #endif
-    writeLog("battle_editor_hooks_installed", "ok=%d of 4", in);
+    writeResultLog(in == 4, "battle_editor_hooks_installed", "ok=%d of 4", in);
 }
 
 // ---- The battle's background ----------------------------------------------------------------------
@@ -969,7 +969,7 @@ static int installBattleBackgroundHook(void) {
     int in = installTerrainCompositeHook() &&
              pointCustomPlaneCall(RVA_BATTLE_BG_IMAGE_CALL, RVA_CREATE_BACKGROUND_IMAGE, (void *)battleBackgroundImageHook, "battle_bg_image");
     battleBackgroundHook = in ? 1 : -1;
-    writeLog("battle_background_hook_installed", "ok=%d of 1", in);
+    writeResultLog(in == 1, "battle_background_hook_installed", "ok=%d of 1", in);
     return in;
 }
 
@@ -1120,6 +1120,6 @@ static void battleMapWordsInit(void) {
                 apiAddModCommand("battleplane", battleplaneLine) + apiAddModCommand("battlenoscatter", battlenoscatterLine) +
                 apiAddModCommand("battlescatter", battlescatterLine) + apiAddModCommand("battleobject", battleobjectLine) +
                 apiAddModCommand("battleground", battlegroundLine);
-    writeLog("battle_map_words_installed", "words=%d of 11", words);
+    writeResultLog(words == 11, "battle_map_words_installed", "words=%d of 11", words);
     installBattleEditorHooks();
 }

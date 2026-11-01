@@ -753,6 +753,135 @@ static void pushRecordWord(lua_State *L, const char *name, int kind, const unsig
     }
 }
 
+// ---- Weapon writes: coe5.set("weapon", w, "dmg", 12) on a weapon the script's own mod made -----------
+static short weaponMadeBy[WEAPON_RECORDS_MOVED];
+
+static void noteWeaponMade(int mod) {
+    int weapon = G32(RVA_WEAPON_CURRENT);
+    if (weapon >= 0 && weapon < WEAPON_RECORDS_MOVED) weaponMadeBy[weapon] = (short)(mod + 1);
+}
+
+static int weaponSoundPairKind(const char *word) {
+    return !strcmp(word, "sndvol") ? 1 : !strcmp(word, "reloadsnd") ? 6 : 0;
+}
+
+static int weaponSoundPairValue(const unsigned char *record, int kind) {
+    const int *pairs = (const int *)(record + WEAPON_SOUND_PAIRS);
+    for (int i = 0; i < WEAPON_SOUND_PAIRS_MAX && pairs[2 * i]; i++)
+        if (pairs[2 * i] == kind) return pairs[2 * i + 1];
+    return 0;
+}
+
+static int weaponRuleOfWord(const char *word) {
+    for (int rule = 0; rule < 3; rule++)
+        if (!strcmp(word, WEAPON_RULE_WORDS[rule])) return rule;
+    return -1;
+}
+
+static void pushWeaponRuleTraits(lua_State *L, int weapon, int rule) {
+    luaL_Buffer b;
+    luaL_buffinit(L, &b);
+    int first = 1;
+    for (int i = 0; i < weaponTraits.count; i++) {
+        const WeaponTraitRule *r = &weaponTraits.rules[i];
+        if (r->weapon != weapon || r->rule != rule) continue;
+        if (!first) luaL_addchar(&b, ' ');
+        luaL_addstring(&b, r->word);
+        first = 0;
+    }
+    luaL_pushresult(&b);
+}
+
+static const char *setWeaponRuleTraits(int weapon, int rule, const char *traits, char *bad, size_t badSize) {
+    const char *p = traits;
+    char trait[WEAPON_TRAIT_WORD_SIZE];
+    int kind;
+    unsigned long long value;
+    for (int len; (len = readWord(&p, trait, sizeof trait)) > 0;) {
+        if ((size_t)len >= sizeof trait || !findWeaponTrait(trait, &kind, &value)) {
+            snprintf(bad, badSize, "%.40s", trait);
+            return "unknown_trait";
+        }
+    }
+    int kept = 0;
+    for (int i = 0; i < weaponTraits.count; i++)
+        if (weaponTraits.rules[i].weapon != weapon || weaponTraits.rules[i].rule != rule) weaponTraits.rules[kept++] = weaponTraits.rules[i];
+    weaponTraits.count = kept;
+    p = traits;
+    while (readWord(&p, trait, sizeof trait) > 0) {
+        findWeaponTrait(trait, &kind, &value);
+        if (!addWeaponTraitRule(weapon, rule, kind, value, trait)) return "out_of_memory";
+    }
+    return NULL;
+}
+
+static int setWeaponWord(lua_State *L, int weapon, unsigned char *record, int arg) {
+    LuaScript *s = luaScriptOf(L);
+    const char *mod = s ? s->mod : "?";
+    const char *word = luaL_checkstring(L, arg);
+    int maker = weapon >= 0 && weapon < WEAPON_RECORDS_MOVED ? weaponMadeBy[weapon] - 1 : -1;
+    if (maker < 0 || maker > G32(RVA_MOD_LAST_INDEX) || _stricmp(modName(maker), mod)) {
+        refuseLuaCall(mod, "coe5.set", "not_own_weapon", "name=weapon weapon=%d word=%s", weapon, word);
+        return 0;
+    }
+    int rule = weaponRuleOfWord(word);
+    if (rule >= 0) {
+        char bad[48] = "";
+        const char *reason = setWeaponRuleTraits(weapon, rule, luaL_checkstring(L, arg + 1), bad, sizeof bad);
+        if (reason) refuseLuaCall(mod, "coe5.set", reason, "name=weapon weapon=%d word=%s trait=%s", weapon, word, bad);
+        return 0;
+    }
+    if (!strcmp(word, "noexplode")) {
+        if (lua_type(L, arg + 1) != LUA_TBOOLEAN) {
+            refuseLuaCall(mod, "coe5.set", "needs_boolean", "name=weapon word=%s value=%s", word, luaL_typename(L, arg + 1));
+            return 0;
+        }
+        if (!lua_toboolean(L, arg + 1)) {
+            if (weapon < noExplode.weaponCount) noExplode.weapons[weapon] = 0;
+        } else if (!addNoExplodeWeapon(weapon)) {
+            refuseLuaCall(mod, "coe5.set", "out_of_memory", "name=weapon word=%s", word);
+        }
+        return 0;
+    }
+    int pairKind = weaponSoundPairKind(word);
+    const RecordWord *row = pairKind ? NULL : recordWordRow(RECORD_WEAPON, word);
+    if (!pairKind && !row) return luaL_error(L, "weapon: unknown word '%s'", word);
+    if (row && row->kind == WORD_FLAG) {
+        if (lua_type(L, arg + 1) != LUA_TBOOLEAN) {
+            refuseLuaCall(mod, "coe5.set", "needs_boolean", "name=weapon word=%s value=%s", word, luaL_typename(L, arg + 1));
+            return 0;
+        }
+        unsigned long long *bits = (unsigned long long *)(record + row->offset);
+        if (lua_toboolean(L, arg + 1)) *bits |= row->value;
+        else *bits &= ~row->value;
+        return 0;
+    }
+    lua_Integer value = luaL_checkinteger(L, arg + 1);
+    if (value < INT_MIN || value > INT_MAX) {
+        refuseLuaCall(mod, "coe5.set", "out_of_range", "name=weapon word=%s value=%lld", word, (long long)value);
+        return 0;
+    }
+    if (pairKind) {
+        int *pairs = (int *)(record + WEAPON_SOUND_PAIRS);
+        int i = 0;
+        while (i < WEAPON_SOUND_PAIRS_MAX && pairs[2 * i] && pairs[2 * i] != pairKind) i++;
+        if (i == WEAPON_SOUND_PAIRS_MAX) {
+            refuseLuaCall(mod, "coe5.set", "no_room", "name=weapon weapon=%d word=%s", weapon, word);
+            return 0;
+        }
+        if (!pairs[2 * i] && i + 1 < WEAPON_SOUND_PAIRS_MAX) pairs[2 * (i + 1)] = 0;
+        pairs[2 * i] = pairKind;
+        pairs[2 * i + 1] = (int)value;
+        return 0;
+    }
+    unsigned char *at = record + row->offset;
+    if (row->size == 1) *at = (unsigned char)value;
+    else if (row->size == 2) *(short *)at = (short)value;
+    else if (row->size == 4) *(int *)at = (int)value;
+    else *(long long *)at = value;
+    return 0;
+}
+
 static int lGet(lua_State *L) {
     const GameVar *v;
     int arg = 2;
@@ -910,7 +1039,16 @@ static int lGet(lua_State *L) {
     case T_SQUARE_OPEN_LAND: lua_pushboolean(L, squareOpenLand((int)lua_tointeger(L, 2), (int)lua_tointeger(L, 3))); break;
     case T_KEY_HELD: lua_pushboolean(L, keyCodeHeld((int)lua_tointeger(L, 2))); break;
     case T_SLOT_CITADELS: lua_pushinteger(L, GAME_FN(int (*)(int), RVA_AI_COUNT_CITADELS)((int)lua_tointeger(L, 2))); break;
-    case T_RECORD_WORD: pushRecordWord(L, v->name, v->size, p, luaL_checkstring(L, arg)); break;
+    case T_RECORD_WORD: {
+        const char *word = luaL_checkstring(L, arg);
+        int weapon = (int)lua_tointeger(L, 2);
+        if (v->size == RECORD_WEAPON && weaponSoundPairKind(word)) lua_pushinteger(L, weaponSoundPairValue(p, weaponSoundPairKind(word)));
+        else if (v->size == RECORD_WEAPON && weaponRuleOfWord(word) >= 0) pushWeaponRuleTraits(L, weapon, weaponRuleOfWord(word));
+        else if (v->size == RECORD_WEAPON && !strcmp(word, "noexplode"))
+            lua_pushboolean(L, weapon >= 0 && weapon < noExplode.weaponCount && noExplode.weapons[weapon]);
+        else pushRecordWord(L, v->name, v->size, p, word);
+        break;
+    }
     case T_AI_ATTACK_MARGIN: lua_pushinteger(L, AI_ATTACK_MARGIN); break;
     case T_SLOT_ABILITY:
         lua_pushinteger(L, GAME_FN(int (*)(int, int, int), RVA_PLAYER_ABILITY)((int)lua_tointeger(L, 2), (int)lua_tointeger(L, 3), v->size));
@@ -1081,6 +1219,7 @@ static int lSet(lua_State *L) {
     const GameVar *v;
     int arg = 2;
     unsigned char *p = gameVarAddress(L, &v, &arg);
+    if (v->type == T_RECORD_WORD && v->size == RECORD_WEAPON && p) return setWeaponWord(L, (int)lua_tointeger(L, 2), p, arg);
     if (!v->writable) return luaL_error(L, "game variable '%s' is read-only", v->name);
     if (!p) return luaL_error(L, "%s can only be set while a wrap of its site runs", v->name);
     if (v->writable == WRITABLE_WHILE_BUILDING) return setSquareValue(L, v, p, arg);

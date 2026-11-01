@@ -490,7 +490,7 @@ static int installShopOfferHooks(void) {
                                   "shop_location_offer") &&
              pointCustomPlaneCall(RVA_SHOP_BUILD_CALL, RVA_SHOP_BUILD, (void *)shopBuildHook, "shop_build");
     shopHooksInstalled = ok ? 1 : -1;
-    writeLog("shop_offer_hooks_installed", "ok=%d", ok);
+    writeResultLog(ok, "shop_offer_hooks_installed", "ok=%d", ok);
     return ok;
 }
 

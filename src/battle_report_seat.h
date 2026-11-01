@@ -19,13 +19,13 @@ static int installBattleReportStub(void) {
     if (done) return done > 0;
     done = -1;
     if (!gameCodeMatches) {
-        writeLog("battle_report_seat_installed", "ok=0 reason=game_code_unknown");
+        writeLogError("battle_report_seat_installed", "ok=0 reason=%s", gameCodeReason());
         return 0;
     }
     unsigned char *at = GAME_PTR(RVA_FIGHT_SHOWN_STORE);
     unsigned char *page = allocNearBytes(at, BATTLE_REPORT_STUB_SIZE);
     if (!page) {
-        writeLog("battle_report_seat_installed", "ok=0 reason=no_near_page");
+        writeLogError("battle_report_seat_installed", "ok=0 reason=no_near_page");
         return 0;
     }
     unsigned long long seat = (unsigned long long)(uintptr_t)&battleReportSeat;
@@ -74,7 +74,7 @@ static int installBattleReportStub(void) {
     int rel = (int)(page - (at + 5));
     memcpy(jump + 1, &rel, 4);
     if (!writeGameCode(at, jump, sizeof jump)) {
-        writeLog("battle_report_seat_installed", "ok=0 reason=code_unwritable");
+        writeLogError("battle_report_seat_installed", "ok=0 reason=code_unwritable");
         return 0;
     }
     battleReportStub = page;

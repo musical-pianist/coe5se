@@ -46,7 +46,7 @@ static int nameListByName(const char *list) {
 
 static int addNameList(const char *list) {
     if (!growList((void **)&nameLists.lists, &nameLists.capacity, nameLists.count + 1, sizeof nameLists.lists[0])) {
-        writeLog("name_list_skipped", "list=%s reason=out_of_memory", list);
+        writeLogError("name_list_skipped", "list=%s reason=out_of_memory", list);
         return -1;
     }
     NameList *l = &nameLists.lists[nameLists.count];
@@ -60,7 +60,7 @@ static int addNameToList(int index, const char *name) {
     char *copy = strdup(name);
     if (!copy || !growList((void **)&l->names, &l->capacity, l->count + 1, sizeof l->names[0])) {
         free(copy);
-        writeLog("name_skipped", "name=%s reason=out_of_memory", name);
+        writeLogError("name_skipped", "name=%s reason=out_of_memory", name);
         return 0;
     }
     l->names[l->count++] = copy;
@@ -263,5 +263,6 @@ static void nameListsInit(void) {
     nameListRandom = GAME_FN(int (*)(int), RVA_RANDOM);
     gameAutoName = GAME_FN(AutoNameFn, RVA_AUTO_NAME);
     int words = nameListWordsInit();
-    writeLog("name_list_words_installed", "words=%d of 3 hooks=%d of %d", words, installNameListHooks(), NAME_LIST_HOOKS);
+    int hooks = installNameListHooks();
+    writeResultLog(words == 3 && hooks == NAME_LIST_HOOKS, "name_list_words_installed", "words=%d of 3 hooks=%d of %d", words, hooks, NAME_LIST_HOOKS);
 }

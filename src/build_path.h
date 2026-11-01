@@ -10,6 +10,10 @@
 #endif
 #endif
 
+#ifndef STUB_SAFE_WARNING
+#define STUB_SAFE_WARNING writeLog
+#endif
+
 static __attribute__((unused)) PRINTF_FORMAT(4, 5) int buildPath(char *out, size_t size, const char *call,
                                                                 const char *fmt, ...) {
     va_list ap;
@@ -18,11 +22,11 @@ static __attribute__((unused)) PRINTF_FORMAT(4, 5) int buildPath(char *out, size
     va_end(ap);
     if (needed >= 0 && (size_t)needed < size) return 1;
     if (size == 0) {
-        writeLog("path_refused", "call=%s reason=too_long needed=%d size=0", call, needed);
+        STUB_SAFE_WARNING("path_refused", "call=%s reason=too_long needed=%d size=0", call, needed);
         return 0;
     }
     out[size - 1] = '\0';
-    writeLog("path_refused", "call=%s reason=too_long needed=%d size=%d start=%s", call, needed, (int)size, out);
+    STUB_SAFE_WARNING("path_refused", "call=%s reason=too_long needed=%d size=%d start=%s", call, needed, (int)size, out);
     out[0] = '\0';
     return 0;
 }

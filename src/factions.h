@@ -28,7 +28,7 @@ static int allocFactionSquareArrays(void) {
     if (!factionSquareSeen || !factionSquareSeenMark || !factionSquareTrueSeen || !factionSquareAiStrength) {
         free(factionSquareSeen), free(factionSquareSeenMark), free(factionSquareTrueSeen), free(factionSquareAiStrength);
         factionSquareSeen = factionSquareSeenMark = factionSquareTrueSeen = NULL, factionSquareAiStrength = NULL;
-        writeLog("faction_squares_not_allocated", "reason=no_memory bytes=%zu", entries * 7);
+        writeLogError("faction_squares_not_allocated", "reason=out_of_memory bytes=%zu", entries * 7);
         return 0;
     }
     memset(factionSquareAiStrength, 0xff, entries * sizeof(int));
@@ -199,7 +199,7 @@ static int installFactionPaths(void) {
     ok += installFactionStubs();
     ok += installFactionMovers();
     int paths = 4 + FACTION_SIGHT_HOOK_COUNT + FACTION_SLOT_HOOK_COUNT + FACTION_STUB_COUNT;
-    writeLog("faction_paths_installed", "ok=%d of %d", ok, paths);
+    writeInstallLog("faction_paths_installed", ok, paths);
     return ok == paths;
 #else
     if (!allocFactionSquareArrays()) return 0;
@@ -213,7 +213,7 @@ static int installFactionPaths(void) {
     ok += installMacFactionSites();
     ok += installFactionMovers();
     int paths = 3 + FACTION_SIGHT_HOOK_COUNT + FACTION_SLOT_HOOK_COUNT + 2;
-    writeLog("faction_paths_installed", "ok=%d of %d", ok, paths);
+    writeInstallLog("faction_paths_installed", ok, paths);
     return ok == paths;
 #endif
 }

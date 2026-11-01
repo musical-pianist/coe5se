@@ -50,7 +50,7 @@ static int queueSpellTableWrites(unsigned char *table) {
         memcpy(&field, at + s->fieldOffset, 4);
         long long moved = field + delta;
         if (moved < INT32_MIN || moved > INT32_MAX) {
-            writeLog("spell_table_site_mismatch", "group=table rva=0x%x out_of_reach=1", s->rva);
+            writeLogError("spell_table_site_mismatch", "reason=out_of_reach group=table rva=0x%x", s->rva);
             continue;
         }
         spellMoveWrites[spellMoveWriteCount].at = at + s->fieldOffset;
@@ -92,20 +92,20 @@ static void protectOldSpellTable(void) {
 
 static int installSpellTableMove(void) {
     if (!gameCodeMatches) {
-        writeLog("spell_table_not_moved", "reason=game_code_differs sites=0 of %d", SPELL_MOVE_SITE_COUNT);
+        writeLogError("spell_table_not_moved", "reason=game_code_differs sites=0 of %d", SPELL_MOVE_SITE_COUNT);
         return 0;
     }
     size_t size = (size_t)SPELL_TABLE_RECORDS_MOVED * SPELL_SIZE;
     unsigned char *table = allocNearImage(size);
     if (!table) {
-        writeLog("spell_table_not_moved", "reason=no_memory_near_game bytes=%zu sites=0 of %d", size, SPELL_MOVE_SITE_COUNT);
+        writeLogError("spell_table_not_moved", "reason=no_memory_near_game bytes=%zu sites=0 of %d", size, SPELL_MOVE_SITE_COUNT);
         return 0;
     }
     int matched = queueSpellTableWrites(table);
     const char *reason = matched != SPELL_MOVE_SITE_COUNT ? "game_build_differs"
                          : !openGameCode(gameBase + RVA_TEXT_SECTION, (size_t)(RVA_RDATA_SECTION - RVA_TEXT_SECTION)) ? "code_unwritable" : NULL;
     if (reason) {
-        writeLog("spell_table_not_moved", "reason=%s sites=%d of %d", reason, matched, SPELL_MOVE_SITE_COUNT);
+        writeLogError("spell_table_not_moved", "reason=%s sites=%d of %d", reason, matched, SPELL_MOVE_SITE_COUNT);
         VirtualFree(table, 0, MEM_RELEASE);
         return 0;
     }
@@ -115,7 +115,7 @@ static int installSpellTableMove(void) {
         if (writeGameCode(spellMoveWrites[i].at, &spellMoveWrites[i].value, 4)) continue;
         for (int j = i; j >= 0; j--) writeGameCode(spellMoveWrites[j].at, &spellMoveWrites[j].old, 4);
         closeGameCode();
-        writeLog("spell_table_not_moved", "reason=code_unwritable sites=%d of %d", matched, SPELL_MOVE_SITE_COUNT);
+        writeLogError("spell_table_not_moved", "reason=code_unwritable sites=%d of %d", matched, SPELL_MOVE_SITE_COUNT);
         VirtualFree(table, 0, MEM_RELEASE);
         return 0;
     }
@@ -165,7 +165,7 @@ static int queueSpellTableWrites(unsigned char *table) {
         const SpellMacSite *s = &SPELL_MAC_TABLE_SITES[i];
         uint32_t moved = 0;
         if (!adrpMovedBy(spellGameWord(s->rva), pages, &moved)) {
-            writeLog("spell_table_site_mismatch", "group=table va=0x%llx", s->rva + 0x100000000ULL);
+            writeLogError("spell_table_site_mismatch", "reason=bytes_differ group=table va=0x%llx", s->rva + 0x100000000ULL);
             continue;
         }
         queueSpellWord(s->rva, moved);
@@ -212,7 +212,7 @@ static void protectOldSpellTable(void) {
 
 static int installSpellTableMove(void) {
     if (!gameCodeMatches) {
-        writeLog("spell_table_not_moved", "reason=game_code_differs sites=0 of %d", SPELL_MOVE_SITE_COUNT);
+        writeLogError("spell_table_not_moved", "reason=game_code_differs sites=0 of %d", SPELL_MOVE_SITE_COUNT);
         return 0;
     }
     unsigned char *old = gameBase + RVA_SPELL_TABLE;
@@ -220,13 +220,13 @@ static int installSpellTableMove(void) {
     size_t total = (at + (size_t)SPELL_TABLE_RECORDS_MOVED * SPELL_SIZE + MAC_PAGE_MASK) & ~(size_t)MAC_PAGE_MASK;
     unsigned char *memory = allocAfterImage(total);
     if (!memory) {
-        writeLog("spell_table_not_moved", "reason=no_memory_near_game bytes=%zu sites=0 of %d", total, SPELL_MOVE_SITE_COUNT);
+        writeLogError("spell_table_not_moved", "reason=no_memory_near_game bytes=%zu sites=0 of %d", total, SPELL_MOVE_SITE_COUNT);
         return 0;
     }
     unsigned char *table = memory + at;
     int matched = queueSpellTableWrites(table);
     if (matched != SPELL_MOVE_SITE_COUNT) {
-        writeLog("spell_table_not_moved", "reason=game_build_differs sites=%d of %d", matched, SPELL_MOVE_SITE_COUNT);
+        writeLogError("spell_table_not_moved", "reason=game_build_differs sites=%d of %d", matched, SPELL_MOVE_SITE_COUNT);
         mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)memory, total);
         return 0;
     }
@@ -234,7 +234,7 @@ static int installSpellTableMove(void) {
     for (int i = 0; i < spellMoveWriteCount; i++) {
         if (writeGameCode(spellMoveWrites[i].at, &spellMoveWrites[i].word, 4)) continue;
         for (int j = i; j >= 0; j--) writeGameCode(spellMoveWrites[j].at, &spellMoveWrites[j].old, 4);
-        writeLog("spell_table_not_moved", "reason=code_unwritable va=0x%llx sites=%d of %d",
+        writeLogError("spell_table_not_moved", "reason=code_unwritable va=0x%llx sites=%d of %d",
                  (unsigned long long)(spellMoveWrites[i].at - gameBase) + 0x100000000ULL, matched, SPELL_MOVE_SITE_COUNT);
         mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)memory, total);
         return 0;

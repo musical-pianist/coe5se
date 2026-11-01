@@ -133,7 +133,7 @@ static void *movedCastCounts(void *counts, int *player) {
     ptrdiff_t offset = (unsigned char *)counts - (gameBase + RVA_CAST_COUNTS);
     if (offset < 0 || offset >= (ptrdiff_t)PLAYER_SLOTS * PLAYER_BLOCK_SIZE) offset = (unsigned char *)counts - playerTableAddress(RVA_CAST_COUNTS);
     if (offset < 0 || offset % PLAYER_BLOCK_SIZE || offset / PLAYER_BLOCK_SIZE >= PLAYER_SLOTS_MOVED) {
-        writeLog("ritual_cast_counts_unexpected", "pointer=%p", counts);
+        writeLogError("ritual_cast_counts_unexpected", "reason=unexpected_pointer pointer=%p", counts);
         return counts;
     }
     *player = (int)(offset / PLAYER_BLOCK_SIZE);
@@ -197,7 +197,7 @@ static int readExtraCastCounts(void *file, int onlyPlayer, const char *kind) {
     }
     int first = READ_INT(file), slots = READ_INT(file), players = READ_INT(file);
     if (first != VANILLA_RITUAL_SLOTS || slots < 0 || slots > EXTRA_CASTS_MAX_SLOTS || players < 0 || players > PLAYER_SLOTS) {
-        writeLog("ritual_cast_counts_bad_block", "file=%s first=%d slots=%d players=%d", kind, first, slots, players);
+        writeLogError("ritual_cast_counts_bad_block", "reason=bad_block file=%s first=%d slots=%d players=%d", kind, first, slots, players);
         return -1;
     }
     size_t perPlayer = (size_t)slots * sizeof(short);
@@ -213,7 +213,7 @@ static int readExtraCastCounts(void *file, int onlyPlayer, const char *kind) {
         if (onlyPlayer < 0 || who[i] == onlyPlayer) memcpy(extraCastCounts(who[i]), counts + perPlayer * i, perPlayer);
     if (ok && (ritualExpansionActive || !players)) writeLog("ritual_cast_counts_read", "file=%s players=%d slots=%d", kind, players, slots);
     else if (ok) writeLog("ritual_cast_counts_read", "file=%s players=%d slots=%d kept=0 reason=expansion_off", kind, players, slots);
-    else writeLog("ritual_cast_counts_bad_block", "file=%s players=%d slots=%d reason=%s", kind, players, slots,
+    else writeLogError("ritual_cast_counts_bad_block", "file=%s players=%d slots=%d reason=%s", kind, players, slots,
                   counts && who ? "short_block_or_bad_player" : "out_of_memory");
     free(counts);
     free(who);
@@ -225,7 +225,7 @@ static void mirrorPlayerBlocks(const unsigned char *dst, const unsigned char *sr
     size_t span = (size_t)playerSlotCount() * PLAYER_BLOCK_SIZE;
     if (dst < blocks || dst + size > blocks + span) return;
     if (src && (src < blocks || src + size > blocks + span)) {
-        writeLog("ritual_cast_counts_unexpected", "copy=move offset=%zu size=%zu", (size_t)(dst - blocks), size);
+        writeLogError("ritual_cast_counts_unexpected", "reason=copy_past_block copy=move offset=%zu size=%zu", (size_t)(dst - blocks), size);
         return;
     }
     if (!src) memset(castCounts + (dst - blocks), value, size);
@@ -411,7 +411,7 @@ static int queueSite(const RitualPatchSite *s, const char *group, long long delt
     memcpy(&field, at + s->fieldOffset, 4);
     long long moved = s->kind == RITUAL_FIELD_IMM32 ? value : field + delta;
     if (moved < INT32_MIN || moved > INT32_MAX) {
-        writeLog("ritual_expansion_site_out_of_reach", "group=%s rva=0x%x", group, s->rva);
+        writeLogError("ritual_expansion_site_out_of_reach", "reason=out_of_reach group=%s rva=0x%x", group, s->rva);
         return 0;
     }
     int out = (int)moved;
@@ -424,14 +424,14 @@ static int queueCall(int stub, unsigned int callRva, unsigned int targetRva, voi
     int rel;
     memcpy(&rel, call + 1, 4);
     if (call[0] != 0xe8 || call + 5 + rel != gameBase + targetRva) {
-        writeLog("ritual_expansion_site_mismatch", "group=call name=%s rva=0x%x", name, callRva);
+        writeLogError("ritual_expansion_site_mismatch", "reason=bytes_differ group=call name=%s rva=0x%x", name, callRva);
         return 0;
     }
     at[0] = 0xff; at[1] = 0x25; memset(at + 2, 0, 4);
     memcpy(at + 6, &hook, 8);
     long long toStub = at - (call + 5);
     if (toStub < INT32_MIN || toStub > INT32_MAX) {
-        writeLog("ritual_expansion_site_out_of_reach", "group=call name=%s rva=0x%x", name, callRva);
+        writeLogError("ritual_expansion_site_out_of_reach", "reason=out_of_reach group=call name=%s rva=0x%x", name, callRva);
         return 0;
     }
     int out = (int)toStub;
@@ -478,7 +478,7 @@ static int queueRitualWrites(unsigned char *memory, size_t castsAt, int *callCou
         int j = 0;
         while (j < RITUAL_NAMED_SITE_COUNT && RITUAL_NAMED_SITES[j].rva != RITUAL_WINDOWS_BOUNDS[i].rva) j++;
         if (j == RITUAL_NAMED_SITE_COUNT) {
-            writeLog("ritual_expansion_site_missing", "rva=0x%x", RITUAL_WINDOWS_BOUNDS[i].rva);
+            writeLogError("ritual_expansion_site_missing", "reason=site_missing rva=0x%x", RITUAL_WINDOWS_BOUNDS[i].rva);
             ok = 0;
             continue;
         }
@@ -499,7 +499,7 @@ static int queueRitualWrites(unsigned char *memory, size_t castsAt, int *callCou
         ok &= queueCall(i, CALLS[i].callRva, CALLS[i].targetRva, CALLS[i].hook, CALLS[i].name);
     unsigned char *entry = gameBase + RVA_RANDOM_RITUAL;
     if (!gameCodeMatches) {
-        writeLog("ritual_expansion_site_mismatch", "group=entry name=random_ritual rva=0x%x reason=game_code_differs", RVA_RANDOM_RITUAL);
+        writeLogError("ritual_expansion_site_mismatch", "group=entry name=random_ritual rva=0x%x reason=game_code_differs", RVA_RANDOM_RITUAL);
         ok = 0;
     } else {
         unsigned char jump[RITUAL_RANDOM_ENTRY_SIZE] = {0xff, 0x25, 0, 0, 0, 0};
@@ -508,7 +508,7 @@ static int queueRitualWrites(unsigned char *memory, size_t castsAt, int *callCou
         queueWrite(entry, jump, RITUAL_RANDOM_ENTRY_SIZE);
     }
     if (ritualWritesOverflowed) {
-        writeLog("ritual_expansion_too_many_writes", "max=%d", MAX_RITUAL_WRITES);
+        writeLogError("ritual_expansion_too_many_writes", "reason=too_many_writes max=%d", MAX_RITUAL_WRITES);
         ok = 0;
     }
     return ok;
@@ -527,13 +527,13 @@ static void protectOldRitualTable(unsigned char *oldTable) {
 static void adjustSaveCastCountRead(void);
 static int installRitualExpansion(void) {
     if (!gameCodeMatches) {
-        writeLog("ritual_expansion_off", "reason=game_code_differs queued=0");
+        writeLogError("ritual_expansion_off", "reason=game_code_differs queued=0");
         return 0;
     }
     size_t tableSize = (size_t)RITUAL_SLOT_CAP * RITUAL_SIZE, castsAt = (tableSize + WIN_PAGE_MASK) & ~(size_t)WIN_PAGE_MASK;
     unsigned char *memory = allocNearImage(castsAt + CAST_COUNTS_BYTES);
     if (!memory || !ritualStubs) {
-        writeLog("ritual_expansion_off", "reason=no_memory_near_game table=%p stubs=%p bytes=%zu", (void *)memory, (void *)ritualStubs,
+        writeLogError("ritual_expansion_off", "reason=no_memory_near_game table=%p stubs=%p bytes=%zu", (void *)memory, (void *)ritualStubs,
                  castsAt + CAST_COUNTS_BYTES);
         if (memory) VirtualFree(memory, 0, MEM_RELEASE);
         return 0;
@@ -544,7 +544,7 @@ static int installRitualExpansion(void) {
     int callCount = 0;
     int ok = queueRitualWrites(memory, castsAt, &callCount);
     if (!ok) {
-        writeLog("ritual_expansion_off", "reason=game_build_differs queued=%d", ritualWriteCount);
+        writeLogError("ritual_expansion_off", "reason=game_build_differs queued=%d", ritualWriteCount);
         VirtualFree(memory, 0, MEM_RELEASE);
         return 0;
     }
@@ -553,8 +553,8 @@ static int installRitualExpansion(void) {
 
     makePagesReadExecute(ritualStubs, 0x1000);
     if (!openGameCode(gameBase + RVA_TEXT_SECTION, (size_t)(RVA_RDATA_SECTION - RVA_TEXT_SECTION))) {
-        writeLog("ritual_expansion_code_unwritable", "error=%lu", GetLastError());
-        writeLog("ritual_expansion_off", "reason=code_unwritable queued=%d", ritualWriteCount);
+        writeLogError("ritual_expansion_code_unwritable", "reason=code_unwritable error=%lu", GetLastError());
+        writeLogError("ritual_expansion_off", "reason=code_unwritable queued=%d", ritualWriteCount);
         VirtualFree(memory, 0, MEM_RELEASE);
         return 0;
     }
@@ -566,10 +566,10 @@ static int installRitualExpansion(void) {
                VANILLA_RITUAL_SLOTS * sizeof(short));
     for (int i = 0; i < ritualWriteCount; i++) {
         if (writeGameCode(ritualWrites[i].at, ritualWrites[i].bytes, (size_t)ritualWrites[i].size)) continue;
-        writeLog("ritual_expansion_code_unwritable", "error=%lu", GetLastError());
+        writeLogError("ritual_expansion_code_unwritable", "reason=code_unwritable error=%lu", GetLastError());
         for (int j = i; j >= 0; j--) writeGameCode(ritualWrites[j].at, ritualWrites[j].old, (size_t)ritualWrites[j].size);
         closeGameCode();
-        writeLog("ritual_expansion_off", "reason=code_unwritable queued=%d", ritualWriteCount);
+        writeLogError("ritual_expansion_off", "reason=code_unwritable queued=%d", ritualWriteCount);
         ritualTable = castCounts = NULL;
         VirtualFree(memory, 0, MEM_RELEASE);
         return 0;
@@ -679,7 +679,7 @@ static int queueAdrp(const RitualMacSite *s, long long pages, const char *group)
     if (imm & 0x100000) imm -= 0x200000;
     imm += pages;
     if (imm < -0x100000 || imm > 0xfffff) {
-        writeLog("ritual_expansion_site_out_of_reach", "group=%s va=0x%llx", group, s->rva + 0x100000000ULL);
+        writeLogError("ritual_expansion_site_out_of_reach", "reason=out_of_reach group=%s va=0x%llx", group, s->rva + 0x100000000ULL);
         return 0;
     }
     queueWord(gameBase + s->rva, (word & 0x9f00001fu) | (uint32_t)(imm & 3) << 29 | (uint32_t)((imm >> 2) & 0x7ffff) << 5);
@@ -689,7 +689,7 @@ static int queueAdrp(const RitualMacSite *s, long long pages, const char *group)
 static const RitualMacNamedSite *namedSite(unsigned int rva) {
     for (int i = 0; i < RITUAL_MAC_NAMED_SITE_COUNT; i++)
         if (RITUAL_MAC_NAMED_SITES[i].rva == rva) return &RITUAL_MAC_NAMED_SITES[i];
-    writeLog("ritual_expansion_site_missing", "va=0x%llx", rva + 0x100000000ULL);
+    writeLogError("ritual_expansion_site_missing", "reason=site_missing va=0x%llx", rva + 0x100000000ULL);
     return NULL;
 }
 
@@ -698,7 +698,7 @@ static int queueImm12(unsigned int rva, unsigned int value) {
     uint32_t shift = 0;
     if (value > 0xfff && !(value & 0xfff)) value >>= 12, shift = 1u << 22;
     if (value > 0xfff) {
-        writeLog("ritual_expansion_bad_value", "va=0x%llx value=%u", rva + 0x100000000ULL, value);
+        writeLogError("ritual_expansion_bad_value", "reason=unexpected_value va=0x%llx value=%u", rva + 0x100000000ULL, value);
         return 0;
     }
     queueWord(gameBase + rva, patchedWord(gameWord(rva), 0x1fffu << 10, value << 10 | shift));
@@ -722,12 +722,12 @@ static unsigned char *queueBranchToCode(unsigned int rva, uint32_t *words, int c
     size_t size = ((size_t)count * 4 + 15) & ~(size_t)15;
     unsigned char *code = takePadding(size);
     if (!code) {
-        writeLog("ritual_expansion_no_padding", "name=%s", name);
+        writeLogError("ritual_expansion_no_padding", "reason=no_padding name=%s", name);
         return NULL;
     }
     if (back >= 0) words[back] = branchWord(0x14000000u, code + 4 * back, gameBase + rva + 4);
     if (!writeGameCode(code, words, (size_t)count * 4)) {
-        writeLog("ritual_expansion_write_failed", "name=%s", name);
+        writeLogError("ritual_expansion_write_failed", "reason=write_failed name=%s", name);
         return NULL;
     }
     queueWord(gameBase + rva, branchWord(0x14000000u, gameBase + rva, code));
@@ -766,7 +766,7 @@ static int queueRitualMacBound(const RitualMacBound *b) {
     if (fitsCompareImmediate(b->value)) return queueImm12(b->rva, b->value);
     if (!namedSite(b->rva)) return 0;
     if (b->reg < 0 || b->value > 0xffff) {
-        writeLog("ritual_expansion_bad_value", "va=0x%llx value=%u name=%s", b->rva + 0x100000000ULL, b->value, b->name);
+        writeLogError("ritual_expansion_bad_value", "reason=unexpected_value va=0x%llx value=%u name=%s", b->rva + 0x100000000ULL, b->value, b->name);
         return 0;
     }
     uint32_t words[4];
@@ -776,12 +776,12 @@ static int queueRitualMacBound(const RitualMacBound *b) {
 
 static int queueCall(unsigned int callRva, unsigned int targetRva, void *hook, const char *name) {
     if (blTarget(gameBase + callRva) != gameBase + targetRva) {
-        writeLog("ritual_expansion_site_mismatch", "group=call name=%s va=0x%llx", name, callRva + 0x100000000ULL);
+        writeLogError("ritual_expansion_site_mismatch", "reason=bytes_differ group=call name=%s va=0x%llx", name, callRva + 0x100000000ULL);
         return 0;
     }
     unsigned char *trampoline = newTrampoline(hook);
     if (!trampoline) {
-        writeLog("ritual_expansion_no_padding", "name=%s", name);
+        writeLogError("ritual_expansion_no_padding", "reason=no_padding name=%s", name);
         return 0;
     }
     queueWord(gameBase + callRva, blTo(gameBase + callRva, trampoline));
@@ -843,7 +843,7 @@ static int queueRitualWrites(unsigned char *table, unsigned char *blocks) {
     for (int i = 0; i < 5; i++) {
         unsigned char *trampoline = namedSite(RANDOM[i].entry) ? newTrampoline((void *)RANDOM[i].stub) : NULL;
         if (!trampoline) {
-            writeLog("ritual_expansion_site_failed", "group=random_ritual copy=%d", i);
+            writeLogError("ritual_expansion_site_failed", "reason=site_failed group=random_ritual copy=%d", i);
             ok = 0;
             continue;
         }
@@ -873,7 +873,7 @@ static int queueRitualWrites(unsigned char *table, unsigned char *blocks) {
     ritualOutOfRitualsExit = gameBase + RVA_MOD_COMMAND_EXIT;
     ok &= queueCall(RVA_OUT_OF_RITUALS_CALL, RVA_FATAL_FORMAT, (void *)ritualOutOfRitualsStub, "out_of_rituals");
     if (ritualWritesOverflowed) {
-        writeLog("ritual_expansion_too_many_writes", "max=%d", MAX_RITUAL_WRITES);
+        writeLogError("ritual_expansion_too_many_writes", "reason=too_many_writes max=%d", MAX_RITUAL_WRITES);
         ok = 0;
     }
     return ok;
@@ -899,7 +899,7 @@ static void protectOldRitualTable(unsigned char *oldTable) {
 static void adjustSaveCastCountRead(void);
 static int installRitualExpansion(void) {
     if (!gameCodeMatches) {
-        writeLog("ritual_expansion_off", "reason=game_code_differs queued=0");
+        writeLogError("ritual_expansion_off", "reason=game_code_differs queued=0");
         return 0;
     }
     unsigned char *oldTable = gameBase + RVA_RITUAL_TABLE, *oldBlocks = gameBase + PLAYER_BLOCKS_RVA;
@@ -909,14 +909,14 @@ static int installRitualExpansion(void) {
     size_t total = (blocksAt + CAST_COUNTS_OFFSET + CAST_COUNTS_BYTES + MAC_PAGE_MASK) & ~(size_t)MAC_PAGE_MASK;
     unsigned char *memory = allocAfterImage(total);
     if (!memory) {
-        writeLog("ritual_expansion_off", "reason=no_memory_near_game bytes=%zu", total);
+        writeLogError("ritual_expansion_off", "reason=no_memory_near_game bytes=%zu", total);
         return 0;
     }
     writeLog("ritual_table_allocated", "address=%p va=0x%llx slots=%d bytes=%zu", (void *)memory,
              (unsigned long long)(memory - gameBase) + 0x100000000ULL, RITUAL_SLOT_CAP, total);
     unsigned char *table = memory + tableAt, *blocks = memory + blocksAt;
     if (!queueRitualWrites(table, blocks)) {
-        writeLog("ritual_expansion_off", "reason=game_build_differs queued=%d", ritualWriteCount);
+        writeLogError("ritual_expansion_off", "reason=game_build_differs queued=%d", ritualWriteCount);
         mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)memory, total);
         return 0;
     }
@@ -931,9 +931,9 @@ static int installRitualExpansion(void) {
                VANILLA_RITUAL_SLOTS * sizeof(short));
     for (int i = 0; i < ritualWriteCount; i++) {
         if (writeGameCode(ritualWrites[i].at, &ritualWrites[i].word, 4)) continue;
-        writeLog("ritual_expansion_write_failed", "va=0x%llx", (unsigned long long)(ritualWrites[i].at - gameBase) + 0x100000000ULL);
+        writeLogError("ritual_expansion_write_failed", "reason=write_failed va=0x%llx", (unsigned long long)(ritualWrites[i].at - gameBase) + 0x100000000ULL);
         for (int j = i; j >= 0; j--) writeGameCode(ritualWrites[j].at, &ritualWrites[j].old, 4);
-        writeLog("ritual_expansion_off", "reason=code_unwritable writes=%d", ritualWriteCount);
+        writeLogError("ritual_expansion_off", "reason=code_unwritable writes=%d", ritualWriteCount);
         ritualTable = NULL;
         castCounts = NULL;
         return 0;

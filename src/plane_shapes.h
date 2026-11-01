@@ -165,7 +165,7 @@ static int installPlaneShapeHooks(void) {
     void *keep = planeShapeKeepR10Stub();
     if (!keep) writeLog("hook_skipped", "site=plane_shape reason=no_keep_stub");
     else ok += pointCustomPlaneCall(RVA_UNIT_PLANE_SHAPE_CALL, RVA_MONSTER_ABILITY, keep, "plane_shape");
-    writeLog("plane_shape_hooks_installed", "ok=%d of 2", ok);
+    writeResultLog(ok == 2, "plane_shape_hooks_installed", "ok=%d of 2", ok);
     return ok == 2;
 }
 #else
@@ -179,7 +179,7 @@ static int unitPlaneShapeHook(int unit, int ability, int add, char *out, int out
 
 static int installPlaneShapeHooks(void) {
     int ok = pointCustomPlaneCall(RVA_UNIT_PLANE_SHAPE_CALL, RVA_UNIT_ABILITY_TOTAL, (void *)unitPlaneShapeHook, "plane_shape");
-    writeLog("plane_shape_hooks_installed", "ok=%d of 1", ok);
+    writeResultLog(ok == 1, "plane_shape_hooks_installed", "ok=%d of 1", ok);
     return ok;
 }
 #endif

@@ -26,21 +26,21 @@ static unsigned char *entryHookPage;
 int fanpatchHookCreate(void *target, void *detour, void **original) {
     int i = entryHookAt(target);
     if (i < 0) {
-        writeLog("entry_hook_refused", "target=%p reason=not_listed", target);
+        writeLogError("entry_hook_refused", "target=%p reason=not_listed", target);
         return 0;
     }
     const EntryHookSite *s = &ENTRY_HOOK_SITES[i];
     unsigned char *at = gameBase + s->rva;
     if (!s->size) {
-        writeLog("entry_hook_refused", "name=%s reason=not_on_this_build", s->name);
+        writeLogError("entry_hook_refused", "name=%s reason=not_on_this_build", s->name);
         return 0;
     }
     if (!gameCodeMatches) {
-        writeLog("entry_hook_refused", "name=%s rva=0x%x reason=game_code_differs", s->name, s->rva);
+        writeLogError("entry_hook_refused", "name=%s rva=0x%x reason=game_code_differs", s->name, s->rva);
         return 0;
     }
     if (entryHooks[i].enabled) {
-        writeLog("entry_hook_refused", "name=%s rva=0x%x reason=already_hooked", s->name, s->rva);
+        writeLogError("entry_hook_refused", "name=%s rva=0x%x reason=already_hooked", s->name, s->rva);
         return 0;
     }
     _Static_assert(sizeof entryHooks[0].saved == 16, "a hook replaces at most 16 bytes");
@@ -48,7 +48,7 @@ int fanpatchHookCreate(void *target, void *detour, void **original) {
 #ifndef __APPLE__
     if (!entryHookPage) {
         if (!(entryHookPage = allocNearBytes(gameBase + RVA_TEXT_SECTION, ENTRY_HOOK_COUNT * ENTRY_HOOK_SLOT))) {
-            writeLog("entry_hook_refused", "name=%s reason=no_near_page", s->name);
+            writeLogError("entry_hook_refused", "name=%s reason=no_near_page", s->name);
             return 0;
         }
         makePagesReadExecute(entryHookPage, ENTRY_HOOK_COUNT * ENTRY_HOOK_SLOT);
@@ -57,11 +57,11 @@ int fanpatchHookCreate(void *target, void *detour, void **original) {
     CodeFixup fixups[2];
     for (int k = 0; k < s->fixupCount; k++) fixups[k] = (CodeFixup){s->fixups[k].at, gameBase + s->fixups[k].target};
     if (!buildEntryHookSlot(slot, t, at, entryHooks[i].saved, s->size, fixups, s->fixupCount, detour)) {
-        writeLog("entry_hook_refused", "name=%s reason=fixup_out_of_reach", s->name);
+        writeLogError("entry_hook_refused", "name=%s reason=fixup_out_of_reach", s->name);
         return 0;
     }
     if (!writeGameCode(t, slot, ENTRY_HOOK_STUB + 14)) {
-        writeLog("entry_hook_refused", "name=%s reason=trampoline_unwritable", s->name);
+        writeLogError("entry_hook_refused", "name=%s reason=trampoline_unwritable", s->name);
         return 0;
     }
     entryHooks[i].trampoline = t;
@@ -69,7 +69,7 @@ int fanpatchHookCreate(void *target, void *detour, void **original) {
 #else
     unsigned char *t = takePadding(32);
     if (!t) {
-        writeLog("entry_hook_refused", "name=%s reason=no_trampoline_room", s->name);
+        writeLogError("entry_hook_refused", "name=%s reason=no_trampoline_room", s->name);
         return 0;
     }
     uint32_t code[8];
@@ -79,7 +79,7 @@ int fanpatchHookCreate(void *target, void *detour, void **original) {
     unsigned char *back = at + 16;
     memcpy(&code[6], &back, 8);
     if (!writeGameCode(t, code, sizeof code)) {
-        writeLog("entry_hook_refused", "name=%s reason=trampoline_unwritable", s->name);
+        writeLogError("entry_hook_refused", "name=%s reason=trampoline_unwritable", s->name);
         return 0;
     }
     entryHooks[i].trampoline = t;
@@ -132,7 +132,7 @@ void fanpatchLog(const char *fmt, ...) {
 
 int fanpatchGameCodeMatches(const char *fix) {
     if (gameCodeMatches) return 1;
-    writeLog("fanpatch_check_failed", "fix=%s reason=game_code_differs", fix);
+    writeLogError("fanpatch_check_failed", "fix=%s reason=game_code_differs", fix);
     return 0;
 }
 
@@ -169,6 +169,6 @@ static void fanpatchReport(void) {
 
 static void fanpatchInstall(void) {
     int installed = fix_item_reset_install() + fix_feeblemind_install() + fix_token_sprites_install();
-    writeLog("fanpatch_installed", "fixes=%d of 3", installed);
+    writeResultLog(installed == 3, "fanpatch_installed", "fixes=%d of 3", installed);
     atexit(fanpatchReport);
 }

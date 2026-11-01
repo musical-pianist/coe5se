@@ -462,7 +462,7 @@
 #define RVA_AI_STRENGTH_MEMORY_SQUARE_CALL     ADDR(        0x06d917,          0x1004e42cc)
 #define RVA_AI_STRENGTH_MEMORY_PROGRESS_CALL   ADDR(        0x06d9d2,          0x1004e42e4)
 #define RVA_AI_REMEMBERED_STRENGTH             ADDR(        0x06d800,          MAC_NOT_LOOKED_UP)
-#define RVA_AI_DANGEROUS_STEP                  ADDR(        0x0797a0,          MAC_NOT_LOOKED_UP)
+#define RVA_AI_DANGEROUS_STEP                  ADDR(        0x0797a0,          0x1004d2c28)
 #define RVA_AI_GATHER_TROOPS                   ADDR(        0x06edd0,          MAC_INLINED)
 #define RVA_AI_GATHER_TROOPS_CALL              ADDR(        0x070f03,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_GATHER_COPY_START               ADDR(        WIN_NO_EQUIVALENT,0x1004da6f8)
@@ -494,9 +494,9 @@
 #define RVA_AI_SPLIT_COPY_START                ADDR(        WIN_NO_EQUIVALENT,0x1004d2500)
 #define RVA_AI_SPLIT_COPY_END                  ADDR(        WIN_NO_EQUIVALENT,0x1004d2570)
 #define AI_SPLIT_MIN_UNITS_MAC                 240
-#define RVA_AI_MAKE_GUARDS_AT                  ADDR(        0x06ebd0,          MAC_NOT_LOOKED_UP)
+#define RVA_AI_MAKE_GUARDS_AT                  ADDR(        0x06ebd0,          0x1004e01b8)
 #define RVA_AI_MAKE_DEFENDERS                  ADDR(        0x06fe90,          MAC_NOT_LOOKED_UP)
-#define RVA_AI_RANDOM_ENEMY                    ADDR(        0x07b5e0,          MAC_NOT_LOOKED_UP)
+#define RVA_AI_RANDOM_ENEMY                    ADDR(        0x07b5e0,          0x1004d16c4)
 #define RVA_AI_VIEW_MOVE_START                 ADDR(        0x06de10,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_VIEW_MOVE_END                   ADDR(        0x06da50,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_PLAN_TEXT                       ADDR(        0x06ad70,          MAC_NOT_LOOKED_UP)
@@ -568,7 +568,7 @@
 #define RVA_AI_REDISTRIBUTE_ITEMS              ADDR(        0x0735a0,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_SHIPS                           ADDR(        0x071750,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_RITUAL_AI_BAD                   ADDR(        0x06d070,          0x1004df84c)
-#define RVA_AI_RITUAL_TARGET                   ADDR(        0x06c4f0,          MAC_NOT_LOOKED_UP)
+#define RVA_AI_RITUAL_TARGET                   ADDR(        0x06c4f0,          0x1004df9a4)
 #define RVA_AI_RITUAL_BAD_TIME                 ADDR(        0x06d290,          0x1004df248)
 #define RVA_AI_EXPLORE_TERRAIN_SKIP            ADDR(        0x075290,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_TARGET_IMPOSSIBLE               ADDR(        0x07cf40,          MAC_NOT_LOOKED_UP)
@@ -917,7 +917,7 @@
 #define RVA_BATTLE_PLACE_TERRAIN_UNIT          ADDR_DIFFERS(0x0f0de0,          0x1003c7e44)
 #define RVA_BATTLE_BACKGROUND                  ADDR(        0x0fbe90,          0x100580be8)
 #define RVA_SQUARE_DEFAULT_GROUND              ADDR(        0x0b5370,          0x100550bfc)
-#define RVA_BATTLE_DEPLOY                      ADDR(        0x0f8ae0,          MAC_NOT_LOOKED_UP)
+#define RVA_BATTLE_DEPLOY                      ADDR(        0x0f8ae0,          0x1003dbea4)
 #define RVA_BATTLE_DEPLOY_CALL                 ADDR(        0x0f5e71,          MAC_NOT_LOOKED_UP)
 #define RVA_BATTLE_SETUP_SIDE                  ADDR(        0x0e6510,          MAC_NOT_LOOKED_UP)
 #define RVA_BATTLE_SETUP_AMBUSH                ADDR(        0x0e9510,          MAC_NOT_LOOKED_UP)
@@ -1919,6 +1919,10 @@
 #define WEAPON_FLAGS                           0x60
 #define WEAPON_NEXT                            0x90
 #define WEAPON_NEXT_DMG                        0x98
+#define WEAPON_SOUND_PAIRS                     0x7c
+#define WEAPON_SOUND_PAIRS_MAX                 2
+#define RVA_WEAPON_SET_SOUND_PAIR              ADDR(        0x0b7ff0,          MAC_NOT_FOUND)
+#define RVA_MONTH_END_FIGHTS_CALL              ADDR(        0x166d35,          MAC_NOT_LOOKED_UP)
 #define RVA_WEAPON_FREE_SLOT                   ADDR(        0x0b8aa0,          0x1003f82a8)
 #define RVA_WEAPON_CURRENT                     ADDR(        0x1a93fe4,         0x101cb6e34)
 #define WEAPON_RECORDS_GAME                    5000
@@ -1949,6 +1953,58 @@
 #define RVA_WEAPON_TEXT                        ADDR(        0x1ccff0,          0x1005275d0)
 #define RVA_WEAPON_TEXT_CALL                   ADDR(        0x1d18e2,          0x100527480)
 #define RVA_WEAPON_TEXT_NEXT_CALL              ADDR(        0x1d19c3,          0x1005274dc)
+#define RVA_DO_WEAPON_ATTACK                   ADDR(        0x0d7df0,          0x1003bcd8c)
+#define RVA_DO_WEAPON_ATTACK_HIT_CALL          ADDR(        0x0d9a5b,          0x1003bdc5c)
+#define RVA_DO_WEAPON_ATTACK_NEXT_CALL         ADDR(        0x0d9b11,          0x1003bdf98)
+#define RVA_DO_WEAPON_ATTACK_NEXT_EMPTY_CALL   ADDR(        0x0d9c2b,          0x1003be2ac)
+#define RVA_PLACE_WEAPON_LOOK                  ADDR(        0x0da0a0,          MAC_INLINED)
+#define RVA_PLACE_WEAPON_LOOK_CALL             ADDR_DIFFERS(0x0d9869,          0x1003bd928)
+#define RVA_DRAW_VISUAL_FX                     ADDR(        0x1031e0,          0x1004bfda8)
+#define RVA_DRAW_VISUAL_FX_BOUND               ADDR_DIFFERS(0x10324a,          0x1004bfdec)
+#define RVA_FATAL_IF                           ADDR(        0x05c6b0,          0x10033425c)
+#define RVA_VISUAL_FX_TABLE                    ADDR(        0x1b1dfb0,         0x100834780)
+#define VISUAL_FX_SIZE                         0x30
+#define VISUAL_FX_ROWS                         300
+#define RVA_PARTICLES                          ADDR(        0x124477a0,        0x107efbc5c)
+#define PARTICLE_SIZE                          0x30
+#define PARTICLES_MAX                          140000
+#define RVA_PARTICLES_LAST                     ADDR(        0x43a654,          0x100862780)
+#define RVA_PARTICLE_ADD                       ADDR(        0x051d00,          0x100350ff0)
+#define RVA_PARTICLE_ADD_AT                    ADDR(        0x051e30,          MAC_INLINED)
+#define RVA_PARTICLES_UPDATE                   ADDR(        0x051720,          MAC_INLINED)
+#define RVA_PARTICLES_DRAW                     ADDR(        0x050be0,          MAC_INLINED)
+#define RVA_PARTICLE_TEXTURES_LOAD             ADDR(        0x052030,          0x100351348)
+#define RVA_VISUAL_FX_LIGHTNING                ADDR(        0x102ef0,          0x1004bfb8c)
+#define RVA_VISUAL_FX_BOLT                     ADDR(        0x102e00,          MAC_INLINED)
+#define RVA_VISUAL_FX_BOLT_FLAGS               ADDR(        0x5822ec4,         0x107efbc58)
+#define RVA_VISUAL_FX_ORB_X                    ADDR(        0x43eaac,          0x100872c28)
+#define RVA_VISUAL_FX_ORB_Y                    ADDR(        0x43ea14,          0x100872c2c)
+#define RVA_VISUAL_FX_CHAIN_X                  ADDR(        0x43ea3c,          0x100872c30)
+#define RVA_VISUAL_FX_CHAIN_Y                  ADDR(        0x43ea84,          0x100872c34)
+#define RVA_BATTLE_CELL_PX                     ADDR(        0x43e284,          0x1049c81b4)
+#define RVA_BATTLE_SCREEN_CARRY_US             ADDR(        0x5804e84,         0x10c96df44)
+#define RVA_ADD_FLY_WEAPON                     ADDR(        0x101e40,          0x1005851a4)
+#define RVA_FLY_WEAPONS                        ADDR(        0x65612b0,         0x10c9b6088)
+#define FLY_WEAPON_SIZE                        0x38
+#define FLY_WEAPONS_MAX                        12000
+#define RVA_FLY_WEAPONS_LAST                   ADDR(        0x43e7f4,          0x1049c81b0)
+#define RVA_FLY_WEAPONS_STEP                   ADDR(        0x102160,          0x1005856e4)
+#define RVA_FLY_WEAPON_DRAW_FX                 ADDR(        0x101a50,          0x100585a44)
+#define RVA_FLY_WEAPON_DRAW_SPRITES            ADDR(        0x1014a0,          MAC_INLINED)
+#define RVA_FLY_SPRITE_DRAW_CALL               ADDR_DIFFERS(0x101740,          0x10048a460)
+#define RVA_SPRITE_DRAW_ROTATED                ADDR(        0x066130,          0x10034f9b0)
+#define SPRITE_KIND_BLAST                      3
+#define WEAPON_FLYMODE                         0x68
+#define WEAPON_FLYLOOK                         0x6c
+#define WEAPON_FLYSOUND                        0x70
+#define WEAPON_LOOK                            0x74
+#define WEAPON_SOUND                           0x78
+#define WEAPON_EXTRAS                          0x7c
+#define RVA_WEAPON_EXTRA                       ADDR(        0x0b7f90,          MAC_INLINED)
+#define RVA_WEAPON_HIT_AFFLICT                 ADDR(        0x0de96f,          0x1003c488c)
+#define RVA_WEAPON_HIT_BENEFIT                 ADDR(        0x0de9ce,          0x1003c48d8)
+#define RVA_AFFLICTION_IMMUNE                  ADDR(        0x0e0580,          0x1003ca250)
+#define RVA_ADD_BENEFIT                        ADDR(        0x0bc100,          MAC_INLINED)
 #define RVA_BATTLE_TARGET_USEFUL_CALL          ADDR(        0x0d6b19,          0x1003c0780)
 #define RVA_SPELL_USEFUL_TARGET_CALL           ADDR_DIFFERS(0x2e5bd8,          0x1004bf988)
 #define RVA_ITEM_TABLE                         ADDR(        0x1be6730,         0x1048937f8)
@@ -3948,6 +4004,23 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0x16468f, 0x16481f, 0x1b01ca, 0x2c6fe8, 0x2da8d9),                     0x1aed10,
  (M(0x1003a99d0), M(0x1003aa220), M(0x1004ab304), M(0x10055fdf8), M(0x1005606b0), M(0x10039e2fc)),
                                                                                              M(0x1004aa648)),
+    [SITE_AI_DANGEROUS_STEP] = SITE("ai_dangerous_step", 0,
+ (0x071091, 0x17d478, 0x17d736),                                         0x0797a0,
+ (M(0x1004db63c), M(0x10038ce78), M(0x10038d258), M(0x10038d638), M(0x10038da0c), M(0x10038ddf4)),
+                                                                                             M(0x1004d2c28)),
+    [SITE_AI_MAKE_GUARDS] = SITE("ai_make_guards", 0,
+ (0x0a8d5b, 0x07005d),             0x06ebd0,
+ (M(0x100370404), M(0x1004e3b80)), M(0x1004e01b8)),
+    [SITE_AI_RITUAL_TARGET] = SITE("ai_ritual_target", 0,
+ (0x06b1f9, 0x06c04e, 0x06c3fd),                   0x06c4f0,
+ (M(0x1004dd2a0), M(0x1004de568), M(0x1004de740)), M(0x1004df9a4)),
+    [SITE_DECORATE_SQUARE] = SITE("decorate_square", 0,
+ (0x1b4cd4, 0x1b5d01, 0x1b67ec, 0x1b68dc, 0x2ac404, 0x31b3e5),                          0x2abc10,
+ (M(0x100516574), M(0x100513f8c), M(0x100513590), M(0x100513658), M(0x1004b09b0), M(0x10059266c)),
+                                                                                                         M(0x1004af774)),
+    [SITE_BATTLE_DRAW] = SITE("battle_draw", 0,
+ (0),              0x02cfc0,
+ (0),              0),
 };
 #undef M
 #undef SITE

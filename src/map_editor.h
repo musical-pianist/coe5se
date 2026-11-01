@@ -30,6 +30,9 @@ static int mapEditorDrawing;
 static int (*nextMapScreenFrame)(int, int);
 static int mapScreenWaiting;
 static int mapDrawing;
+static int (*nextBattleFrame)(int, int);
+static int battleWaiting;
+static int battleDrawing;
 
 static u64 drawMapEditorToolboxLines(int id, const char *text) {
     u64 result = nextToolboxLine(id, text);
@@ -52,6 +55,13 @@ static int dispatchMapEditorLineClick(int a, int b) {
     return id;
 }
 
+static int markBattleFrame(int a, int b) {
+    battleWaiting++;
+    int id = nextBattleFrame(a, b);
+    battleWaiting--;
+    return id;
+}
+
 static int markMapScreenFrame(int a, int b) {
     mapScreenWaiting++;
     int id = nextMapScreenFrame(a, b);
@@ -62,6 +72,12 @@ static int markMapScreenFrame(int a, int b) {
 static void gateMapEditorDraw(void) {
     if (mapEditorWaiting <= 0) {
         void *game = siteGameTarget(SITE_MAP_EDITOR_DRAW);
+        if (battleWaiting > 0 && siteInstalled[SITE_BATTLE_DRAW]) {
+            battleDrawing++;
+            ((void (*)(void))siteEntry(SITE_BATTLE_DRAW, game))();
+            battleDrawing--;
+            return;
+        }
         if (mapScreenWaiting <= 0 || !siteInstalled[SITE_MAP_DRAW]) {
             ((void (*)(void))game)();
             return;
@@ -125,7 +141,10 @@ static void installMapEditorHooks(void) {
     int editor = insertWrap(SITE_MAP_EDITOR, (void *)loadScriptsBeforeMapEditor, (void **)&nextMapEditor, outermost, owner, NULL);
     int mapFrame = insertWrap(SITE_MAP_SCREEN_WAIT, (void *)markMapScreenFrame, (void **)&nextMapScreenFrame,
                               (WrapPlace){.priority = INT_MIN}, owner, NULL);
-    writeLog("map_editor_hooks_installed", "toolbox_line=%d wait=%d draw=%d editor=%d map_frame=%d", line, wait, draw, editor, mapFrame);
+    int battleFrame = insertWrap(SITE_BATTLE_WAIT, (void *)markBattleFrame, (void **)&nextBattleFrame,
+                                 (WrapPlace){.priority = INT_MIN}, owner, NULL);
+    writeLog("map_editor_hooks_installed", "toolbox_line=%d wait=%d draw=%d editor=%d map_frame=%d battle_frame=%d", line, wait, draw, editor,
+             mapFrame, battleFrame);
 }
 
 // ---- The map view ---------------------------------------------------------------------------------

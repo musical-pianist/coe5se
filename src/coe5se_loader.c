@@ -83,7 +83,7 @@ static void readEnabledMods(const char *userDir, const char *layoutPath) {
     }
     while (readConfigModName(f, name, sizeof name)) {
         if (enabledCount == MAX_ENABLED) {
-            writeLog("loader_enabled_mods_cut", "max=%d next=%s", MAX_ENABLED, name);
+            writeLogWarning("loader_enabled_mods_cut", "reason=too_many_mods max=%d next=%s", MAX_ENABLED, name);
             break;
         }
         snprintf(enabledMods[enabledCount++], sizeof enabledMods[0], "%s", name);
@@ -297,7 +297,7 @@ static void findAllPlugins(const char *userDir) {
     char cache[MAX_PATH];
     if (buildPath(cache, sizeof cache, __func__, "%s" USER_DIR_SEP WORKSHOP_CACHE_FILE, userDir))
         writeWorkshopCacheFor(cache, modRoots[0], modRoots[1], !readMacWorkshopList());
-    if (!readLocalMods(modRoots[0], &localModFolders, NULL, NULL)) writeLog("loader_local_folders_cut", "reason=out_of_memory");
+    if (!readLocalMods(modRoots[0], &localModFolders, NULL, NULL)) writeLogWarning("loader_local_folders_cut", "reason=out_of_memory");
     if (workshop && sameRealFolder(modRoots[0], modRoots[1])) workshop = 0;
 #endif
     if (workshop) findPluginsUnder(modRoots[1], "workshop");
@@ -435,7 +435,7 @@ static void loadPlugin(FoundPlugin *p, int isCoe5se, int autoApprove) {
     if (!hashFileSha256(file, p->hash)) {
         unlockDllFile(file);
         p->state = PLUGIN_FAILED;
-        writeLog("loader_plugin_failed", "name=%s source=%s reason=unreadable", p->name, p->source);
+        writeLogError("loader_plugin_failed", "name=%s source=%s reason=unreadable", p->name, p->source);
         if (isCoe5se) inactiveReason = "coe5se_unreadable";
         return;
     }
@@ -453,7 +453,7 @@ static void loadPlugin(FoundPlugin *p, int isCoe5se, int autoApprove) {
     unlockDllFile(file);
     if (!module) {
         p->state = PLUGIN_FAILED;
-        writeLog("loader_plugin_failed", "name=%s source=%s error=%s", p->name, p->source, error);
+        writeLogError("loader_plugin_failed", "reason=load_failed name=%s source=%s error=%s", p->name, p->source, error);
         if (isCoe5se) inactiveReason = "coe5se_load_failed";
         return;
     }
@@ -482,7 +482,9 @@ static void loadAllPlugins(const char *modDir, const char *source, const char *l
         if (inactiveReason) found[i].state = PLUGIN_INACTIVE;
         else loadPlugin(&found[i], i == 0, autoApprove);
     }
-    if (inactiveReason) writeLog("loader_inactive", "reason=%s found=%d", inactiveReason, foundCount);
+    if (inactiveReason && !strcmp(inactiveReason, "declined_on_unknown_game"))
+        writeLog("loader_inactive", "reason=%s found=%d", inactiveReason, foundCount);
+    else if (inactiveReason) writeLogError("loader_inactive", "reason=%s found=%d", inactiveReason, foundCount);
     writeFoundList();
     writeLog("loader_done", "found=%d loaded=%d set_aside=%d", foundCount, loadedCount, setAside);
 }
@@ -534,7 +536,7 @@ __declspec(dllexport) int coe5seLoaderStart(const LoaderStart *start) {
 #endif
              startedFrom == LOADER_STARTED_IN_DLLMAIN ? "dllmain" : "sdl_set_main_ready");
     if (!version || version > LOADER_START_VERSION) {
-        writeLog("loader_inactive", "reason=unknown_interface interface=%u known=%d", version, LOADER_START_VERSION);
+        writeLogError("loader_inactive", "reason=unknown_interface interface=%u known=%d", version, LOADER_START_VERSION);
         return 0;
     }
     userDirFromStub = stubUserDir && stubUserDir[0];

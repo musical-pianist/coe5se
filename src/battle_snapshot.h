@@ -88,7 +88,7 @@ static int snapshotCloseWrite(void *file) {
         long long counted = *(long long *)(gameBase + RVA_FILE_BYTES_WRITTEN) - snapshot.countedAtOpen;
         if (!snapshot.direct && counted != (long long)snapshot.outLength && !snapshot.mismatchLogged) {
             snapshot.mismatchLogged = 1;
-            writeLog("battle_snapshot_mismatch", "counted=%lld buffered=%zu", counted, snapshot.outLength);
+            writeLogError("battle_snapshot_mismatch", "reason=length_differs counted=%lld buffered=%zu", counted, snapshot.outLength);
         }
         if (!snapshot.direct && snapshot.outLength) snapshotGameWrite(snapshot.out, 1, snapshot.outLength, file);
         snapshot.writing = NULL;
@@ -176,12 +176,12 @@ static void battleSnapshotInit(void) {
     snapshotFwrite = GAME_FN(SnapshotIoFn, RVA_FWRITE);
     snapshotFread = GAME_FN(SnapshotIoFn, RVA_FREAD);
     if (!checkGameFunction("battle_snapshot_check", "")) {
-        writeLog("battle_snapshot_installed", "ok=0 of %d reason=game_code_changed", SNAPSHOT_SITE_COUNT);
+        writeLogError("battle_snapshot_installed", "ok=0 of %d reason=%s", SNAPSHOT_SITE_COUNT, gameCodeReason());
         return;
     }
     for (int i = 0; i < SNAPSHOT_SITE_COUNT; i++)
         if (!snapshotSiteIsCall(&SNAPSHOT_SITES[i])) {
-            writeLog("battle_snapshot_installed", "ok=0 of %d reason=not_the_expected_call address=0x%x", SNAPSHOT_SITE_COUNT,
+            writeLogError("battle_snapshot_installed", "ok=0 of %d reason=not_the_expected_call address=0x%x", SNAPSHOT_SITE_COUNT,
                      SNAPSHOT_SITES[i].address);
             return;
         }
@@ -189,13 +189,13 @@ static void battleSnapshotInit(void) {
 #ifdef __APPLE__
     for (int k = 0; k < SNAPSHOT_KINDS; k++)
         if (!(stubs[k] = newTrampoline(snapshotHook(k)))) {
-            writeLog("battle_snapshot_installed", "ok=0 of %d reason=no_padding", SNAPSHOT_SITE_COUNT);
+            writeLogError("battle_snapshot_installed", "ok=0 of %d reason=no_padding", SNAPSHOT_SITE_COUNT);
             return;
         }
 #else
     unsigned char *page = allocNear(gameBase + RVA_TEXT_SECTION);
     if (!page) {
-        writeLog("battle_snapshot_installed", "ok=0 of %d reason=no_near_page", SNAPSHOT_SITE_COUNT);
+        writeLogError("battle_snapshot_installed", "ok=0 of %d reason=no_near_page", SNAPSHOT_SITE_COUNT);
         return;
     }
     makePagesReadExecute(page, 0x1000);
@@ -208,5 +208,5 @@ static void battleSnapshotInit(void) {
     if (ok == writeSide) ok += snapshotPoint(1u << SNAPSHOT_OPEN_WRITE, stubs);
     int okRead = snapshotPoint(1u << SNAPSHOT_READ | 1u << SNAPSHOT_CLOSE_READ, stubs);
     if (okRead == readSide) okRead += snapshotPoint(1u << SNAPSHOT_OPEN_READ, stubs);
-    writeLog("battle_snapshot_installed", "ok=%d of %d", ok + okRead, SNAPSHOT_SITE_COUNT);
+    writeInstallLog("battle_snapshot_installed", ok + okRead, SNAPSHOT_SITE_COUNT);
 }

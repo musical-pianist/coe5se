@@ -56,10 +56,15 @@ If any step fails, the stub or loader writes `loader_inactive` with the reason t
 | User folder | `coe5seModMenu/<ModName>.ini` | when the player changes a Mod Settings choice | `src/settings_files.h` |
 | User folder | `coe5se_data/<ModName>/` and its subfolders | when a mod's Lua script saves data. Each mod writes only its own folder: 1 MB per file, 10 MB per mod unless the mod's `.c5se` sets up to 100 MB with `maxdata`, names checked (no path separators, no `..`, no device names) | `src/mod_storage.h`, `src/data_area_max.h`, `src/lua_data_files.h` |
 | User folder | `oldworkshop` (Mac only) | at launch: the Mac game can't ask Steam for its Workshop items, so the loader writes the list the game would have written | `src/workshop_cache.h` |
+| User folder | `mods/<name>/<name>.c5m` and `mods/<name>/banner.tga` | only when a mod's Lua script calls `coe5.saveNewMod`: a new mod folder, named with letters, digits, spaces and `_` only; a name whose folder exists is refused, so no existing file is ever written | `src/lua_mod_export.h` |
 
 The user folder is `%APPDATA%\coe5` on Windows, `~/.coe5` on Mac, or the folder `COE5_SAVE` names.
 Every rewrite of a settings or list file goes to a new file first and replaces the old one in one
 step, so a crash never leaves half a file.
+
+## The clipboard
+
+CoE5SE writes plain text to the system clipboard only when a mod's Lua script calls `coe5.copyText` (`src/lua_mod_export.h`): `OpenClipboard` and `SetClipboardData` on Windows, `NSPasteboard` on Mac. It never reads the clipboard.
 
 ## What it never does
 
@@ -79,6 +84,7 @@ Each enabled mod's `<ModName>.lua` runs in its own Lua 5.5.1 state (`src/lua_loa
 - One call into a script may run at most 20,000,000 Lua steps (loops inside the string and table libraries count too). A script that spends that, or raises an error, is turned off for the rest of the session and the game continues.
 - Memory: 1.5 GB per script and 6 GB for all scripts together. Typically scripts should call at most 10s of MB of ram, but I found these limits useful to allow for some modder inefficency that can be easily ran on modern systems. As example, a game that nears the 6gb limit for scripts would at most cohesively take 8gb of ram even in the late-game.
 - `%p` in a format string prints an id, never an address.
+- Outside its data folder a script writes only through `coe5.copyText` (the clipboard) and `coe5.saveNewMod` (a new mod folder, never an existing file); both are above.
 - In network games no script runs.
 
 Vendored Lua is in `src/lua/`. CoE5SE's changes to it are marked `CoE5SE:` in the code.

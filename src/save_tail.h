@@ -96,7 +96,7 @@ static const char *saveTagText(int tag, char out[5]) {
 static void saveListAdd(SaveList *list, int tag, SaveBuffer *b) {
     char text[5];
     if (b->failed || list->count >= SAVE_CHUNKS_MAX) {
-        writeLog("save_chunk_dropped", "tag=%s bytes=%zu reason=%s", saveTagText(tag, text), b->size,
+        writeLogError("save_chunk_dropped", "tag=%s bytes=%zu reason=%s", saveTagText(tag, text), b->size,
                  b->failed ? "out_of_memory_or_too_big" : "too_many_chunks");
         free(b->bytes);
         list->dropped++;
@@ -400,5 +400,5 @@ static int installSaveTailHooks(void) {
 #endif
 
 static void saveTailInit(void) {
-    writeLog("save_tail_hooks_installed", "ok=%d of %d", installSaveTailHooks(), SAVE_TAIL_HOOKS);
+    writeInstallLog("save_tail_hooks_installed", installSaveTailHooks(), SAVE_TAIL_HOOKS);
 }

@@ -371,8 +371,10 @@ static void saveValue(const ModSetting *s) {
         return;
     }
     snprintf(text, sizeof text, "%d", s->value);
-    noteOwnSettingsWrite(WritePrivateProfileStringA(s->mod, s->name, text, path) != 0);
-    writeLog("setting_changed", "mod=%s name=%s value=%d", s->mod, s->name, s->value);
+    int saved = WritePrivateProfileStringA(s->mod, s->name, text, path) != 0;
+    noteOwnSettingsWrite(saved);
+    if (saved) writeLog("setting_changed", "mod=%s name=%s value=%d", s->mod, s->name, s->value);
+    else writeLogError("setting_not_saved", "reason=write_failed mod=%s name=%s value=%d path=%s", s->mod, s->name, s->value, path);
 }
 
 static void forgetValue(const ModSetting *s) {
@@ -382,7 +384,10 @@ static void forgetValue(const ModSetting *s) {
         noteOwnSettingsWrite(0);
         return;
     }
-    noteOwnSettingsWrite(WritePrivateProfileStringA(s->mod, s->name, NULL, path) != 0);
+    int forgotten = WritePrivateProfileStringA(s->mod, s->name, NULL, path) != 0;
+    noteOwnSettingsWrite(forgotten);
+    if (forgotten) writeLog("setting_reset", "mod=%s name=%s", s->mod, s->name);
+    else writeLogError("setting_not_reset", "reason=write_failed mod=%s name=%s path=%s", s->mod, s->name, path);
 }
 
 static const char *modName(int mod) {

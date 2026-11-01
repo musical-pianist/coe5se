@@ -47,7 +47,7 @@ static int customPlaneSprite(CustomPlane *p, int viewed) {
 #endif
     list = replaced[SPRITE_KIND_ICON];
     if (image < 0 || !list || list[sprite] < 0) {
-        if (!refusedOnce[p - customPlanes]++) writeLog("plane_icon_refused", "mod=%s name=%s sprite=%d path=%s", p->mod, p->name, sprite, path[0] ? path : "-");
+        if (!refusedOnce[p - customPlanes]++) writeLogWarning("plane_icon_refused", "reason=picture_not_loaded mod=%s name=%s sprite=%d path=%s", p->mod, p->name, sprite, path[0] ? path : "-");
         return -1;
     }
     writeLog("plane_icon_registered", "mod=%s name=%s sprite=%d path=%s", p->mod, p->name, sprite, path);

@@ -626,7 +626,7 @@ static unsigned char *guardPlacedPieces(const PlaneLayout *layout) {
     if (!squares) return NULL;
     unsigned char *saved = malloc(squares * SQUARE_SIZE), *at = saved;
     if (!saved) {
-        writeLog("plane_pieces_unguarded", "reason=out_of_memory squares=%zu", squares);
+        writeLogError("plane_pieces_unguarded", "reason=out_of_memory squares=%zu", squares);
         return NULL;
     }
     for (int i = 0; i < layout->placedCount; i++) {
@@ -673,7 +673,7 @@ static void applyZoneSwaps(const CustomPlane *p) {
     for (int z = 0; z < layout->zoneCount; z++) {
         for (int i = 0; i < layout->zones[z].swapCount; i++)
             if (layout->zones[z].swapTo[i] > last)
-                writeLog("plane_swap_refused", "mod=%s name=%s zone=%s from=%d to=%d reason=no_such_terrain last_terrain=%d", p->mod, p->name, layout->zones[z].name,
+                writeLogWarning("plane_swap_refused", "mod=%s name=%s zone=%s from=%d to=%d reason=no_such_terrain last_terrain=%d", p->mod, p->name, layout->zones[z].name,
                          layout->zones[z].swapFrom[i], layout->zones[z].swapTo[i], last);
         writeLog("plane_zone", "mod=%s name=%s zone=%s squares=%d swapped=%d", p->mod, p->name, layout->zones[z].name, squares[z], changed[z]);
     }
@@ -751,7 +751,7 @@ static int hideZoneSquares(const CustomPlane *p, int **hidden) {
                 k++;
             }
         if (!pass && (!(n = k) || !(*hidden = malloc(sizeof **hidden * (size_t)n)))) {
-            if (n) writeLog("plane_zones_not_hidden", "mod=%s name=%s reason=out_of_memory squares=%d", p->mod, p->name, n);
+            if (n) writeLogError("plane_zones_not_hidden", "mod=%s name=%s reason=out_of_memory squares=%d", p->mod, p->name, n);
             return 0;
         }
     }

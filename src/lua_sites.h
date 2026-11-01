@@ -124,6 +124,10 @@ static const LuaSite luaSites[] = {
     {"AI_PICK_UP_LONER",              SITE_AI_PICK_UP_LONER,              K_CALL,    "i:ii"},
     {"AI_SPLIT_ARMY",                 SITE_AI_SPLIT_ARMY,                 K_CALL,    "v:ii"},
     {"AI_MOVE_COMSTR",                SITE_AI_MOVE_COMSTR,                K_CALL,    "i:i"},
+    {"AI_DANGEROUS_STEP",             SITE_AI_DANGEROUS_STEP,             K_CALL,    "i:iii"},
+    {"AI_MAKE_GUARDS",                SITE_AI_MAKE_GUARDS,                K_CALL,    "v:iiii"},
+    {"AI_RITUAL_TARGET",              SITE_AI_RITUAL_TARGET,              K_TARGET_SQUARE, "i:ii"},
+    {"DECORATE_SQUARE",               SITE_DECORATE_SQUARE,               K_CALL,    "v:ii"},
     {"CEREMONY_PERFORM",              SITE_CEREMONY_PERFORM,              K_CALL,    "v:iii"},
     {"CEREMONY_COSTS",                SITE_CEREMONY_COSTS,                K_CALL,    "v:i"},
     {"SEAL_BREAK",                    SITE_SEAL_BREAK,                    K_SEAL_BREAK, "v:iii"},
@@ -131,6 +135,7 @@ static const LuaSite luaSites[] = {
     {"MAP_EDITOR",                    SITE_MAP_EDITOR,                    K_CALL,    "v:"},
     {"MAP_EDITOR_DRAW",               SITE_MAP_EDITOR_DRAW,               K_CALL,    "v:"},
     {"MAP_DRAW",                      SITE_MAP_DRAW,                      K_CALL,    "v:"},
+    {"BATTLE_DRAW",                   SITE_BATTLE_DRAW,                   K_CALL,    "v:"},
     {"TOP_BAR_INCOME",                SITE_TOP_BAR_INCOME,                K_CALL,    "i:iii"},
     {"MESSAGES_WAIT",                 SITE_MESSAGES_WAIT,                 K_CALL,    "i:ii"},
     {"WARN_WAIT",                     SITE_WARN_WAIT,                     K_CALL,    "i:ii"},
@@ -267,6 +272,28 @@ static void checkNextArgs(const LuaSite *ls, LuaArgs *a, const LuaArgs *orig, co
         if ((int)a->a[0] != (int)orig->a[0])
             refuseLuaCall(mod, ls->name, "commander_changed", "commander=%d own=%d", (int)a->a[0], (int)orig->a[0]);
         a->a[0] = orig->a[0];
+        if (ls->site == SITE_AI_RITUAL_TARGET) {
+            if ((int)a->a[1] != (int)orig->a[1])
+                refuseLuaCall(mod, ls->name, "ritual_changed", "ritual=%d own=%d", (int)a->a[1], (int)orig->a[1]);
+            a->a[1] = orig->a[1];
+        }
+        return;
+    }
+    if (ls->site == SITE_AI_DANGEROUS_STEP || ls->site == SITE_AI_MAKE_GUARDS || ls->site == SITE_DECORATE_SQUARE) {
+        typedef struct { const char *name, *reason; } KeptArg;
+        static const KeptArg STEP[3] = {{"commander", "commander_changed"}, {"dx", "step_changed"}, {"dy", "step_changed"}},
+                             GUARDS[3] = {{"player", "player_changed"}, {"x", "square_changed"}, {"y", "square_changed"}},
+                             SQUARE[3] = {{"x", "square_changed"}, {"y", "square_changed"}, {NULL, NULL}};
+        const KeptArg *kept = ls->site == SITE_AI_DANGEROUS_STEP ? STEP : ls->site == SITE_AI_MAKE_GUARDS ? GUARDS : SQUARE;
+        for (int i = 0; i < 3 && kept[i].name; i++) {
+            if ((int)a->a[i] != (int)orig->a[i])
+                refuseLuaCall(mod, ls->name, kept[i].reason, "%s=%d own=%d", kept[i].name, (int)a->a[i], (int)orig->a[i]);
+            a->a[i] = orig->a[i];
+        }
+        if (ls->site == SITE_AI_MAKE_GUARDS && (int)a->a[3] < 1) {
+            refuseLuaCall(mod, ls->name, "out_of_range", "arg=n value=%d min=1", (int)a->a[3]);
+            a->a[3] = orig->a[3];
+        }
         return;
     }
     if (ls->kind == K_VETO) {
@@ -365,13 +392,13 @@ static void setSplitMinUnits(int value) {
     if (ok && !(ok = writeGameCode(test + SPLIT_MIN_UNITS_TEST_IMM, &value, 4))) writeGameCode(trace + SPLIT_MIN_UNITS_TRACE_IMM, &before, 4);
     if (!ok) {
         static int logged;
-        if (!logged++) writeLog("ai_split_min_units_written", "ok=0 reason=code_unwritable address=%p", (void *)(trace < test ? trace : test));
+        if (!logged++) writeLogError("ai_split_min_units_written", "ok=0 reason=code_unwritable address=%p", (void *)(trace < test ? trace : test));
     }
 }
 static int checkSplitMinUnitsCode(void) {
     const unsigned char *trace = GAME_PTR(RVA_AI_SPLIT_MIN_UNITS_TRACE), *test = GAME_PTR(RVA_AI_SPLIT_MIN_UNITS_TEST);
     if (gameCodeMatches && splitMinUnitsCodeOk(trace, test)) return 1;
-    writeLog("ai_split_min_units_check", "ok=0 reason=%s trace=%p test=%p", gameCodeMatches ? "two_minimums" : "game_code_differs",
+    writeLogError("ai_split_min_units_check", "ok=0 reason=%s trace=%p test=%p", gameCodeMatches ? "two_minimums" : "game_code_differs",
              (void *)trace, (void *)test);
     return 0;
 }
@@ -479,11 +506,13 @@ static u64 takeTargetSquare(lua_State *L, const LuaSite *ls, const LuaArgs *a, c
     if (!reason && x >= 0 && y >= 0 && x < G32(RVA_MAP_DEPTH) && y < G32(RVA_MAP_H) && x < MAP_COLUMNS_MAX && y < MAP_COLUMN_SQUARES)
         plane = GAME_FN(int (*)(int, int), RVA_PLANE_AT)((int)x, (int)y);
     if (!reason) reason = targetSquareRefusal(score, x, y, G32(RVA_MAP_DEPTH), G32(RVA_MAP_H), plane);
+    if (!reason && ls->site == SITE_AI_RITUAL_TARGET && score != 0 && score != 1) reason = "out_of_range";
     if (reason) {
         refuseLuaCall(mod, ls->name, reason, "score=%lld x=%lld y=%lld commander=%d", (long long)score, (long long)x, (long long)y,
                       (int)a->a[0]);
         return (u64)ownScore;
     }
+    if (ls->site == SITE_AI_RITUAL_TARGET && score == 0) x = y = AI_NO_SQUARE;
     *outX = (int)x;
     *outY = (int)y;
     return (u64)score;
@@ -796,7 +825,7 @@ static int lChangedBy(lua_State *L) {
         lua_rawseti(L, -2, ++n);
     }
     if (f->changesTo >= LUA_CHANGES_MAX && luaChangesDropped)
-        writeLog("lua_changed_by_cut", "mod=%s site=%s listed=%d dropped=%d", s ? s->mod : "?", luaSites[f->wrap->site].name, n,
+        writeLogWarning("lua_changed_by_cut", "reason=too_many_changes mod=%s site=%s listed=%d dropped=%d", s ? s->mod : "?", luaSites[f->wrap->site].name, n,
                  luaChangesDropped);
     return 1;
 }

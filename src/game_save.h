@@ -35,7 +35,7 @@ static int gameSaveOutermost(const char *name, void *file) {
     gameSaveFile = file;
     int result = nextGameSave(path, name);
     if (gameSaveFile) {
-        writeLog("game_save_not_written", "name=%s", name);
+        writeLogError("game_save_not_written", "reason=chain_ended_before_game name=%s", name);
         GAME_FN(int (*)(void *), RVA_FCLOSE)(gameSaveFile);
         gameSaveFile = NULL;
     }
@@ -75,7 +75,7 @@ static void gameSaveInit(void) {
     char owner[64];
     moduleFileName((void *)gameSaveOutermost, owner, sizeof owner);
     const WrapPlace outermost = {.priority = WRAP_PRIORITY_DEFAULT, .layer = WRAP_LAYER_OUTERMOST};
-    writeLog("game_save_site_installed", "ok=%d",
-             insertWrap(SITE_GAME_SAVE, (void *)gameSaveOutermost, (void **)&nextGameSave, outermost, owner, NULL));
+    int ok = insertWrap(SITE_GAME_SAVE, (void *)gameSaveOutermost, (void **)&nextGameSave, outermost, owner, NULL);
+    writeResultLog(ok, "game_save_site_installed", "ok=%d", ok);
 }
 #endif

@@ -177,9 +177,9 @@ static int lRowEnd(lua_State *L) {
 }
 
 static int luaMayDraw(lua_State *L, const char *call) {
-    if (mapEditorDrawing > 0 || mapDrawing > 0) return 1;
+    if (mapEditorDrawing > 0 || mapDrawing > 0 || battleDrawing > 0) return 1;
     LuaScript *s = luaScriptOf(L);
-    refuseLuaCall(s ? s->mod : "?", call, "not_drawing", "sites=MAP_EDITOR_DRAW,MAP_DRAW");
+    refuseLuaCall(s ? s->mod : "?", call, "not_drawing", "sites=MAP_EDITOR_DRAW,MAP_DRAW,BATTLE_DRAW");
     return 0;
 }
 

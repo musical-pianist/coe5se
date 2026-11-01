@@ -105,7 +105,7 @@ static int terrainPictureSprite(int pic) {
     list = replaced[SPRITE_KIND_TREE];
     if (image < 0 || !list || list[sprite] < 0) {
         t->registered = -1;
-        writeLog("terrain_sprite_refused", "sprite=%d path=%s", sprite, t->path);
+        writeLogWarning("terrain_sprite_refused", "reason=picture_not_loaded sprite=%d path=%s", sprite, t->path);
         return -1;
     }
     t->registered = 1;
@@ -442,7 +442,7 @@ static int installTerrainGroundHook(void) {
     if (terrainGroundHook) return terrainGroundHook > 0;
     rebuildTerrainLooks();
     terrainGroundHook = patchTerrainGround() ? 1 : -1;
-    writeLog("terrain_ground_hook_installed", "ok=%d of 1", terrainGroundHook > 0);
+    writeResultLog(terrainGroundHook > 0, "terrain_ground_hook_installed", "ok=%d of 1", terrainGroundHook > 0);
     return terrainGroundHook > 0;
 }
 
@@ -491,7 +491,7 @@ static int installTerrainDecorHook(void) {
     if (terrainDecorHook) return terrainDecorHook > 0;
     rebuildTerrainLooks();
     terrainDecorHook = pointCustomPlaneCall(RVA_MAP_DECORATIONS_CALL, RVA_MAP_DECORATIONS, (void *)terrainDecorationsHook, "map_decorations") ? 1 : -1;
-    writeLog("terrain_decor_hook_installed", "ok=%d of 1", terrainDecorHook > 0);
+    writeResultLog(terrainDecorHook > 0, "terrain_decor_hook_installed", "ok=%d of 1", terrainDecorHook > 0);
     return terrainDecorHook > 0;
 }
 
@@ -511,7 +511,7 @@ static int loadTerrainGroundPicture(TerrainPicture *t) {
     unsigned char head[18];
     if (!f || fread(head, 1, sizeof head, f) != sizeof head || head[1] || (head[2] != 2 && head[2] != 10) || (head[16] != 24 && head[16] != 32)) {
         if (f) fclose(f);
-        writeLog("terrain_picture_refused", "path=%s reason=not_a_tga", t->path);
+        writeLogWarning("terrain_picture_refused", "path=%s reason=not_a_tga", t->path);
         return 0;
     }
     int w = head[12] | head[13] << 8, h = head[14] | head[15] << 8, n = head[16] / 8;
@@ -534,7 +534,7 @@ static int loadTerrainGroundPicture(TerrainPicture *t) {
     fclose(f);
     if (!ok) {
         free(rgba);
-        writeLog("terrain_picture_refused", "path=%s reason=%s", t->path, rgba ? "cut_short" : "size_not_power_of_two");
+        writeLogWarning("terrain_picture_refused", "path=%s reason=%s", t->path, rgba ? "cut_short" : "size_not_power_of_two");
         return 0;
     }
     t->rgba = rgba, t->w = w, t->h = h, t->loaded = 1;
@@ -806,7 +806,7 @@ static int patchTerrainComposite(void) {
 static int installTerrainCompositeHook(void) {
     if (terrainCompositeHook) return terrainCompositeHook > 0;
     terrainCompositeHook = patchTerrainComposite() ? 1 : -1;
-    writeLog("terrain_composite_hook_installed", "ok=%d of 1", terrainCompositeHook > 0);
+    writeResultLog(terrainCompositeHook > 0, "terrain_composite_hook_installed", "ok=%d of 1", terrainCompositeHook > 0);
     return terrainCompositeHook > 0;
 }
 
@@ -879,5 +879,5 @@ static int lSetTerrainLooks(lua_State *L) {
 static void terrainLooksWordsInit(void) {
     int words = apiAddModCommand("terrainlooks", terrainlooksLine) + apiAddModCommand("terrainground", terraingroundLine) +
                 apiAddModCommand("terraindecor", terraindecorLine) + apiAddModCommand("terrainsprite", terrainspriteLine);
-    writeLog("terrain_looks_words_installed", "words=%d of 4", words);
+    writeResultLog(words == 4, "terrain_looks_words_installed", "words=%d of 4", words);
 }

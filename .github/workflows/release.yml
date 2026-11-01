@@ -3,25 +3,27 @@
 #   1. downloads the two pinned compilers (the same files, checked by the same SHA-256, as mac-verify.command),
 #   2. rebuilds the three DLLs and three dylibs from src/ (src/build.sh, src/build_mac.sh),
 #   3. stops unless every rebuilt file matches its line in SHA256.txt, byte for byte,
-#   4. zips the release (every file here but README.md, LICENSE.txt and .github/, plus the six it built),
+#   4. zips the release (every file here but README.md, LICENSE.txt, .github/, .clusterfuzzlite/ and fuzz/, plus the six it built),
 #   5. signs a build provenance attestation for the six files and the zip,
-#   6. creates the GitHub Release from the tag's message, with the zip attached.
+#   6. creates the GitHub Release from the tag's message, with the zip and that attestation's bundle (CoE5SE-<version>.intoto.jsonl) attached.
 # Check a download with: gh attestation verify <file> -R musical-pianist/coe5se
+# or, offline from the attached bundle: gh attestation verify <file> -R musical-pianist/coe5se --bundle CoE5SE-<version>.intoto.jsonl
 name: release
 
 on:
   push:
     tags: ["CoE5SE-v*"]
 
-permissions:
-  contents: write
-  id-token: write
-  attestations: write
-  artifact-metadata: write
+permissions: read-all
 
 jobs:
   release:
     runs-on: macos-15
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
     env:
       TAG: ${{ github.ref_name }}
       TC_URL: https://github.com/mstorsjo/llvm-mingw/releases/download/20260922/llvm-mingw-20260922-ucrt-macos-universal.tar.xz
@@ -31,7 +33,7 @@ jobs:
       ZIG_SHA256: b23d70deaa879b5c2d486ed3316f7eaa53e84acf6fc9cc747de152450d401489
       ZIG_DIR: zig-aarch64-macos-0.16.0
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Read the tag's message
         run: |
           git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
@@ -73,7 +75,7 @@ jobs:
           import sys, zipfile
           from pathlib import Path
           skip = {"README.md", "LICENSE.txt"}
-          files = sorted(p for p in Path(".").rglob("*") if p.is_file() and p.parts[0] not in (".git", ".github")
+          files = sorted(p for p in Path(".").rglob("*") if p.is_file() and p.parts[0] not in (".git", ".github", ".clusterfuzzlite", "fuzz")
                          and p.as_posix() not in skip and p.name != ".DS_Store")
           with zipfile.ZipFile(sys.argv[1], "w", zipfile.ZIP_DEFLATED) as z:
               for p in files:
@@ -84,7 +86,8 @@ jobs:
           PY
           shasum -a 256 "CoE5SE-$version.zip"
           echo "ZIP=CoE5SE-$version.zip" >> "$GITHUB_ENV"
-      - uses: actions/attest@v4
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        id: attest
         with:
           subject-path: |
             glu32.dll
@@ -94,7 +97,14 @@ jobs:
             coe5se_loader.dylib
             coe5se.c5plugin.dylib
             ${{ env.ZIP }}
+      - name: Name the attestation bundle for the release
+        env:
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          version="${TAG#CoE5SE-v}"
+          jq -c . "$BUNDLE" > "$RUNNER_TEMP/CoE5SE-$version.intoto.jsonl"
+          echo "PROVENANCE=$RUNNER_TEMP/CoE5SE-$version.intoto.jsonl" >> "$GITHUB_ENV"
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$TAG" "$ZIP" --verify-tag --title "$(cat "$RUNNER_TEMP/title.txt")" --notes-file "$RUNNER_TEMP/notes.md"
+        run: gh release create "$TAG" "$ZIP" "$PROVENANCE" --verify-tag --title "$(cat "$RUNNER_TEMP/title.txt")" --notes-file "$RUNNER_TEMP/notes.md"

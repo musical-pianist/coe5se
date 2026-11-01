@@ -354,7 +354,7 @@ static int macSiteAdd(unsigned char *at, int kind, int field, int arg, const cha
         if (!writeGameCode(at, &b, 4)) macSiteCount--, reason = "code_unwritable";
     }
     if (reason) {
-        writeLog("mac_site_refused", "site=%s va=0x%llx reason=%s", name, (unsigned long long)(at - gameBase) + 0x100000000ULL, reason);
+        writeLogError("mac_site_refused", "site=%s va=0x%llx reason=%s", name, (unsigned long long)(at - gameBase) + 0x100000000ULL, reason);
         return 0;
     }
     return 1;
@@ -421,7 +421,7 @@ static int installMacFactionSites(void) {
         const MacFactionSite *s = &MAC_FACTION_SITES[i];
         ok += macSiteAdd(gameBase + s->rva, s->kind, s->field, s->arg, s->name);
     }
-    writeLog("mac_faction_sites_installed", "ok=%d of %d padding_left=%ld", ok, MAC_FACTION_SITE_COUNT, paddingLeft());
+    writeInstallLogFields("mac_faction_sites_installed", ok, MAC_FACTION_SITE_COUNT, "padding_left=%ld", paddingLeft());
     return ok == MAC_FACTION_SITE_COUNT;
 }
 

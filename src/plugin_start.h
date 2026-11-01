@@ -36,7 +36,7 @@ static PluginRecord *pluginRecordFor(const char *path) {
     PluginRecord *r = calloc(1, sizeof *r);
     if (!r || !growList((void **)&pluginRecords, &pluginRecordCapacity, pluginRecordCount + 1, sizeof r)) {
         free(r);
-        writeLog("plugin_record_failed", "reason=out_of_memory path=%s", path);
+        writeLogError("plugin_record_failed", "reason=out_of_memory path=%s", path);
         return NULL;
     }
     snprintf(r->file, sizeof r->file, "%s", file);
@@ -64,7 +64,7 @@ static PRINTF_FORMAT(3, 4) void refusePlugin(PluginRecord *r, const char *reason
     va_start(ap, fmt);
     vsnprintf(r->detail, sizeof r->detail, fmt, ap);
     va_end(ap);
-    writeLog("plugin_refused", "dll=%s reason=%s %s", r->file, reason, r->detail);
+    writeLogWarning("plugin_refused", "dll=%s reason=%s %s", r->file, reason, r->detail);
 }
 
 static const char *apiVersionReason(int version) {

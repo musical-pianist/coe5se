@@ -33,12 +33,12 @@ static int patchSealEventStep(void) {
         return 0;
     unsigned char *page = allocNear(GAME_PTR(RVA_SEAL_EVENT_SWITCH));
     if (!page) {
-        writeLog("seal_event_patched", "ok=0 reason=no_near_page");
+        writeLogError("seal_event_patched", "ok=0 reason=no_near_page");
         return 0;
     }
     if (!copySealEventUnwind(page + SEAL_EVENT_UNWIND)) {
         VirtualFree(page, 0, MEM_RELEASE);
-        writeLog("seal_event_patched", "ok=0 reason=unwind_info");
+        writeLogError("seal_event_patched", "ok=0 reason=unwind_info");
         return 0;
     }
     static const unsigned char STAND_IN[] = {0xb8, 0x01, 0x00, 0x00, 0x00, 0xc3};
@@ -62,7 +62,7 @@ static int patchSealEventStep(void) {
     function->UnwindData = SEAL_EVENT_UNWIND;
     if (!RtlAddFunctionTable(function, 1, (DWORD64)(uintptr_t)page)) {
         VirtualFree(page, 0, MEM_RELEASE);
-        writeLog("seal_event_patched", "ok=0 reason=unwind_not_added");
+        writeLogError("seal_event_patched", "ok=0 reason=unwind_not_added");
         return 0;
     }
     makePagesReadExecute(page, 0x1000);
@@ -70,7 +70,7 @@ static int patchSealEventStep(void) {
     int rel = (int)(stub - (at + 5));
     memcpy(code + 1, &rel, 4);
     if (!writeGameCode(at, code, sizeof code)) {
-        writeLog("seal_event_patched", "ok=0 reason=code_unwritable");
+        writeLogError("seal_event_patched", "ok=0 reason=code_unwritable");
         return 0;
     }
     sealEventPage = page;

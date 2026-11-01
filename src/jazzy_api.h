@@ -223,6 +223,12 @@ typedef enum {
     SITE_DO_ALL_FIGHTS,
     SITE_MOVE_ALL_INDEPENDENTS,
     SITE_CONQUER_SQUARE,
+    SITE_AI_DANGEROUS_STEP,
+    SITE_AI_MAKE_GUARDS,
+    SITE_AI_RITUAL_TARGET,
+    SITE_DECORATE_SQUARE,
+    // @platform-split battle_draw: Windows only; Mac's battle frame wait wasn't tied to its draw pass
+    SITE_BATTLE_DRAW,
     SITE_COUNT
 } CallSite;
 

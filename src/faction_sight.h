@@ -613,12 +613,12 @@ static int buildPortStub(void *port, unsigned char *stub, int *length) {
 
 static int installFactionStubs(void) {
     if (!gameCodeMatches) {
-        writeLog("faction_stubs_not_installed", "reason=game_code_differs");
+        writeLogError("faction_stubs_not_installed", "reason=game_code_differs");
         return 0;
     }
     unsigned char *stubs = allocNearBytes(gameBase + RVA_TEXT_SECTION, FACTION_STUB_COUNT * FACTION_STUB_BYTES);
     if (!stubs) {
-        writeLog("faction_stubs_not_installed", "reason=no_memory_near_game");
+        writeLogError("faction_stubs_not_installed", "reason=no_memory_near_game");
         return 0;
     }
     unsigned int rvas[FACTION_STUB_COUNT];
@@ -646,7 +646,7 @@ static int installFactionStubs(void) {
     int ok = 0;
     for (k = 0; k < FACTION_STUB_COUNT; k++) {
         if (!lengths[k]) {
-            writeLog("faction_stub_refused", "rva=0x%x reason=game_code_differs", rvas[k]);
+            writeLogError("faction_stub_refused", "rva=0x%x reason=game_code_differs", rvas[k]);
             continue;
         }
         unsigned char *at = gameBase + rvas[k], jump[16];

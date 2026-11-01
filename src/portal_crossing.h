@@ -287,17 +287,17 @@ static int installPortalHooks(void) {
     };
     enum { COUNT = sizeof CALLS / sizeof CALLS[0] };
     if (!gameBuild) {
-        writeLog("portal_hooks_installed", "ok=0 of %d reason=unknown_game_build", COUNT);
+        writeLogError("portal_hooks_installed", "ok=0 of %d reason=unknown_game_build", COUNT);
         return 0;
     }
     if (!checkGameFunction("portal_crossing_check", "")) {
-        writeLog("portal_hooks_installed", "ok=0 of %d reason=game_code_changed", COUNT);
+        writeLogError("portal_hooks_installed", "ok=0 of %d reason=%s", COUNT, gameCodeReason());
         return 0;
     }
     unsigned char *stubs = NULL;
 #ifndef __APPLE__
     if (!(stubs = allocNear(gameBase + RVA_TEXT_SECTION))) {
-        writeLog("portal_hooks_installed", "ok=0 of %d reason=no_near_page", COUNT);
+        writeLogError("portal_hooks_installed", "ok=0 of %d reason=no_near_page", COUNT);
         return 0;
     }
     makePagesReadExecute(stubs, 0x1000);
@@ -310,7 +310,7 @@ static int installPortalHooks(void) {
     int ok = 0;
     for (int i = 0; i < COUNT; i++) ok += pointPortalCall(&CALLS[i], stubs, i);
     portalHooksState = ok == COUNT ? 1 : -1;
-    writeLog("portal_hooks_installed", "ok=%d of %d", ok, COUNT);
+    writeInstallLog("portal_hooks_installed", ok, COUNT);
     return ok == COUNT;
 }
 

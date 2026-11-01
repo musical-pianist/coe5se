@@ -468,7 +468,7 @@ static int writeTableMoveBytes(unsigned char *to, const unsigned char *bytes, si
     if (to >= text && to + n <= textEnd) return writeGameCode(to, bytes, n);
     DWORD previous;
     if (!VirtualProtect(to, n, PAGE_READWRITE, &previous)) {
-        writeLog("table_patch_unwritable", "rva=0x%llx error=%lu", (unsigned long long)(to - gameBase), GetLastError());
+        writeLogError("table_patch_unwritable", "reason=code_unwritable rva=0x%llx error=%lu", (unsigned long long)(to - gameBase), GetLastError());
         return 1;
     }
     memcpy(to, bytes, n);
@@ -492,8 +492,8 @@ static int stubJump(unsigned char **at, const unsigned char *opcode, int opcodeS
 static int queueClassPickerDecode(const struct TableMove *t) {
     unsigned char *decode = gameBase + RVA_CLASS_PICKER_DECODE, *p = classPickerStub;
     if (!p || !gameCodeMatches) {
-        writeLog("table_site_mismatch", "table=%s group=extra name=picker_decode rva=0x%x stub=%d%s", t->name, RVA_CLASS_PICKER_DECODE,
-                 p != NULL, gameCodeMatches ? "" : " reason=game_code_differs");
+        writeLogError("table_site_mismatch", "reason=%s table=%s group=extra name=picker_decode rva=0x%x", gameCodeMatches ? "no_stub" : "game_code_differs",
+                      t->name, RVA_CLASS_PICKER_DECODE);
         return 0;
     }
     static const unsigned char JBE[] = {0x0f, 0x86}, JNS[] = {0x0f, 0x89}, JMP[] = {0xe9};
@@ -517,7 +517,7 @@ static int queueClassPickerDecode(const struct TableMove *t) {
     _Static_assert(CLASS_PICKER_PICK_BASE <= 128, "the stub's lea holds -100 in a byte");
     long long toStub = classPickerStub - (decode + 5);
     if (!ok || p - classPickerStub > CLASS_PICKER_STUB_BYTES || toStub < INT32_MIN || toStub > INT32_MAX) {
-        writeLog("table_site_mismatch", "table=%s group=extra name=picker_stub out_of_reach=1", t->name);
+        writeLogError("table_site_mismatch", "reason=out_of_reach table=%s group=extra name=picker_stub", t->name);
         return 0;
     }
     unsigned char jump[5] = {0xe9};
@@ -536,7 +536,7 @@ static int queueTableMoveWrites(const TableMove *t, unsigned char *table) {
         memcpy(&field, at + s->fieldOffset, 4);
         long long moved = tableMovedField(field, delta, s->kind, (long long)(t->movedRecords - t->gameRecords) * t->recordSize);
         if (moved < INT32_MIN || moved > INT32_MAX || !queueTableWrite(at + s->fieldOffset, (int)moved)) {
-            writeLog("table_site_mismatch", "table=%s group=table rva=0x%x out_of_reach=%d", t->name, s->rva, moved < INT32_MIN || moved > INT32_MAX);
+            writeLogError("table_site_mismatch", "reason=%s table=%s group=table rva=0x%x", moved < INT32_MIN || moved > INT32_MAX ? "out_of_reach" : "write_not_queued", t->name, s->rva);
             continue;
         }
         matched++;
@@ -546,7 +546,7 @@ static int queueTableMoveWrites(const TableMove *t, unsigned char *table) {
         for (int i = 0, n = pass ? t->valueCount : t->boundCount; i < n; i++) {
             const TableValueSite *s = &list[i];
             if (!queueTableWrite(gameBase + s->rva + s->fieldOffset, s->value)) {
-                writeLog("table_site_mismatch", "table=%s group=%s name=%s rva=0x%x", t->name, pass ? "value" : "bound", s->name, s->rva);
+                writeLogError("table_site_mismatch", "reason=bytes_differ table=%s group=%s name=%s rva=0x%x", t->name, pass ? "value" : "bound", s->name, s->rva);
                 continue;
             }
             matched++;
@@ -555,7 +555,7 @@ static int queueTableMoveWrites(const TableMove *t, unsigned char *table) {
     for (int i = 0; i < t->patchCount; i++) {
         const TablePatchSite *s = &t->patches[i];
         if (!queueTableBytes(gameBase + s->rva + s->fieldOffset, &s->value, s->fieldSize)) {
-            writeLog("table_site_mismatch", "table=%s group=patch rva=0x%x", t->name, s->rva);
+            writeLogError("table_site_mismatch", "reason=bytes_differ table=%s group=patch rva=0x%x", t->name, s->rva);
             continue;
         }
         matched++;
@@ -566,7 +566,7 @@ static int queueTableMoveWrites(const TableMove *t, unsigned char *table) {
     int rel;
     memcpy(&rel, call + 1, 4);
     if (call[0] != 0xe8 || call + 5 + rel != gameBase + t->overflowTarget)
-        writeLog("table_site_mismatch", "table=%s group=call rva=0x%x", t->name, t->overflowCall);
+        writeLogError("table_site_mismatch", "reason=bytes_differ table=%s group=call rva=0x%x", t->name, t->overflowCall);
     else
         matched++;
     return matched;
@@ -600,14 +600,14 @@ static int installTableGroup(TableMove *first, int count, unsigned char *stubs) 
         needStub |= first[k].overflowCall != 0;
     }
     if (!gameCodeMatches) {
-        for (int k = 0; k < count; k++) writeLog("table_not_moved", "table=%s reason=game_code_differs sites=0 of %d", first[k].name, sites[k]);
+        for (int k = 0; k < count; k++) writeLogError("table_not_moved", "table=%s reason=game_code_differs sites=0 of %d", first[k].name, sites[k]);
         return 0;
     }
     total += TABLE_BLOCK_SLACK;
     unsigned char *block = allocNearImage(total);
     if (!block || (needStub && !stubs)) {
         for (int k = 0; k < count; k++)
-            writeLog("table_not_moved", "table=%s reason=no_memory_near_game bytes=%zu sites=0 of %d", first[k].name, total, sites[k]);
+            writeLogError("table_not_moved", "table=%s reason=no_memory_near_game bytes=%zu sites=0 of %d", first[k].name, total, sites[k]);
         if (block) VirtualFree(block, 0, MEM_RELEASE);
         return 0;
     }
@@ -621,7 +621,7 @@ static int installTableGroup(TableMove *first, int count, unsigned char *stubs) 
                          : !openGameCode(gameBase + RVA_TEXT_SECTION, (size_t)(RVA_RDATA_SECTION - RVA_TEXT_SECTION)) ? "code_unwritable" : NULL;
     if (reason) {
         for (int k = 0; k < count; k++)
-            writeLog("table_not_moved", "table=%s reason=%s sites=%d of %d", first[k].name, reason, matched[k], sites[k]);
+            writeLogError("table_not_moved", "table=%s reason=%s sites=%d of %d", first[k].name, reason, matched[k], sites[k]);
         VirtualFree(block, 0, MEM_RELEASE);
         return 0;
     }
@@ -632,7 +632,7 @@ static int installTableGroup(TableMove *first, int count, unsigned char *stubs) 
         for (int j = i; j >= 0; j--) writeTableMoveBytes(tableMoveWrites[j].at, tableMoveWrites[j].old, (size_t)tableMoveWrites[j].size);
         closeGameCode();
         for (int k = 0; k < count; k++)
-            writeLog("table_not_moved", "table=%s reason=code_unwritable sites=%d of %d", first[k].name, matched[k], sites[k]);
+            writeLogError("table_not_moved", "table=%s reason=code_unwritable sites=%d of %d", first[k].name, matched[k], sites[k]);
         VirtualFree(block, 0, MEM_RELEASE);
         return 0;
     }
@@ -705,7 +705,7 @@ static uint32_t a64Branch(uint32_t op, unsigned int from, unsigned int to) {
 
 static int queueClassPickerDecode(const struct TableMove *t) {
     if (!gameCodeMatches) {
-        writeLog("table_site_mismatch", "table=%s group=extra name=picker_decode va=0x%llx reason=game_code_differs", t->name,
+        writeLogError("table_site_mismatch", "table=%s group=extra name=picker_decode va=0x%llx reason=game_code_differs", t->name,
                  RVA_CLASS_PICKER_DECODE + 0x100000000ULL);
         return 0;
     }
@@ -738,7 +738,7 @@ static int queueTableMoveWrites(const TableMove *t, unsigned char *table) {
         const TableMacSite *s = &t->macSites[i];
         uint32_t moved = 0;
         if (!adrpMovedBy(tableGameWord(s->rva), pages, &moved) || !queueTableWord(s->rva, moved)) {
-            writeLog("table_site_mismatch", "table=%s group=table va=0x%llx", t->name, s->rva + 0x100000000ULL);
+            writeLogError("table_site_mismatch", "reason=bytes_differ table=%s group=table va=0x%llx", t->name, s->rva + 0x100000000ULL);
             continue;
         }
         matched++;
@@ -747,7 +747,7 @@ static int queueTableMoveWrites(const TableMove *t, unsigned char *table) {
         const TableMacBound *s = &t->macBounds[i];
         uint32_t word = tableBoundWord(tableGameWord(s->rva), s->value);
         if (!word || !queueTableWord(s->rva, word)) {
-            writeLog("table_site_mismatch", "table=%s group=bound va=0x%llx", t->name, s->rva + 0x100000000ULL);
+            writeLogError("table_site_mismatch", "reason=bytes_differ table=%s group=bound va=0x%llx", t->name, s->rva + 0x100000000ULL);
             continue;
         }
         matched++;
@@ -757,7 +757,7 @@ static int queueTableMoveWrites(const TableMove *t, unsigned char *table) {
         const TableMacSize *s = &t->macSizes[i];
         if (!queueTableWord(s->rva, patchedWord(tableGameWord(s->rva), 0xffffu << 5, (bytes & 0xffff) << 5)) ||
             !queueTableWord(s->rva + 4, patchedWord(tableGameWord(s->rva + 4), 0xffffu << 5, (bytes >> 16) << 5))) {
-            writeLog("table_site_mismatch", "table=%s group=size va=0x%llx", t->name, s->rva + 0x100000000ULL);
+            writeLogError("table_site_mismatch", "reason=bytes_differ table=%s group=size va=0x%llx", t->name, s->rva + 0x100000000ULL);
             continue;
         }
         matched++;
@@ -765,7 +765,7 @@ static int queueTableMoveWrites(const TableMove *t, unsigned char *table) {
     for (int i = 0; i < t->macPatchCount; i++) {
         const TableMacPatch *s = &t->macPatches[i];
         if (!queueTableWord(s->rva, patchedWord(tableGameWord(s->rva), s->mask, s->value))) {
-            writeLog("table_site_mismatch", "table=%s group=patch va=0x%llx", t->name, s->rva + 0x100000000ULL);
+            writeLogError("table_site_mismatch", "reason=bytes_differ table=%s group=patch va=0x%llx", t->name, s->rva + 0x100000000ULL);
             continue;
         }
         matched++;
@@ -774,7 +774,7 @@ static int queueTableMoveWrites(const TableMove *t, unsigned char *table) {
     if (!t->overflowCall) return matched;
     unsigned char *trampoline = blTarget(gameBase + t->overflowCall) == gameBase + t->overflowTarget ? newTrampoline(t->overflowHook) : NULL;
     if (!trampoline || !queueTableWord(t->overflowCall, blTo(gameBase + t->overflowCall, trampoline)))
-        writeLog("table_site_mismatch", "table=%s group=call va=0x%llx trampoline=%d", t->name, t->overflowCall + 0x100000000ULL, trampoline != NULL);
+        writeLogError("table_site_mismatch", "reason=bytes_differ table=%s group=call va=0x%llx trampoline=%d", t->name, t->overflowCall + 0x100000000ULL, trampoline != NULL);
     else
         matched++;
     return matched;
@@ -806,14 +806,14 @@ static int installTableGroup(TableMove *first, int count) {
         sites[k] = tableMoveSiteCount(&first[k]);
     }
     if (!gameCodeMatches) {
-        for (int k = 0; k < count; k++) writeLog("table_not_moved", "table=%s reason=game_code_differs sites=0 of %d", first[k].name, sites[k]);
+        for (int k = 0; k < count; k++) writeLogError("table_not_moved", "table=%s reason=game_code_differs sites=0 of %d", first[k].name, sites[k]);
         return 0;
     }
     total = (total + 64 + MAC_PAGE_MASK) & ~(size_t)MAC_PAGE_MASK;
     unsigned char *block = allocAfterImage(total);
     if (!block) {
         for (int k = 0; k < count; k++)
-            writeLog("table_not_moved", "table=%s reason=no_memory_near_game bytes=%zu sites=0 of %d", first[k].name, total, sites[k]);
+            writeLogError("table_not_moved", "table=%s reason=no_memory_near_game bytes=%zu sites=0 of %d", first[k].name, total, sites[k]);
         return 0;
     }
     int all = 1;
@@ -824,7 +824,7 @@ static int installTableGroup(TableMove *first, int count) {
     }
     if (!all) {
         for (int k = 0; k < count; k++)
-            writeLog("table_not_moved", "table=%s reason=game_build_differs sites=%d of %d", first[k].name, matched[k], sites[k]);
+            writeLogError("table_not_moved", "table=%s reason=game_build_differs sites=%d of %d", first[k].name, matched[k], sites[k]);
         mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)block, total);
         return 0;
     }
@@ -834,7 +834,7 @@ static int installTableGroup(TableMove *first, int count) {
         if (writeGameCode(tableMoveWrites[i].at, &tableMoveWrites[i].word, 4)) continue;
         for (int j = i; j >= 0; j--) writeGameCode(tableMoveWrites[j].at, &tableMoveWrites[j].old, 4);
         for (int k = 0; k < count; k++)
-            writeLog("table_not_moved", "table=%s reason=code_unwritable va=0x%llx sites=%d of %d", first[k].name,
+            writeLogError("table_not_moved", "table=%s reason=code_unwritable va=0x%llx sites=%d of %d", first[k].name,
                      (unsigned long long)(tableMoveWrites[i].at - gameBase) + 0x100000000ULL, matched[k], sites[k]);
         mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)block, total);
         return 0;
@@ -869,7 +869,7 @@ static void tableMovesInit(void) {
         int mapped = 1;
         for (int k = i; k < i + n; k++) mapped &= tableMoves[k].macSiteCount > 0;
         if (!mapped) {
-            for (int k = i; k < i + n; k++) writeLog("table_not_moved", "table=%s reason=mac_not_mapped sites=0 of 0", tableMoves[k].name);
+            for (int k = i; k < i + n; k++) writeLogError("table_not_moved", "table=%s reason=mac_not_mapped sites=0 of 0", tableMoves[k].name);
             continue;
         }
         moved += installTableGroup(&tableMoves[i], n);
@@ -884,5 +884,5 @@ static void tableMovesInit(void) {
         sigaction(SIGBUS, &action, &previousTableBus);
     }
 #endif
-    writeLog("table_moves_installed", "moved=%d of %d", moved, TABLE_MOVE_COUNT);
+    writeResultLog(moved == TABLE_MOVE_COUNT, "table_moves_installed", "moved=%d of %d", moved, TABLE_MOVE_COUNT);
 }

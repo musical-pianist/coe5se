@@ -104,7 +104,7 @@ static int queuePlayerTableWrites(unsigned char *const tables[PLAYER_GROUP_COUNT
         memcpy(&field, at + s->fieldOffset, 4);
         long long moved = field + delta;
         if (moved < INT32_MIN || moved > INT32_MAX) {
-            writeLog("player_table_site_mismatch", "group=%d rva=0x%x out_of_reach=1", s->group, s->rva);
+            writeLogError("player_table_site_mismatch", "reason=out_of_reach group=%d rva=0x%x", s->group, s->rva);
             continue;
         }
         queuePlayerWrite(at + s->fieldOffset, (int)moved, 4);
@@ -165,13 +165,13 @@ static void adjustSaveCastCountRead(void) {
 
 static int installPlayerTableMove(void) {
     if (!gameCodeMatches) {
-        writeLog("player_table_not_moved", "reason=game_code_differs sites=0 of %d", PLAYER_MOVE_SITE_COUNT);
+        writeLogError("player_table_not_moved", "reason=game_code_differs sites=0 of %d", PLAYER_MOVE_SITE_COUNT);
         return 0;
     }
     size_t sink = ((size_t)PLAYER_BLOCK_SIZE + 0xfff) & ~(size_t)0xfff, size = sink + PLAYER_SMALL_AT + 0x1000;
     unsigned char *block = allocNearImage(size);
     if (!block) {
-        writeLog("player_table_not_moved", "reason=no_memory_near_game bytes=%zu sites=0 of %d", size, PLAYER_MOVE_SITE_COUNT);
+        writeLogError("player_table_not_moved", "reason=no_memory_near_game bytes=%zu sites=0 of %d", size, PLAYER_MOVE_SITE_COUNT);
         return 0;
     }
     unsigned char *tables[PLAYER_GROUP_COUNT];
@@ -182,7 +182,7 @@ static int installPlayerTableMove(void) {
     const char *reason = matched != PLAYER_MOVE_SITE_COUNT ? "game_build_differs"
                          : !openGameCode(gameBase + RVA_TEXT_SECTION, (size_t)(RVA_RDATA_SECTION - RVA_TEXT_SECTION)) ? "code_unwritable" : NULL;
     if (reason) {
-        writeLog("player_table_not_moved", "reason=%s sites=%d of %d", reason, matched, PLAYER_MOVE_SITE_COUNT);
+        writeLogError("player_table_not_moved", "reason=%s sites=%d of %d", reason, matched, PLAYER_MOVE_SITE_COUNT);
         VirtualFree(block, 0, MEM_RELEASE);
         return 0;
     }
@@ -193,7 +193,7 @@ static int installPlayerTableMove(void) {
         if (writeGameCode(playerMoveWrites[i].at, &playerMoveWrites[i].value, n)) continue;
         for (int j = i; j >= 0; j--) writeGameCode(playerMoveWrites[j].at, &playerMoveWrites[j].old, (size_t)playerMoveWrites[j].size);
         closeGameCode();
-        writeLog("player_table_not_moved", "reason=code_unwritable sites=%d of %d", matched, PLAYER_MOVE_SITE_COUNT);
+        writeLogError("player_table_not_moved", "reason=code_unwritable sites=%d of %d", matched, PLAYER_MOVE_SITE_COUNT);
         VirtualFree(block, 0, MEM_RELEASE);
         return 0;
     }
@@ -244,7 +244,7 @@ static int queuePlayerTableWrites(unsigned char *const tables[PLAYER_GROUP_COUNT
                           ((long long)(uintptr_t)playerTableOld(s->group) >> ADRP_PAGE_SHIFT);
         uint32_t moved = 0;
         if (!adrpMovedBy(playerGameWord(s->rva), pages, &moved)) {
-            writeLog("player_table_site_mismatch", "group=%d va=0x%llx", s->group, s->rva + 0x100000000ULL);
+            writeLogError("player_table_site_mismatch", "reason=bytes_differ group=%d va=0x%llx", s->group, s->rva + 0x100000000ULL);
             continue;
         }
         queuePlayerWord(s->rva, moved);
@@ -254,7 +254,7 @@ static int queuePlayerTableWrites(unsigned char *const tables[PLAYER_GROUP_COUNT
         uint32_t word = playerGameWord(PLAYER_MAC_REBASES[i].rva);
         uint32_t imm = (word >> 10) & 0xfffu;
         if (imm + PLAYER_MAC_REBASES[i].step > 0xfffu) {
-            writeLog("player_table_site_mismatch", "group=home_y va=0x%llx out_of_reach=1", PLAYER_MAC_REBASES[i].rva + 0x100000000ULL);
+            writeLogError("player_table_site_mismatch", "reason=out_of_reach group=home_y va=0x%llx", PLAYER_MAC_REBASES[i].rva + 0x100000000ULL);
             continue;
         }
         queuePlayerWord(PLAYER_MAC_REBASES[i].rva, patchedWord(word, PLAYER_IMM12, (imm + PLAYER_MAC_REBASES[i].step) << 10));
@@ -292,7 +292,7 @@ static int writePlayerWords(void) {
 
 static int installPlayerTableMove(void) {
     if (!gameCodeMatches) {
-        writeLog("player_table_not_moved", "reason=game_code_differs sites=0 of %d", PLAYER_MOVE_SITE_COUNT);
+        writeLogError("player_table_not_moved", "reason=game_code_differs sites=0 of %d", PLAYER_MOVE_SITE_COUNT);
         return 0;
     }
     size_t at[PLAYER_GROUP_COUNT], total = ((size_t)PLAYER_BLOCK_SIZE + MAC_PAGE_MASK) & ~(size_t)MAC_PAGE_MASK;
@@ -304,14 +304,14 @@ static int installPlayerTableMove(void) {
     }
     unsigned char *memory = allocAfterImage(total);
     if (!memory) {
-        writeLog("player_table_not_moved", "reason=no_memory_near_game bytes=%zu sites=0 of %d", total, PLAYER_MOVE_SITE_COUNT);
+        writeLogError("player_table_not_moved", "reason=no_memory_near_game bytes=%zu sites=0 of %d", total, PLAYER_MOVE_SITE_COUNT);
         return 0;
     }
     unsigned char *tables[PLAYER_GROUP_COUNT];
     for (int g = 0; g < PLAYER_GROUP_COUNT; g++) tables[g] = memory + at[g] + ((uintptr_t)playerTableOld(g) & ADRP_PAGE_MASK);
     int matched = queuePlayerTableWrites(tables);
     if (matched != PLAYER_MOVE_SITE_COUNT) {
-        writeLog("player_table_not_moved", "reason=game_build_differs sites=%d of %d", matched, PLAYER_MOVE_SITE_COUNT);
+        writeLogError("player_table_not_moved", "reason=game_build_differs sites=%d of %d", matched, PLAYER_MOVE_SITE_COUNT);
         mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)memory, total);
         return 0;
     }
@@ -323,7 +323,7 @@ static int installPlayerTableMove(void) {
     int written = writePlayerWords();
     if (written != playerMoveWriteCount) {
         for (int j = 0; j < playerMoveWriteCount; j++) writeGameCode(playerMoveWrites[j].at, &playerMoveWrites[j].old, 4);
-        writeLog("player_table_not_moved", "reason=code_unwritable va=0x%llx sites=%d of %d",
+        writeLogError("player_table_not_moved", "reason=code_unwritable va=0x%llx sites=%d of %d",
                  (unsigned long long)(playerMoveWrites[written].at - gameBase) + 0x100000000ULL, matched, PLAYER_MOVE_SITE_COUNT);
         mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)memory, total);
         return 0;

@@ -2,10 +2,19 @@
 
 [![Latest release](https://img.shields.io/github/v/release/musical-pianist/coe5se?label=latest)](https://github.com/musical-pianist/coe5se/releases/latest)
 [![Docs](https://img.shields.io/badge/docs-coe5se--docs-blue)](https://musical-pianist.github.io/coe5se-docs/)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/musical-pianist/coe5se?label=openssf%20scorecard)](https://scorecard.dev/viewer/?uri=github.com/musical-pianist/coe5se)
+
+The OpenSSF Scorecard rates this repo's security practices from 0 to 10. A score above 7.0 is great.
 
 CoE5SE is the script extender for Conquest of Elysium 5. It raises the game's limits, and lets modders call other aspects of the game never before possible. Custom Planes? Smarter AI? New and unique UI? All are possible with CoE5SE. Built for Windows and Mac.
 
 This repository contains CoE5SE's full source, and until it's on other platforms (goal is nexus) you can verify its safety with the tools included. See [Verify This Build](#verify-this-build).
+
+## What's Here
+
+- The script extender: [download](https://github.com/musical-pianist/coe5se/releases/latest)
+- My other mods: [CoE5SE Mods Suite](https://github.com/musical-pianist/coe5se-mods-suite), or [all in one zip](https://github.com/musical-pianist/coe5se-mods-suite/archive/refs/heads/main.zip)
+- My install scripts: [CoE5SE Installer](https://github.com/musical-pianist/coe5se-installer)
 
 ## Install
 

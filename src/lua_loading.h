@@ -14,9 +14,9 @@ static const luaL_Reg LUA_COE5[] = {
     {"hideMainMenuButton", lHideMainMenuButton}, {"addScreen", lAddScreen}, {"rebindKey", lRebindKey},
     {"addActionKey", lAddActionKey}, {"actionKey", lActionKey}, {"findMonster", lFindMonster},
     {"dataFolder", lDataFolder}, {"readIni", lReadIni}, {"writeIni", lWriteIni}, {"listIni", lListIni},
-    {"deleteIni", lDeleteIni}, {"spawnUnit", lSpawnUnit}, {"spawnCommander", lSpawnCommander}, {"newUnits", lNewUnits},
+    {"deleteIni", lDeleteIni}, {"copyText", lCopyText}, {"testBattle", lTestBattle}, {"openTestField", lOpenTestField}, {"drawTestField", lDrawTestField}, {"fireTestField", lFireTestField}, {"fightTestField", lFightTestField}, {"closeTestField", lCloseTestField}, {"stopTestFight", lStopTestFight}, {"spellInfo", lSpellInfo}, {"lookName", lLookName}, {"saveNewMod", lSaveNewMod}, {"spawnUnit", lSpawnUnit}, {"spawnCommander", lSpawnCommander}, {"newUnits", lNewUnits},
     {"monsterVariant", lMonsterVariant}, {"portalExits", lPortalExits}, {"onPortalCrossing", lOnPortalCrossing}, {"squareUnits", lSquareUnits}, {"revealMap", lRevealMap}, {"centerMap", lCenterMap}, {"viewArmy", lViewArmy}, {"armies", lArmies}, {"route", lRoute},
-    {"scrapRitualPlan", lScrapRitualPlan}, {"planRitual", lPlanRitual}, {"aiRitualBad", lAiRitualBad}, {"aiRitualBadTime", lAiRitualBadTime}, {"aiItemValue", lAiItemValue}, {"aiItemUseRating", lAiItemUseRating}, {"terrainMatch", lTerrainMatch},
+    {"scrapRitualPlan", lScrapRitualPlan}, {"planRitual", lPlanRitual}, {"aiRitualBad", lAiRitualBad}, {"aiRitualBadTime", lAiRitualBadTime}, {"aiItemValue", lAiItemValue}, {"aiItemUseRating", lAiItemUseRating}, {"aiRandomEnemy", lAiRandomEnemy}, {"terrainMatch", lTerrainMatch},
     {"releaseFollower", lReleaseFollower}, {"transferFollower", lTransferFollower},
     {"shopOffers", lShopOffers}, {"classRecruits", lClassRecruits}, {"recruitSquares", lRecruitSquares},
     {"builtinOffers", lBuiltinOffers}, {"builtinOfferChance", lBuiltinOfferChance}, {"replaceBuiltinOffer", lReplaceBuiltinOffer},
@@ -198,7 +198,7 @@ static void luaWarn(void *ud, const char *message, int tocont) {
     }
     s->warnContinued = tocont;
     if (tocont) return;
-    if (!s->warnOff && s->warning) writeLog("lua_warning", "mod=%s text=%s", s->mod, s->warning);
+    if (!s->warnOff && s->warning) writeLogWarning("lua_warning", "mod=%s text=%s", s->mod, s->warning);
     s->warningLength = 0;
     if (s->warning) s->warning[0] = '\0';
 }

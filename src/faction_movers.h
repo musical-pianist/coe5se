@@ -444,7 +444,7 @@ static int installFactionAvoidStub(void) {
     unsigned char *page = allocNear(GAME_PTR(RVA_INDEP_AVOID_MOVER_TEST));
     const char *reason = !page ? "no_near_page" : !copyMoveTryUnwind(page + AVOID_STUB_UNWIND) ? "unwind_info" : NULL;
     if (reason) {
-        writeLog("faction_avoid_not_installed", "reason=%s", reason);
+        writeLogError("faction_avoid_not_installed", "reason=%s", reason);
         return 0;
     }
     unsigned char *code = page + AVOID_STUB_CODE, *p = code, *none[3];
@@ -479,7 +479,7 @@ static int installFactionAvoidStub(void) {
     function->EndAddress = (DWORD)(p - page);
     function->UnwindData = AVOID_STUB_UNWIND;
     if (!RtlAddFunctionTable(function, 1, (DWORD64)(uintptr_t)page)) {
-        writeLog("faction_avoid_not_installed", "reason=unwind_not_added");
+        writeLogError("faction_avoid_not_installed", "reason=unwind_not_added");
         return 0;
     }
     DWORD old;
@@ -490,7 +490,7 @@ static int installFactionAvoidStub(void) {
     int rel = (int)(code - (at + 5));
     memcpy(jump + 1, &rel, 4);
     int ok = writeGameCode(at, jump, sizeof jump);
-    writeLog("faction_avoid_installed", "ok=%d stub=%p", ok, (void *)code);
+    writeResultLog(ok, "faction_avoid_installed", "ok=%d stub=%p", ok, (void *)code);
     return ok;
 }
 
@@ -517,12 +517,12 @@ static int installFactionWanderStubs(void) {
     };
     _Static_assert(sizeof TESTS / sizeof TESTS[0] + 1 == FACTION_WANDER_STUB_COUNT, "the gate is the last");
     if (!gameCodeMatches) {
-        writeLog("faction_wander_stubs_not_installed", "reason=game_code_differs");
+        writeLogError("faction_wander_stubs_not_installed", "reason=game_code_differs");
         return 0;
     }
     unsigned char *stubs = allocNearBytes(gameBase + RVA_TEXT_SECTION, FACTION_WANDER_STUB_COUNT * FACTION_STUB_BYTES);
     if (!stubs) {
-        writeLog("faction_wander_stubs_not_installed", "reason=no_memory_near_game");
+        writeLogError("faction_wander_stubs_not_installed", "reason=no_memory_near_game");
         return 0;
     }
     refreshFactionWanderTables();
@@ -540,7 +540,7 @@ static int installFactionWanderStubs(void) {
     int ok = 0;
     for (k = 0; k < FACTION_WANDER_STUB_COUNT; k++) {
         if (!lengths[k]) {
-            writeLog("faction_stub_refused", "rva=0x%x reason=game_code_differs", rvas[k]);
+            writeLogError("faction_stub_refused", "rva=0x%x reason=game_code_differs", rvas[k]);
             continue;
         }
         unsigned char *at = gameBase + rvas[k], jump[16];
@@ -991,7 +991,7 @@ static int installHorrorsSplit(void) {
     ok += pointCustomPlaneCall(RVA_HORROR_SINGLE_POPULATE_CALL, RVA_POPULATE, (void *)horrorSinglePopulateHook, "horror_single_populate");
     int wanted = 3;
 #endif
-    writeLog("faction_horrors_installed", "calls=%d of %d", ok, wanted);
+    writeResultLog(ok == wanted, "faction_horrors_installed", "calls=%d of %d", ok, wanted);
     return ok == wanted;
 }
 
@@ -1069,9 +1069,10 @@ static int installFactionMovers(void) {
     int horrors = installHorrorsSplit();
     int avoid = installFactionAvoidStub();
     int population = installPopulateAfterVoidHook();
-    writeLog("faction_movers_installed", "hooks=%d of %d wander_stubs=%d of %d horrors=%d avoid=%d population=%d", hooked, wanted, wander,
-             FACTION_WANDER_STUB_COUNT, horrors, avoid, population);
-    return hooked == wanted && wander == FACTION_WANDER_STUB_COUNT && horrors && avoid && population;
+    int all = hooked == wanted && wander == FACTION_WANDER_STUB_COUNT && horrors && avoid && population;
+    writeResultLog(all, "faction_movers_installed", "hooks=%d of %d wander_stubs=%d of %d horrors=%d avoid=%d population=%d", hooked, wanted,
+                   wander, FACTION_WANDER_STUB_COUNT, horrors, avoid, population);
+    return all;
 }
 #else
 static int macAvoidRefusal(int mover, int owner) {
@@ -1120,7 +1121,7 @@ static int installMacPresetTests(void) {
         int arg = t->kind == MAC_SITE_LOAD_AS_ZERO ? FACTION_AS_TITHE << 8 | 29 : t->as;
         ok += macSiteAdd(gameBase + t->rva, t->kind, t->field, arg, t->name);
     }
-    writeLog("mac_preset_tests_installed", "ok=%d of %d", ok, wanted);
+    writeInstallLog("mac_preset_tests_installed", ok, wanted);
     return ok == wanted;
 }
 static int installFactionMovers(void) {
@@ -1136,8 +1137,9 @@ static int installFactionMovers(void) {
     int tests = installMacPresetTests();
     int horrors = installHorrorsSplit();
     int population = installPopulateAfterVoidHook();
-    writeLog("faction_movers_installed", "hooks=%d of 4 preset_tests=%d horrors=%d population=%d", hooked, tests, horrors, population);
-    return hooked == 4 && tests && horrors && population;
+    int all = hooked == 4 && tests && horrors && population;
+    writeResultLog(all, "faction_movers_installed", "hooks=%d of 4 preset_tests=%d horrors=%d population=%d", hooked, tests, horrors, population);
+    return all;
 }
 #endif
 static void saveFactionTurnState(SaveBuffer *b, int slot) {
@@ -1198,7 +1200,7 @@ static void populateFactions(void) {
     if (!any) return;
     unsigned char *mark = calloc((size_t)MAP_COLUMNS_MAX * MAP_COLUMN_SQUARES, 1);
     if (!mark) {
-        writeLog("faction_population_skipped", "reason=out_of_memory");
+        writeLogError("faction_population_skipped", "reason=out_of_memory");
         return;
     }
     PieceTools t = pieceTools();

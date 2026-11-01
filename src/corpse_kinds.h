@@ -515,5 +515,5 @@ static void corpseKindsInit(void) {
     int count = (int)(sizeof CALLS / sizeof CALLS[0]), calls = 0;
     if (checkGameFunction("corpse_kinds_check", ""))
         for (int i = 0; i < count; i++) calls += pointCorpseCall(&CALLS[i], i);
-    writeLog("corpse_kinds_installed", "words=%d of 2 calls=%d of %d", words, calls, count);
+    writeResultLog(words == 2 && calls == count, "corpse_kinds_installed", "words=%d of 2 calls=%d of %d", words, calls, count);
 }

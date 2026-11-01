@@ -88,7 +88,7 @@ static int writeWorkshopCacheFile(const char *path, const TextList *items) {
     if (!buildPath(temp, sizeof temp, __func__, "%s.new", path)) return 0;
     FILE *f = fopen(temp, "wb");
     if (!f) {
-        writeLog("workshop_cache_failed", "reason=open path=%s", temp);
+        writeLogError("workshop_cache_failed", "reason=open path=%s", temp);
         return 0;
     }
     int32_t last = items->count - 1;
@@ -102,12 +102,12 @@ static int writeWorkshopCacheFile(const char *path, const TextList *items) {
         }
     }
     if (fclose(f) || !ok) {
-        writeLog("workshop_cache_failed", "reason=write path=%s", temp);
+        writeLogError("workshop_cache_failed", "reason=write path=%s", temp);
         remove(temp);
         return 0;
     }
     if (rename(temp, path)) {
-        writeLog("workshop_cache_failed", "reason=rename path=%s", path);
+        writeLogError("workshop_cache_failed", "reason=rename path=%s", path);
         remove(temp);
         return 0;
     }
@@ -172,7 +172,7 @@ static int writeWorkshopCacheFor(const char *cachePath, const char *localRoot, c
         if (ok) writeLog("workshop_item_listed", "item=%s mod=%s", id, itemNames.items[0]);
     }
     int written = -1;
-    if (!ok) writeLog("workshop_cache_failed", "reason=out_of_memory");
+    if (!ok) writeLogError("workshop_cache_failed", "reason=out_of_memory");
     else if (writeWorkshopCacheFile(cachePath, &items)) {
         written = items.count;
         writeLog("workshop_cache_written", "items=%d reason=%s coe5se_only=%d path=%s", written, empty ? empty : "-", coe5seOnly, cachePath);

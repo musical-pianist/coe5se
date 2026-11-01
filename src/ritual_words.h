@@ -157,5 +157,5 @@ static void ritualWordsAfterPass(int level) {
 
 static void ritualWordsInit(void) {
     int words = apiAddModCommand("randomequip", randomequipLine) + apiAddModCommand("randartifact", randartifactLine);
-    writeLog("ritual_words_installed", "words=%d of 2", words);
+    writeResultLog(words == 2, "ritual_words_installed", "words=%d of 2", words);
 }

@@ -95,7 +95,7 @@ static int queuePlaneTableWrites(unsigned char *const arrays[PLANE_GROUP_COUNT],
         memcpy(&field, at + s->fieldOffset, 4);
         long long moved = field + delta;
         if (moved < INT32_MIN || moved > INT32_MAX) {
-            writeLog("plane_table_site_mismatch", "group=%d rva=0x%x out_of_reach=1", s->group, s->rva);
+            writeLogError("plane_table_site_mismatch", "reason=out_of_reach group=%d rva=0x%x", s->group, s->rva);
             continue;
         }
         queuePlaneWrite(at + s->fieldOffset, (int)moved, 4);
@@ -113,7 +113,7 @@ static int queuePlaneTableWrites(unsigned char *const arrays[PLANE_GROUP_COUNT],
     unsigned char *at = gameBase + RVA_TOP_BAR_PLANE_SLOT_WIDTH;
     long long rel = slotScale - (at + PLANE_SLOT_WIDTH_SIZE);
     if (!gameCodeMatches || rel < INT32_MIN || rel > INT32_MAX)
-        writeLog("plane_table_site_mismatch", "group=value name=top_bar_slot_width rva=0x%x reason=%s", RVA_TOP_BAR_PLANE_SLOT_WIDTH,
+        writeLogError("plane_table_site_mismatch", "group=value name=top_bar_slot_width rva=0x%x reason=%s", RVA_TOP_BAR_PLANE_SLOT_WIDTH,
                  gameCodeMatches ? "out_of_reach" : "game_code_differs");
     else {
         queuePlaneWrite(at + PLANE_SLOT_WIDTH_FIELD, (int)rel, 4);
@@ -131,13 +131,13 @@ _Static_assert(PLANE_RECORDS_MOVED * PLANE_SIZE <= 0x600 && PLANE_RECORDS_MOVED 
                "the arrays don't overlap");
 static int installPlaneTableMove(void) {
     if (!gameCodeMatches) {
-        writeLog("plane_table_not_moved", "reason=game_code_differs sites=0 of %d", PLANE_MOVE_SITE_COUNT);
+        writeLogError("plane_table_not_moved", "reason=game_code_differs sites=0 of %d", PLANE_MOVE_SITE_COUNT);
         return 0;
     }
     size_t size = 0x1000;
     unsigned char *block = allocNearImage(size);
     if (!block) {
-        writeLog("plane_table_not_moved", "reason=no_memory_near_game bytes=%zu sites=0 of %d", size, PLANE_MOVE_SITE_COUNT);
+        writeLogError("plane_table_not_moved", "reason=no_memory_near_game bytes=%zu sites=0 of %d", size, PLANE_MOVE_SITE_COUNT);
         return 0;
     }
     unsigned char *arrays[PLANE_GROUP_COUNT];
@@ -149,7 +149,7 @@ static int installPlaneTableMove(void) {
     const char *reason = matched != PLANE_MOVE_SITE_COUNT ? "game_build_differs"
                          : !openGameCode(gameBase + RVA_TEXT_SECTION, (size_t)(RVA_RDATA_SECTION - RVA_TEXT_SECTION)) ? "code_unwritable" : NULL;
     if (reason) {
-        writeLog("plane_table_not_moved", "reason=%s sites=%d of %d", reason, matched, PLANE_MOVE_SITE_COUNT);
+        writeLogError("plane_table_not_moved", "reason=%s sites=%d of %d", reason, matched, PLANE_MOVE_SITE_COUNT);
         VirtualFree(block, 0, MEM_RELEASE);
         return 0;
     }
@@ -162,7 +162,7 @@ static int installPlaneTableMove(void) {
         if (writeGameCode(planeMoveWrites[i].at, &planeMoveWrites[i].value, n)) continue;
         for (int j = i; j >= 0; j--) writeGameCode(planeMoveWrites[j].at, &planeMoveWrites[j].old, (size_t)planeMoveWrites[j].size);
         closeGameCode();
-        writeLog("plane_table_not_moved", "reason=code_unwritable sites=%d of %d", matched, PLANE_MOVE_SITE_COUNT);
+        writeLogError("plane_table_not_moved", "reason=code_unwritable sites=%d of %d", matched, PLANE_MOVE_SITE_COUNT);
         movedPlaneTable = moved[0], movedPlaneCameraX = moved[1], movedPlaneCameraY = moved[2], movedPlaneBuilt = movedBuilt;
         VirtualFree(block, 0, MEM_RELEASE);
         return 0;
@@ -229,7 +229,7 @@ static int queuePlaneTableWrites(unsigned char *const arrays[PLANE_GROUP_COUNT])
                           ((long long)(uintptr_t)planeGroupOld(s->group) >> ADRP_PAGE_SHIFT);
         uint32_t moved = 0;
         if (!adrpMovedBy(planeGameWord(s->rva), pages, &moved)) {
-            writeLog("plane_table_site_mismatch", "group=%d va=0x%llx", s->group, s->rva + 0x100000000ULL);
+            writeLogError("plane_table_site_mismatch", "reason=bytes_differ group=%d va=0x%llx", s->group, s->rva + 0x100000000ULL);
             continue;
         }
         queuePlaneWord(s->rva, moved);
@@ -260,20 +260,20 @@ static int writePlaneWords(void) {
 
 static int installPlaneTableMove(void) {
     if (!gameCodeMatches) {
-        writeLog("plane_table_not_moved", "reason=game_code_differs sites=0 of %d", PLANE_MOVE_SITE_COUNT);
+        writeLogError("plane_table_not_moved", "reason=game_code_differs sites=0 of %d", PLANE_MOVE_SITE_COUNT);
         return 0;
     }
     size_t total = ((size_t)PLANE_GROUP_COUNT * 0x1000 + MAC_PAGE_MASK) & ~(size_t)MAC_PAGE_MASK;
     unsigned char *memory = allocAfterImage(total);
     if (!memory) {
-        writeLog("plane_table_not_moved", "reason=no_memory_near_game bytes=%zu sites=0 of %d", total, PLANE_MOVE_SITE_COUNT);
+        writeLogError("plane_table_not_moved", "reason=no_memory_near_game bytes=%zu sites=0 of %d", total, PLANE_MOVE_SITE_COUNT);
         return 0;
     }
     unsigned char *arrays[PLANE_GROUP_COUNT];
     for (int g = 0; g < PLANE_GROUP_COUNT; g++) {
         arrays[g] = memory + (size_t)g * 0x1000 + ((uintptr_t)planeGroupOld(g) & ADRP_PAGE_MASK);
         if (arrays[g] + (size_t)PLANE_RECORDS_MOVED * (size_t)PLANE_ARRAYS[g].entry > memory + (size_t)(g + 1) * 0x1000) {
-            writeLog("plane_table_not_moved", "reason=array_crosses_page group=%d sites=0 of %d", g, PLANE_MOVE_SITE_COUNT);
+            writeLogError("plane_table_not_moved", "reason=array_crosses_page group=%d sites=0 of %d", g, PLANE_MOVE_SITE_COUNT);
             mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)memory, total);
             return 0;
         }
@@ -281,7 +281,7 @@ static int installPlaneTableMove(void) {
     unsigned char *table = arrays[PLANE_GROUP_TABLE];
     int matched = queuePlaneTableWrites(arrays);
     if (matched != PLANE_MOVE_SITE_COUNT) {
-        writeLog("plane_table_not_moved", "reason=game_build_differs sites=%d of %d", matched, PLANE_MOVE_SITE_COUNT);
+        writeLogError("plane_table_not_moved", "reason=game_build_differs sites=%d of %d", matched, PLANE_MOVE_SITE_COUNT);
         mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)memory, total);
         return 0;
     }
@@ -291,7 +291,7 @@ static int installPlaneTableMove(void) {
     int written = writePlaneWords();
     if (written != planeMoveWriteCount) {
         for (int j = 0; j < planeMoveWriteCount; j++) writeGameCode(planeMoveWrites[j].at, &planeMoveWrites[j].old, 4);
-        writeLog("plane_table_not_moved", "reason=code_unwritable va=0x%llx sites=%d of %d",
+        writeLogError("plane_table_not_moved", "reason=code_unwritable va=0x%llx sites=%d of %d",
                  (unsigned long long)(planeMoveWrites[written].at - gameBase) + 0x100000000ULL, matched, PLANE_MOVE_SITE_COUNT);
         movedPlaneTable = moved[0], movedPlaneCameraX = moved[1], movedPlaneCameraY = moved[2], movedPlaneBuilt = movedBuilt;
         mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)memory, total);

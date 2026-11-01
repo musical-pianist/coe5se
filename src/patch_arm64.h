@@ -261,7 +261,7 @@ static int putStepHookMac(unsigned int rva, StepHook *hook, const char *name, in
     uint32_t branch = 0x14000000u | ((uint32_t)((stub - at) >> 2) & 0x3ffffffu);
     if (!writeGameCode(tramp, trampCode, sizeof trampCode) || !writeGameCode(stub, stubCode, sizeof stubCode) ||
         !writeGameCode(at, &branch, 4)) {
-        writeLog("site_failed", "site=%s reason=write address=%p", name, (void *)at);
+        writeLogError("site_failed", "site=%s reason=write address=%p", name, (void *)at);
         return 0;
     }
     return 1;
@@ -382,7 +382,7 @@ static int installCeremonyCostsMac(void) {
     }
     uint32_t call = blTo(screenCall, screenStub);
     written &= writeGameCode(screenCall, &call, 4);
-    if (!written) writeLog("site_failed", "site=ceremony_costs reason=write");
+    if (!written) writeLogError("site_failed", "site=ceremony_costs reason=write");
     return written;
 }
 
@@ -467,7 +467,7 @@ static int installSealEventMac(void) {
     *siteHead(SITE_SEAL_EVENT) = siteGameFunction(SITE_SEAL_EVENT);
     uint32_t branch = 0x14000000u | ((uint32_t)((stub - at) >> 2) & 0x3ffffffu);
     if (!writeGameCode(stub, code, sizeof code) || !writeGameCode(at, &branch, 4)) {
-        writeLog("site_failed", "site=seal_event reason=write");
+        writeLogError("site_failed", "site=seal_event reason=write");
         return 0;
     }
     siteInstalled[SITE_SEAL_EVENT] = 1;
@@ -573,7 +573,7 @@ static int installParticipantsMac(void) {
     *siteHead(SITE_NEW_WORLD_INIT_PARTICIPANTS) = siteGameFunction(SITE_NEW_WORLD_INIT_PARTICIPANTS);
     uint32_t branch = 0x14000000u | ((uint32_t)((stub - at) >> 2) & 0x3ffffffu);
     if (!writeGameCode(stub, code, sizeof code) || !writeGameCode(at, &branch, 4)) {
-        writeLog("site_failed", "site=new_world_init_participants reason=write");
+        writeLogError("site_failed", "site=new_world_init_participants reason=write");
         return 0;
     }
     siteInstalled[SITE_NEW_WORLD_INIT_PARTICIPANTS] = 1;
@@ -607,7 +607,7 @@ static int installSite(CallSite site) {
         unsigned char *call = gameBase + info->rvas[i];
         uint32_t insn = blTarget(call) ? blTo(call, trampoline) : 0x14000000u | ((uint32_t)((trampoline - call) >> 2) & 0x3ffffffu);
         if (!writeGameCode(call, &insn, 4)) {
-            writeLog("site_failed", "site=%s reason=write address=%p", info->name, call);
+            writeLogError("site_failed", "site=%s reason=write address=%p", info->name, call);
             return 0;
         }
     }

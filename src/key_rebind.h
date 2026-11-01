@@ -88,7 +88,7 @@ static void logBindingDropped(int screen, int id, int key, int action) {
     char name[48], keyName[24];
     actionLogName(action, name, sizeof name);
     keyValueName(key, keyName, sizeof keyName);
-    writeLog("key_binding_dropped", "screen=%s id=%d key=%s for=%s", KEY_SCREEN_NAMES[screen], id, keyName, name);
+    writeLogWarning("key_binding_dropped", "reason=key_taken screen=%s id=%d key=%s for=%s", KEY_SCREEN_NAMES[screen], id, keyName, name);
 }
 
 static void rewriteShortcuts(int screen) {
@@ -501,6 +501,7 @@ static void keyRebindInit(void) {
                 wrapSite(SITE_KEY_HELP_TEXT, (void *)keyHelpTextHook, (void **)&nextKeyHelpText) +
                 wrapSite(SITE_KEY_TEXT_BUTTON, (void *)keyTextButtonHook, (void **)&nextKeyTextButton);
     refreshShortcutsList();
-    writeLog("key_actions_installed", "actions=%d screen_waits=%d of 10 poll=%d texts=%d of 4 list=%d unit_list_sheet=%d",
-             KEY_ACTION_COUNT - 1, waits, poll, texts, shortcutsTableReady == 1, unitListNeedsSheet);
+    writeResultLog(waits == 10 && poll && texts == 4, "key_actions_installed",
+                   "actions=%d screen_waits=%d of 10 poll=%d texts=%d of 4 list=%d unit_list_sheet=%d", KEY_ACTION_COUNT - 1, waits, poll,
+                   texts, shortcutsTableReady == 1, unitListNeedsSheet);
 }

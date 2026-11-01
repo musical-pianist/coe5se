@@ -31,14 +31,14 @@ static int spellPathTableReady(void) {
     for (int p = 1; p < size; p++)
         if ((p < VANILLA_SPELL_PATH_COUNT) != (names[p] != NULL)) {
             spellPaths.state = -1;
-            writeLog("spell_path_table_unexpected", "path=%d", p);
+            writeLogError("spell_path_table_unexpected", "reason=unexpected_path path=%d", p);
             return 0;
         }
     if (size > VANILLA_SPELL_PATH_COUNT) {
         spellPaths.unnamed = calloc((size_t)(size - VANILLA_SPELL_PATH_COUNT), sizeof *spellPaths.unnamed);
         if (!spellPaths.unnamed) {
             spellPaths.state = -1;
-            writeLog("spell_path_table_unexpected", "reason=out_of_memory paths=%d", size);
+            writeLogError("spell_path_table_unexpected", "reason=out_of_memory paths=%d", size);
             return 0;
         }
     }
@@ -280,5 +280,5 @@ static int declinedSpellPathLine(const char *word, int mod, int level) {
 
 static void spellPathWordsInit(void) {
     int words = apiAddModCommand("newspellpath", newspellpathLine) + apiAddModCommand("selectspellpath", selectspellpathLine);
-    writeLog("spell_path_words_installed", "words=%d of 2", words);
+    writeResultLog(words == 2, "spell_path_words_installed", "words=%d of 2", words);
 }

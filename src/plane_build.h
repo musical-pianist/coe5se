@@ -42,7 +42,7 @@ static int insidePlaneBuilt(int x, int y) {
 static int beginPlaneBuild(int index, SquareRect area, const char *mod, const char *name) {
     planeBuild.savedMarks = malloc(sizeof(short) * MARK_LAYER_SQUARES);
     if (!planeBuild.savedMarks) {
-        writeLog("plane_build_skipped", "mod=%s name=%s reason=out_of_memory", mod, name);
+        writeLogError("plane_build_skipped", "mod=%s name=%s reason=out_of_memory", mod, name);
         return 0;
     }
     memcpy(planeBuild.savedMarks, markLayer(), sizeof(short) * MARK_LAYER_SQUARES);
@@ -83,7 +83,7 @@ static void guardSquares(SquareGuard *g, int x0, int y0, int x1, int y1) {
     if (g->x1 <= g->x0 || g->y1 <= g->y0) return;
     size_t column = (size_t)(g->y1 - g->y0) * SQUARE_SIZE;
     if (!(g->saved = malloc(column * (size_t)(g->x1 - g->x0)))) {
-        writeLog("plane_guard_skipped", "reason=out_of_memory x0=%d y0=%d x1=%d y1=%d", g->x0, g->y0, g->x1, g->y1);
+        writeLogError("plane_guard_skipped", "reason=out_of_memory x0=%d y0=%d x1=%d y1=%d", g->x0, g->y0, g->x1, g->y1);
         return;
     }
     for (int x = g->x0; x < g->x1; x++) memcpy(g->saved + column * (size_t)(x - g->x0), squareRecordAt(x, g->y0), column);
@@ -727,7 +727,7 @@ static void addDefaultPortal(const CustomPlane *p) {
         return;
     }
     if (px < 0 && !randomFreeSquare(p->index, TERRAIN_CODE_LAND, &p->layout, &px, &py) && !anyFreeEntranceSquare(p, &px, &py)) {
-        writeLog("plane_entrance_missing", "mod=%s name=%s reason=no_free_square", p->mod, p->name);
+        writeLogWarning("plane_entrance_missing", "mod=%s name=%s reason=no_free_square", p->mod, p->name);
         return;
     }
     int was = *(short *)(squareRecordAt(px, py) + SQUARE_TERRAIN_TYPE);
@@ -1323,7 +1323,7 @@ static void applyPlaneSwap(const CustomPlane *p) {
     int last = G32(RVA_LAST_TERRAIN), changed = 0, x0 = planeField(p->index, PLANE_X), y0 = planeField(p->index, PLANE_Y);
     for (int i = 0; i < p->swapCount; i++)
         if (p->swapTo[i] > last)
-            writeLog("plane_swap_refused", "mod=%s name=%s from=%d to=%d reason=no_such_terrain last_terrain=%d", p->mod, p->name, p->swapFrom[i],
+            writeLogWarning("plane_swap_refused", "mod=%s name=%s from=%d to=%d reason=no_such_terrain last_terrain=%d", p->mod, p->name, p->swapFrom[i],
                      p->swapTo[i], last);
     for (int x = x0; x < x0 + p->w; x++)
         for (int y = y0; y < y0 + p->h; y++) {

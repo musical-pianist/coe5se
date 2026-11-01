@@ -331,15 +331,15 @@ static void eventFindersInit(void) {
     };
     enum { COUNT = sizeof CALLS / sizeof CALLS[0] };
     if (!gameBuild) {
-        writeLog("event_finders_installed", "ok=0 of %d reason=unknown_game_build", COUNT);
+        writeLogError("event_finders_installed", "ok=0 of %d reason=unknown_game_build", COUNT);
         return;
     }
     if (!checkEventFinderCode()) {
-        writeLog("event_finders_installed", "ok=0 of %d reason=game_code_changed", COUNT);
+        writeLogError("event_finders_installed", "ok=0 of %d reason=%s", COUNT, gameCodeReason());
         return;
     }
     int ok = 0;
     for (int i = 0; i < COUNT; i++) ok += pointEventFinderCall(&CALLS[i], i);
     eventFinders.installed = ok > 0;
-    writeLog("event_finders_installed", "ok=%d of %d", ok, COUNT);
+    writeInstallLog("event_finders_installed", ok, COUNT);
 }

@@ -129,7 +129,7 @@ static void readIncludedFile(int mod, int level, const char *file) {
     sidecar.file++;
     memcpy(GAME_PTR(RVA_EVENT_FILE), outer, sizeof outer);
     G32(RVA_MOD_LINE) = line;
-    if (read <= 0) writeLog("include_not_read", "mod=%s file=%s level=%d", modName(mod), file, level);
+    if (read <= 0) writeLogWarning("include_not_read", "reason=file_not_read mod=%s file=%s level=%d", modName(mod), file, level);
 }
 
 static void takeIncludeLine(int mod, int level, int kind, const char *file) {
@@ -263,5 +263,5 @@ static void sidecarInit(void) {
     modErrorBox = GAME_FN(void (*)(const char *, ...), RVA_MOD_ERROR);
     int lineRead = wrapSite(SITE_RUN_ONE_MOD_LINE_READ, (void *)modLineReadHook, (void **)&nextModLineRead);
     int word = apiAddModCommand("include", includeWordLine);
-    writeLog("sidecar_hooks_installed", "ok=%d of 2 line_read=%d include_word=%d", ok, lineRead, word);
+    writeResultLog(ok == 2, "sidecar_hooks_installed", "ok=%d of 2 line_read=%d include_word=%d", ok, lineRead, word);
 }

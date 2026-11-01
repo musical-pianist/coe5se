@@ -177,7 +177,7 @@ static __attribute__((unused)) int userFileToWrite(const char *folder, const cha
     if (!buildPath(out, size, __func__, "%s" USER_DIR_SEP "%s" USER_DIR_SEP "%s", userDir(), folder, file)) return 0;
     if (GetFileAttributesA(out) == INVALID_FILE_ATTRIBUTES && oldUserFile(folder, file, old, sizeof old)) {
         if (copyUserFile(old, out)) writeLog("user_file_copied", "file=%s" USER_DIR_SEP "%s", folder, file);
-        else writeLog("user_file_not_copied", "file=%s" USER_DIR_SEP "%s", folder, file);
+        else STUB_SAFE_ERROR("user_file_not_copied", "file=%s" USER_DIR_SEP "%s", folder, file);
     }
     return 1;
 }
@@ -187,7 +187,7 @@ static __attribute__((unused)) int isHashApproved(const char *hash) {
     if (!userFileToRead(COE5SE_USER_DIR, "approved.txt", path, sizeof path)) return 0;
     FILE *f = fopen(path, "r");
     if (!f) {
-        if (errno != ENOENT) writeLog("approvals_unreadable", "path=%s errno=%d", path, errno);
+        if (errno != ENOENT) STUB_SAFE_ERROR("approvals_unreadable", "path=%s errno=%d", path, errno);
         return 0;
     }
     int approved = 0;

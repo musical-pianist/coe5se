@@ -133,7 +133,7 @@ static int installPlaneTintHooks(void) {
     if (planeTintHooks) return planeTintHooks > 0;
     int ok = patchPlaneTintUpdates();
     planeTintHooks = ok == 2 ? 1 : -1;
-    writeLog("plane_tint_hooks_installed", "ok=%d of 2", ok);
+    writeResultLog(ok == 2, "plane_tint_hooks_installed", "ok=%d of 2", ok);
     return planeTintHooks > 0;
 }
 

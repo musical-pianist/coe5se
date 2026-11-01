@@ -354,5 +354,5 @@ static void noExplodeInit(void) {
     };
     int count = (int)(sizeof CALLS / sizeof CALLS[0]), calls = 0;
     if (checkGameFunction("no_explode_check", "")) calls = installNoExplodeCalls(CALLS, count);
-    writeLog("no_explode_installed", "words=%d of 1 calls=%d of %d", words, calls, count + 1);
+    writeResultLog(words == 1 && calls == count + 1, "no_explode_installed", "words=%d of 1 calls=%d of %d", words, calls, count + 1);
 }

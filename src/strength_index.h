@@ -88,7 +88,7 @@ static int strengthQuery(int team, int x, int y) {
         int game = strengthGame(team, x, y);
         if (game != value) {
             strengthIndex.off = 1;
-            writeLog("strength_index_mismatch", "team=%d x=%d y=%d lists=%d game=%d", team, x, y, value, game);
+            writeLogError("strength_index_mismatch", "reason=lists_differ_from_game team=%d x=%d y=%d lists=%d game=%d", team, x, y, value, game);
             return game;
         }
     }
@@ -202,7 +202,7 @@ static void strengthIndexInit(void) {
         COUNT = MEMORY_QUERY_COUNT + MEMORY_WINDOW_COUNT + ROUTE_QUERY_COUNT + ROUTE_WINDOW_COUNT,
     };
     if (!checkGameFunction("strength_index_check", "")) {
-        writeLog("strength_index_installed", "ok=0 of %d reason=game_code_changed", COUNT);
+        writeLogError("strength_index_installed", "ok=0 of %d reason=%s", COUNT, gameCodeReason());
         return;
     }
     int memory = 0, route = 0, windows = 0;
@@ -213,5 +213,5 @@ static void strengthIndexInit(void) {
     if (route == ROUTE_QUERY_COUNT)
         for (int i = 0; i < ROUTE_WINDOW_COUNT; i++) windows += strengthPoint(&ROUTE_WINDOWS[i], 3);
     strengthGame = GAME_FN(SquareStrengthFn, RVA_SQUARE_STRENGTH);
-    writeLog("strength_index_installed", "ok=%d of %d", memory + route + windows, COUNT);
+    writeInstallLog("strength_index_installed", memory + route + windows, COUNT);
 }

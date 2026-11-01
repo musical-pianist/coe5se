@@ -38,7 +38,7 @@ static void setStorageAreaMegabytes(const char *mod, int megabytes) {
         snprintf(dataAreaMaxes[dataAreaMaxCount].mod, sizeof dataAreaMaxes[0].mod, "%s", mod);
         dataAreaMaxes[dataAreaMaxCount++].megabytes = now;
     } else {
-        writeLog("data_area_max_dropped", "mod=%s mb=%d reason=out_of_memory", mod, now);
+        writeLogWarning("data_area_max_dropped", "mod=%s mb=%d reason=out_of_memory", mod, now);
         return;
     }
     if (now != was) writeLog("data_area_max", "mod=%s mb=%d", mod, now);
@@ -96,5 +96,5 @@ static void maxdataLine(const char *args, int mod, int level) {
 
 static void maxdataWordInit(void) {
     int ok = apiAddModCommand("maxdata", maxdataLine);
-    writeLog("maxdata_word_installed", "ok=%d", ok);
+    writeResultLog(ok, "maxdata_word_installed", "ok=%d", ok);
 }

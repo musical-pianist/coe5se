@@ -92,5 +92,5 @@ static int declinedFlagOffLine(const char *line) {
 
 static void monsterFlagWordsInit(void) {
     int words = apiAddModCommand("small", smallLine) + apiAddModCommand("combatcaster", combatcasterLine);
-    writeLog("monster_flag_words_installed", "words=%d of 2", words);
+    writeResultLog(words == 2, "monster_flag_words_installed", "words=%d of 2", words);
 }

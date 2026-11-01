@@ -149,5 +149,6 @@ static void aiClassCreatingWorldHook(int kind, const char *text) {
 
 static void aiClassInit(void) {
     aiClassRandom = GAME_FN(int (*)(int), RVA_RANDOM);
-    writeLog("aiclass_installed", "ok=%d", wrapSite(SITE_NEW_WORLD_CREATING_WORLD, (void *)aiClassCreatingWorldHook, (void **)&nextAiClassCreatingWorld));
+    int ok = wrapSite(SITE_NEW_WORLD_CREATING_WORLD, (void *)aiClassCreatingWorldHook, (void **)&nextAiClassCreatingWorld);
+    writeResultLog(ok, "aiclass_installed", "ok=%d", ok);
 }

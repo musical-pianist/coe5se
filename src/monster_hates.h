@@ -85,5 +85,5 @@ static void hatedLine(const char *args, int mod, int level) {
 
 static void hatesWordsInit(void) {
     int words = apiAddModCommand("hates", hatesLine) + apiAddModCommand("hated", hatedLine);
-    writeLog("hates_words_installed", "words=%d of 2", words);
+    writeResultLog(words == 2, "hates_words_installed", "words=%d of 2", words);
 }

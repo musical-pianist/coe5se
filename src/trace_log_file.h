@@ -37,7 +37,7 @@ static void traceLogFileInit(void) {
     };
     enum { COUNT = sizeof CALLS / sizeof CALLS[0] };
     if (!checkGameFunction("trace_log_file_check", "")) {
-        writeLog("trace_log_file_installed", "ok=0 of %d reason=game_code_changed", COUNT);
+        writeLogError("trace_log_file_installed", "ok=0 of %d reason=%s", COUNT, gameCodeReason());
         return;
     }
     for (int i = 0; i < COUNT; i++) {
@@ -45,13 +45,13 @@ static void traceLogFileInit(void) {
         int rel;
         memcpy(&rel, site + 1, 4);
         if ((site[0] != 0xe8 && site[0] != 0xe9) || site + 5 + rel != gameBase + CALLS[i].targetRva) {
-            writeLog("trace_log_file_installed", "ok=0 of %d reason=not_the_expected_call site=%s", COUNT, CALLS[i].name);
+            writeLogError("trace_log_file_installed", "ok=0 of %d reason=not_the_expected_call site=%s", COUNT, CALLS[i].name);
             return;
         }
     }
     unsigned char *stubs = allocNear(gameBase + RVA_TEXT_SECTION);
     if (!stubs) {
-        writeLog("trace_log_file_installed", "ok=0 of %d reason=no_near_page", COUNT);
+        writeLogError("trace_log_file_installed", "ok=0 of %d reason=no_near_page", COUNT);
         return;
     }
     makePagesReadExecute(stubs, 0x1000);
@@ -64,6 +64,6 @@ static void traceLogFileInit(void) {
             ok += redirectCall(CALLS[i].siteRva, CALLS[i].targetRva, stubs + TRACE_LOG_STUB_SIZE * i, CALLS[i].hook,
                                CALLS[i].name, NULL);
     }
-    writeLog("trace_log_file_installed", "ok=%d of %d", ok, COUNT);
+    writeInstallLog("trace_log_file_installed", ok, COUNT);
 }
 #endif

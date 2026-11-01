@@ -130,7 +130,7 @@ static int shippedSpellTableReady(void) {
         if (memcmp(spellSlot(s), &empty, sizeof empty)) ok = 0, bad = s;
     if (!ok) {
         spellTable.state = -1;
-        writeLog("spell_table_unexpected", "slot=%d end_path=%d", bad, end->path);
+        writeLogError("spell_table_unexpected", "reason=end_record_differs slot=%d end_path=%d", bad, end->path);
         return 0;
     }
     spellTable.shippedEnd = *end;
@@ -571,5 +571,5 @@ static void spellWordsInit(void) {
                 apiAddModCommand("notsea", notseaLine) + apiAddModCommand("notunderground", notundergroundLine) +
                 apiAddModCommand("prioritylearn", prioritylearnLine) + apiAddModCommand("heallivingarmy", heallivingarmyLine) +
                 apiAddModCommand("healhumanarmy", healhumanarmyLine);
-    writeLog("spell_words_installed", "words=%d of 9", words);
+    writeResultLog(words == 9, "spell_words_installed", "words=%d of 9", words);
 }

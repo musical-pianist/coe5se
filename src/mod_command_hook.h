@@ -29,6 +29,7 @@ static int isGameWord(const char *word) {
     return 0;
 }
 
+static void noteWeaponMade(int mod);
 static int modCommandMod = -1, modCommandLevel = -1;
 static void modCommandHook(const char *line, int mod, int level) {
     modCommandMod = mod;
@@ -86,6 +87,7 @@ static void modCommandHook(const char *line, int mod, int level) {
         }
     }
     nextModCommand(line, mod, level);
+    if (len == sizeof "newweapon" - 1 && !strncmp(line, "newweapon", len)) noteWeaponMade(mod);
 }
 
 static void declinedModCommandHook(const char *line, int mod, int level) {
@@ -138,5 +140,5 @@ static void needsCoe5seInit(void) {
     int ok = apiAddModCommand("needs_script_extender", needsCoe5seLine);
     ok &= apiAddModCommand("needs_coe5se", needsCoe5seLine);
     ok &= apiAddModCommand("needs_glu32.dll_and_CoE5SE_enabled_at_launch", needsCoe5seLine);
-    writeLog("needs_coe5se_word_installed", "ok=%d", ok);
+    writeResultLog(ok, "needs_coe5se_word_installed", "ok=%d", ok);
 }

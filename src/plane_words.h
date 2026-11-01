@@ -566,7 +566,7 @@ static void popupMissingPlanes(void) {
         const NamedPlane *p = &namedPlanes[i];
         if (!isPlaneNameMissing(p->name)) continue;
         const char *refusedIn = refusedPlaneMod(p->name);
-        writeLog("plane_missing", "name=%s mod=%s line=%d script=%d refused_in=%s", p->name, p->mod, p->line, p->script, refusedIn ? refusedIn : "-");
+        writeLogWarning("plane_missing", "reason=not_declared name=%s mod=%s line=%d script=%d refused_in=%s", p->name, p->mod, p->line, p->script, refusedIn ? refusedIn : "-");
     }
     writeLog("missing_planes_popup", "entries=%d", missing);
     okBox("CoE5SE: Mod Error", text);
@@ -763,7 +763,7 @@ static void setColdFlagsFromTemperatures(int x0, int y0, int w, int h) {
 static void loadCustomPlaneFile(const CustomPlane *p) {
     int x0 = planeField(p->index, PLANE_X), y0 = planeField(p->index, PLANE_Y);
     if (!installPlaneFileHook()) {
-        writeLog("plane_file_skipped", "mod=%s name=%s reason=hook_not_installed", p->mod, p->name);
+        writeLogError("plane_file_skipped", "mod=%s name=%s reason=hook_not_installed", p->mod, p->name);
         return;
     }
     size_t bytes = (size_t)p->w * (size_t)p->h * SQUARE_SIZE;
@@ -772,7 +772,7 @@ static void loadCustomPlaneFile(const CustomPlane *p) {
         host = malloc(bytes), ours = malloc(bytes);
         if (!host || !ours) {
             free(host), free(ours);
-            writeLog("plane_file_skipped", "mod=%s name=%s reason=out_of_memory", p->mod, p->name);
+            writeLogError("plane_file_skipped", "mod=%s name=%s reason=out_of_memory", p->mod, p->name);
             return;
         }
         copyPlaneSquares(x0, 0, p->w, p->h, host, 1);
@@ -821,5 +821,5 @@ static void planeWordsInit(void) {
                 apiAddModCommand("planepiece", planepieceLine) + apiAddModCommand("planezone", planezoneLine) +
                 apiAddModCommand("planezoneswap", planezoneswapLine) + apiAddModCommand("planezoneunits", planezoneunitsLine) +
                 apiAddModCommand("planezonepopulate", planezonepopulateLine) + apiAddModCommand("planeunits", planeunitsLine);
-    writeLog("plane_words_installed", "words=%d of 14", words);
+    writeResultLog(words == 14, "plane_words_installed", "words=%d of 14", words);
 }

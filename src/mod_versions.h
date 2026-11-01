@@ -8,7 +8,7 @@ static struct {
 static void noteModVersionDiffers(const char *name) {
     for (int i = 0; i < modVersionsDiffer.count; i++)
         if (!strcmp(modVersionsDiffer.mods[i], name)) return;
-    writeLog("mod_version_differs", "mod=%s", name);
+    writeLogWarning("mod_version_differs", "reason=version_differs mod=%s", name);
     if (!growList((void **)&modVersionsDiffer.mods, &modVersionsDiffer.capacity, modVersionsDiffer.count + 1,
                   sizeof *modVersionsDiffer.mods))
         return;
@@ -145,5 +145,5 @@ static int installModVersionHooks(int *wanted) {
 
 static void modVersionsInit(void) {
     int wanted = 0, ok = installModVersionHooks(&wanted);
-    writeLog("mod_version_hooks_installed", "ok=%d of %d", ok, wanted);
+    writeInstallLog("mod_version_hooks_installed", ok, wanted);
 }

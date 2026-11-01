@@ -1,0 +1,32 @@
+# ClusterFuzzLite: fuzzes the parsers under fuzz/ (libFuzzer, with AddressSanitizer and UndefinedBehaviorSanitizer)
+# for 10 minutes each, on each push to main and weekly. A crash fails the run and attaches the input that caused it.
+name: ClusterFuzzLite
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 4 * * 6"
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [address, undefined]
+    steps:
+      - uses: google/clusterfuzzlite/actions/build_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
+        with:
+          language: c
+          sanitizer: ${{ matrix.sanitizer }}
+      - uses: google/clusterfuzzlite/actions/run_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          language: c
+          sanitizer: ${{ matrix.sanitizer }}
+          mode: batch
+          fuzz-seconds: 600

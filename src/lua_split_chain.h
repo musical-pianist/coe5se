@@ -81,10 +81,10 @@ static void stopSplitScript(LuaScript *s, lua_State *co) {
     int type = lua_type(co, -1);
     if (type == LUA_TSTRING) snprintf(line, sizeof line, "%s", lua_tostring(co, -1));
     else snprintf(line, sizeof line, "(error object is a %s value)", lua_typename(co, type));
-    writeLog("lua_error", "mod=%s error=%s", s->mod, line);
+    writeLogError("lua_error", "mod=%s error=%s", s->mod, line);
     lua_settop(co, 0);
     s->dead = 1;
-    if (!s->stopLogged) writeLog("lua_script_stopped", "mod=%s", s->mod);
+    if (!s->stopLogged) writeLogError("lua_script_stopped", "mod=%s reason=script_error", s->mod);
     s->stopLogged = 1;
 }
 
@@ -166,7 +166,7 @@ static SplitCall *startSplitChain(CallSite site, const LuaArgs *in, LuaArgs *out
     if (g == (void *)splitStepGame) return NULL;
     SplitCall *c = calloc(1, sizeof *c);
     if (!c) {
-        writeLog("split_chain_skipped", "site=%s reason=out_of_memory", SITES[site].name);
+        writeLogError("split_chain_skipped", "site=%s reason=out_of_memory", SITES[site].name);
         return NULL;
     }
     c->site = site, c->luaSite = luaSite, c->up = splitChainCalls, c->framesBelow = luaFrames;
@@ -181,7 +181,7 @@ static SplitCall *startSplitChain(CallSite site, const LuaArgs *in, LuaArgs *out
     for (LuaWrap *w; g != (void *)splitStepGame; g = w->next) {
         w = luaWrapOfGate(g);
         if (!w) {
-            writeLog("split_chain_skipped", "site=%s reason=not_a_lua_wrap", SITES[site].name);
+            writeLogError("split_chain_skipped", "site=%s reason=not_a_lua_wrap", SITES[site].name);
             c->count = 0;
             releaseSplitCall(c);
             return NULL;
@@ -320,7 +320,7 @@ static void splitStepStart(StepContext *ctx, const StepHook *hook) {
     if (i < 0) return;
     const SplitStepMac *m = &SPLIT_STEPS_MAC[i];
     for (SplitCall *stale; (stale = splitCallHere(ctx, m->site));) {
-        writeLog("split_call_dropped", "site=%s reason=no_end", SITES[m->site].name);
+        writeLogWarning("split_call_dropped", "site=%s reason=no_end", SITES[m->site].name);
         releaseSplitCall(stale);
     }
     LuaArgs in = {{0}, {0}, NULL, NULL}, out;

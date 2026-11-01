@@ -115,19 +115,19 @@ static int installTraceFilter(void) {
     };
     enum { COUNT = sizeof FUNCTIONS / sizeof FUNCTIONS[0] };
     if (!gameBuild) {
-        writeLog("trace_filter_installed", "ok=0 of %d reason=unknown_game_build", COUNT);
+        writeLogError("trace_filter_installed", "ok=0 of %d reason=unknown_game_build", COUNT);
         return 0;
     }
     int matched = 0;
     for (int i = 0; i < COUNT; i++)
         matched += checkGameFunction("trace_filter_check", FUNCTIONS[i].head);
     if (matched != COUNT) {
-        writeLog("trace_filter_installed", "ok=0 of %d reason=game_code_changed", COUNT);
+        writeLogError("trace_filter_installed", "ok=0 of %d reason=%s", COUNT, gameCodeReason());
         return 0;
     }
     unsigned char *page = allocNear(gameBase + RVA_TEXT_SECTION);
     if (!page) {
-        writeLog("trace_filter_installed", "ok=0 of %d reason=no_near_page", COUNT);
+        writeLogError("trace_filter_installed", "ok=0 of %d reason=no_near_page", COUNT);
         return 0;
     }
     const IMAGE_NT_HEADERS64 *nt = (const IMAGE_NT_HEADERS64 *)(gameBase + ((const IMAGE_DOS_HEADER *)gameBase)->e_lfanew);
@@ -148,7 +148,7 @@ static int installTraceFilter(void) {
         ok += writeGameCode(fn, &word, 8);
     }
     traceFilterState = ok ? 1 : -1;
-    writeLog("trace_filter_installed", "ok=%d of %d", ok, COUNT);
+    writeInstallLog("trace_filter_installed", ok, COUNT);
     return ok > 0;
 }
 #else
@@ -196,14 +196,14 @@ static int installTraceFilter(void) {
     };
     enum { COUNT = sizeof FUNCTIONS / sizeof FUNCTIONS[0] };
     if (!gameBuild) {
-        writeLog("trace_filter_installed", "ok=0 of %d reason=unknown_game_build", COUNT);
+        writeLogError("trace_filter_installed", "ok=0 of %d reason=unknown_game_build", COUNT);
         return 0;
     }
     int matched = 0;
     for (int i = 0; i < COUNT; i++)
         matched += checkGameFunction("trace_filter_check", FUNCTIONS[i].head);
     if (matched != COUNT) {
-        writeLog("trace_filter_installed", "ok=0 of %d reason=game_code_changed", COUNT);
+        writeLogError("trace_filter_installed", "ok=0 of %d reason=%s", COUNT, gameCodeReason());
         return 0;
     }
     unsigned long cstringSize = 0;
@@ -227,7 +227,7 @@ static int installTraceFilter(void) {
         ok++;
     }
     traceFilterState = ok ? 1 : -1;
-    writeLog("trace_filter_installed", "ok=%d of %d", ok, COUNT);
+    writeInstallLog("trace_filter_installed", ok, COUNT);
     return ok > 0;
 }
 #endif

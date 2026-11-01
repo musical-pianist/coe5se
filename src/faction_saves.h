@@ -120,7 +120,7 @@ static void readLoadedSaveFactions(const char *path) {
     }
     fclose(f);
     if (!payload) {
-        if (strcmp(result, "none")) writeLog("save_factions_read", "result=%s", result);
+        if (strcmp(result, "none")) writeResultLog(strcmp(result, "bad"), "save_factions_read", "result=%s%s", result, strcmp(result, "bad") ? "" : " reason=bad_chunk");
         return;
     }
     char missing[512];
@@ -130,7 +130,7 @@ static void readLoadedSaveFactions(const char *path) {
     loadedSaveFactions.accepted = !strcmp(word, "accepted");
     loadedSaveFactions.pending = loadedSaveFactions.accepted;
     if (loadedSaveFactions.accepted) writeLog("save_factions_read", "result=accepted factions=%d", loadedSaveFactions.count);
-    else writeLog("save_factions_refused", "reason=%s factions=%d missing=%s", word, loadedSaveFactions.count, missing[0] ? missing : "-");
+    else writeLogError("save_factions_refused", "reason=%s factions=%d missing=%s", word, loadedSaveFactions.count, missing[0] ? missing : "-");
 }
 
 static void placeSavedFactions(void) {
@@ -186,7 +186,7 @@ static void applyLoadedSaveFactions(int level) {
         writeLog("save_factions_given", "factions=%d declared=%d", loadedSaveFactions.count, factionCount);
         return;
     }
-    writeLog("save_factions_refused", "reason=faction_not_declared_after_pass factions=%d missing=%s", loadedSaveFactions.count, missing);
+    writeLogError("save_factions_refused", "reason=faction_not_declared_after_pass factions=%d missing=%s", loadedSaveFactions.count, missing);
     static char text[POPUP_TEXT_SIZE];
     snprintf(text, sizeof text, "Factions missing from this save's mods:\n%s\n", missing);
     okBox("CoE5SE: Not a proper save file", text);
@@ -228,7 +228,7 @@ static void useFactionDataChunks(const SaveList *list) {
         if (list->chunks[i].tag != SAVE_TAG_FCDT) continue;
         const char *word = useFactionDataChunk(&list->chunks[i]);
         if (!strcmp(word, "given")) given++;
-        else refused++, writeLog("save_faction_data_refused", "reason=%s", word);
+        else refused++, writeLogError("save_faction_data_refused", "reason=%s", word);
     }
     if (given || refused) writeLog("save_faction_data_read", "given=%d refused=%d", given, refused);
 }

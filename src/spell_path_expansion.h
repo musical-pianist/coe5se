@@ -169,7 +169,7 @@ static int queueSpellPathWrites(const char **copy, unsigned char *stubs) {
         memcpy(&field, at + s->fieldOffset, 4);
         long long moved = field + delta;
         if (moved < INT32_MIN || moved > INT32_MAX) {
-            writeLog("spell_paths_site_mismatch", "group=reader name=%s rva=0x%x out_of_reach=1", s->name, s->rva);
+            writeLogError("spell_paths_site_mismatch", "reason=out_of_reach group=reader name=%s rva=0x%x", s->name, s->rva);
             continue;
         }
         int out = (int)moved;
@@ -189,7 +189,7 @@ static int queueSpellPathWrites(const char **copy, unsigned char *stubs) {
         memcpy(&rel, call + 1, 4);
         long long toStub = stub - (call + 5);
         if (call[0] != 0xe8 || call + 5 + rel != gameBase + c->targetRva || toStub < INT32_MIN || toStub > INT32_MAX) {
-            writeLog("spell_paths_site_mismatch", "group=call name=%s rva=0x%x", c->name, c->callRva);
+            writeLogError("spell_paths_site_mismatch", "reason=bytes_differ group=call name=%s rva=0x%x", c->name, c->callRva);
             continue;
         }
         int out = (int)toStub;
@@ -201,13 +201,13 @@ static int queueSpellPathWrites(const char **copy, unsigned char *stubs) {
 
 static int installSpellPathExpansion(void) {
     if (!gameCodeMatches) {
-        writeLog("spell_paths_not_expanded", "reason=game_code_differs sites=0 of %d", PATH_SITE_COUNT);
+        writeLogError("spell_paths_not_expanded", "reason=game_code_differs sites=0 of %d", PATH_SITE_COUNT);
         return 0;
     }
     unsigned char *stubs = allocNear(gameBase + RVA_TEXT_SECTION);
     const char **copy = (const char **)allocNearImage(SPELL_PATH_COUNT * sizeof(const char *));
     if (!copy || !stubs) {
-        writeLog("spell_paths_not_expanded", "reason=no_memory_near_game names=%p stubs=%p sites=0 of %d", (void *)copy, (void *)stubs,
+        writeLogError("spell_paths_not_expanded", "reason=no_memory_near_game names=%p stubs=%p sites=0 of %d", (void *)copy, (void *)stubs,
                  PATH_SITE_COUNT);
         if (copy) VirtualFree(copy, 0, MEM_RELEASE);
         if (stubs) VirtualFree(stubs, 0, MEM_RELEASE);
@@ -217,7 +217,7 @@ static int installSpellPathExpansion(void) {
     const char *reason = matched != PATH_SITE_COUNT ? "game_build_differs"
                          : !openGameCode(gameBase + RVA_TEXT_SECTION, (size_t)(RVA_RDATA_SECTION - RVA_TEXT_SECTION)) ? "code_unwritable" : NULL;
     if (reason) {
-        writeLog("spell_paths_not_expanded", "reason=%s sites=%d of %d error=%lu", reason, matched, PATH_SITE_COUNT,
+        writeLogError("spell_paths_not_expanded", "reason=%s sites=%d of %d error=%lu", reason, matched, PATH_SITE_COUNT,
                  matched == PATH_SITE_COUNT ? GetLastError() : 0UL);
         VirtualFree(copy, 0, MEM_RELEASE);
         VirtualFree(stubs, 0, MEM_RELEASE);
@@ -233,7 +233,7 @@ static int installSpellPathExpansion(void) {
         DWORD error = GetLastError();
         for (int j = i; j >= 0; j--) writeGameCode(pathWrites[j].at, pathWrites[j].old, (size_t)pathWrites[j].size);
         closeGameCode();
-        writeLog("spell_paths_not_expanded", "reason=code_unwritable sites=%d of %d error=%lu", matched, PATH_SITE_COUNT, error);
+        writeLogError("spell_paths_not_expanded", "reason=code_unwritable sites=%d of %d error=%lu", matched, PATH_SITE_COUNT, error);
         spellPathCopy = NULL;
         VirtualFree(copy, 0, MEM_RELEASE);
         VirtualFree(stubs, 0, MEM_RELEASE);
@@ -249,11 +249,11 @@ static int installSpellPathExpansion(void) {
 static int uninstallSpellPathExpansion(void) {
     for (int i = 0; i < pathWriteCount; i++)
         if (memcmp(pathWrites[i].at, pathWrites[i].bytes, (size_t)pathWrites[i].size)) {
-            writeLog("spell_paths_not_uninstalled", "reason=site_changed rva=0x%x", (unsigned)(pathWrites[i].at - gameBase));
+            writeLogError("spell_paths_not_uninstalled", "reason=site_changed rva=0x%x", (unsigned)(pathWrites[i].at - gameBase));
             return 0;
         }
     if (!openGameCode(gameBase + RVA_TEXT_SECTION, (size_t)(RVA_RDATA_SECTION - RVA_TEXT_SECTION))) {
-        writeLog("spell_paths_not_uninstalled", "reason=code_unwritable error=%lu", GetLastError());
+        writeLogError("spell_paths_not_uninstalled", "reason=code_unwritable error=%lu", GetLastError());
         return 0;
     }
     for (int i = 0; i < pathWriteCount; i++) {
@@ -261,7 +261,7 @@ static int uninstallSpellPathExpansion(void) {
         DWORD error = GetLastError();
         for (int j = i; j >= 0; j--) writeGameCode(pathWrites[j].at, pathWrites[j].bytes, (size_t)pathWrites[j].size);
         closeGameCode();
-        writeLog("spell_paths_not_uninstalled", "reason=code_unwritable error=%lu", error);
+        writeLogError("spell_paths_not_uninstalled", "reason=code_unwritable error=%lu", error);
         return 0;
     }
     closeGameCode();
@@ -366,7 +366,7 @@ static int queueSpellPathWrites(const char **copy) {
         const PathReaderPair *s = &PATH_READER_PAIRS[i];
         uint32_t moved = 0;
         if (!adrpMovedBy(pathGameWord(s->rva), pages, &moved)) {
-            writeLog("spell_paths_site_mismatch", "group=reader name=%s va=0x%llx", s->name, s->rva + 0x100000000ULL);
+            writeLogError("spell_paths_site_mismatch", "reason=bytes_differ group=reader name=%s va=0x%llx", s->name, s->rva + 0x100000000ULL);
             continue;
         }
         queuePathWord(s->rva, moved);
@@ -376,13 +376,13 @@ static int queueSpellPathWrites(const char **copy) {
     for (int i = 0; i < PATH_TRANSFORM_CALL_COUNT; i++) {
         const PathTransformCall *c = &PATH_TRANSFORM_CALLS[i];
         if (blTarget(gameBase + c->callRva) != gameBase + c->targetRva) {
-            writeLog("spell_paths_site_mismatch", "group=call name=%s va=0x%llx", c->name, c->callRva + 0x100000000ULL);
+            writeLogError("spell_paths_site_mismatch", "reason=bytes_differ group=call name=%s va=0x%llx", c->name, c->callRva + 0x100000000ULL);
             continue;
         }
         if (!trampolines[c->snapshot])
             trampolines[c->snapshot] = newTrampoline(c->snapshot ? (void *)transformSnapshotHook : (void *)transformMemorizeHook);
         if (!trampolines[c->snapshot]) {
-            writeLog("spell_paths_site_mismatch", "group=call name=%s reason=no_padding", c->name);
+            writeLogError("spell_paths_site_mismatch", "group=call name=%s reason=no_padding", c->name);
             continue;
         }
         queuePathWord(c->callRva, blTo(gameBase + c->callRva, trampolines[c->snapshot]));
@@ -393,20 +393,20 @@ static int queueSpellPathWrites(const char **copy) {
 
 static int installSpellPathExpansion(void) {
     if (!gameCodeMatches) {
-        writeLog("spell_paths_not_expanded", "reason=game_code_differs sites=0 of %d", PATH_SITE_COUNT);
+        writeLogError("spell_paths_not_expanded", "reason=game_code_differs sites=0 of %d", PATH_SITE_COUNT);
         return 0;
     }
     size_t at = (uintptr_t)(gameBase + RVA_SPELL_PATH_NAMES) & ADRP_PAGE_MASK;
     size_t total = (at + SPELL_PATH_COUNT * sizeof(const char *) + MAC_PAGE_MASK) & ~(size_t)MAC_PAGE_MASK;
     unsigned char *memory = allocAfterImage(total);
     if (!memory) {
-        writeLog("spell_paths_not_expanded", "reason=no_memory_near_game bytes=%zu sites=0 of %d", total, PATH_SITE_COUNT);
+        writeLogError("spell_paths_not_expanded", "reason=no_memory_near_game bytes=%zu sites=0 of %d", total, PATH_SITE_COUNT);
         return 0;
     }
     const char **copy = (const char **)(memory + at);
     int matched = queueSpellPathWrites(copy);
     if (matched != PATH_SITE_COUNT) {
-        writeLog("spell_paths_not_expanded", "reason=game_build_differs sites=%d of %d", matched, PATH_SITE_COUNT);
+        writeLogError("spell_paths_not_expanded", "reason=game_build_differs sites=%d of %d", matched, PATH_SITE_COUNT);
         mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)memory, total);
         return 0;
     }
@@ -417,7 +417,7 @@ static int installSpellPathExpansion(void) {
     for (int i = 0; i < pathWriteCount; i++) {
         if (writeGameCode(pathWrites[i].at, &pathWrites[i].word, 4)) continue;
         for (int j = i; j >= 0; j--) writeGameCode(pathWrites[j].at, &pathWrites[j].old, 4);
-        writeLog("spell_paths_not_expanded", "reason=code_unwritable va=0x%llx sites=%d of %d",
+        writeLogError("spell_paths_not_expanded", "reason=code_unwritable va=0x%llx sites=%d of %d",
                  (unsigned long long)(pathWrites[i].at - gameBase) + 0x100000000ULL, matched, PATH_SITE_COUNT);
         spellPathCopy = NULL;
         return 0;
@@ -432,13 +432,13 @@ static int installSpellPathExpansion(void) {
 static int uninstallSpellPathExpansion(void) {
     for (int i = 0; i < pathWriteCount; i++)
         if (pathGameWord((unsigned int)(pathWrites[i].at - gameBase)) != pathWrites[i].word) {
-            writeLog("spell_paths_not_uninstalled", "reason=site_changed va=0x%llx", (unsigned long long)(pathWrites[i].at - gameBase) + 0x100000000ULL);
+            writeLogError("spell_paths_not_uninstalled", "reason=site_changed va=0x%llx", (unsigned long long)(pathWrites[i].at - gameBase) + 0x100000000ULL);
             return 0;
         }
     for (int i = 0; i < pathWriteCount; i++) {
         if (writeGameCode(pathWrites[i].at, &pathWrites[i].old, 4)) continue;
         for (int j = i; j >= 0; j--) writeGameCode(pathWrites[j].at, &pathWrites[j].word, 4);
-        writeLog("spell_paths_not_uninstalled", "reason=code_unwritable va=0x%llx", (unsigned long long)(pathWrites[i].at - gameBase) + 0x100000000ULL);
+        writeLogError("spell_paths_not_uninstalled", "reason=code_unwritable va=0x%llx", (unsigned long long)(pathWrites[i].at - gameBase) + 0x100000000ULL);
         return 0;
     }
     spellPathsExpanded = 0;
