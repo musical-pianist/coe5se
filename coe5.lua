@@ -143,7 +143,9 @@
 --   Who bought for an AI           for _, a in ipairs(coe5.aiActions(p)) do coe5.log(a.mod .. " " .. a.call) end
 --   Draw over the world map        coe5.wrap("MAP_DRAW", function(next) coe5.ui.drawRect(10, 400, 200, 60, 0, 0, 0, 0.6) coe5.ui.drawText(16, 440, 12, "Hermann", 1, 1, 1, 1) return next() end)   (Windows)
 --   Change the top bar's income    coe5.wrap("TOP_BAR_INCOME", function(next, p, r, income) next(p, r, income) return coe5.get("slotAiIncome", p, r) end)   (Windows)
---   A table row on a screen        coe5.ui.rowBegin(30, 400, 0.6, 0.5, 0.2, 0.4) coe5.ui.text(30, "Hermann") coe5.ui.columnX(200) coe5.ui.text(30, "275 (+54)") coe5.ui.rowEnd()   (Windows)
+--   A table row on a screen        coe5.ui.rowBegin(30, 400, 0.6, 0.5, 0.2, 0.4) coe5.ui.text(30, "Hermann") coe5.ui.columnX(200) coe5.ui.text(30, "275 (+54)") coe5.ui.rowEnd()
+--   A resource's icon in a row     coe5.ui.rowBegin(31, 400) coe5.ui.resourceIcon(31, 0) coe5.ui.tooltip("Gold") coe5.ui.text(31, "275") coe5.ui.rowEnd()
+--   A resource's icon on the map   coe5.wrap("MAP_DRAW", function(next) coe5.ui.drawResourceIcon(16, 420, 12, 5) coe5.ui.drawText(30, 420, 12, "31", 1, 1, 1, 1) return next() end)   (Windows)
 --   Replace a seal's event         coe5.wrap("SEAL_EVENT", function(next, slot, seal) if seal ~= 3 then return next(slot, seal) end coe5.set("eventVar", 300, 1) end)
 --
 -- When CoE5SE refuses a call, the call returns false or coe5.message.notAdded (each note below
@@ -213,7 +215,7 @@ function require(name) end
 ---| "MAP_EDITOR"                # fn(next): the whole map editor, opened from the Mods screen's Start Map Editor or the --mapeditor launch option; next returns when the player quits it. With --mapeditor the editor opens before the main menu: the scripts load just before it, and the game exits when it closes.
 ---| "MAP_EDITOR_DRAW"           # fn(next): once per frame of the map editor's map, after the map's squares and before the toolbox, the plane buttons, and the hover box. Draw with coe5.ui.drawLine, drawText and drawRect: before next lands over the map and under the toolbox, after next over everything but the hover box. coe5.mapView says where each square is. next returns nothing.
 ---| "MAP_DRAW"                  # fn(next): once per frame of the world map in a player's turn, after the squares and the units and before the top bar, the commander panel, and the hover box. Draw with coe5.ui.drawLine, drawText and drawRect: before next lands over the map and under the game's panels, after next over everything but the hover box. coe5.mapView says where each square is. next returns nothing. Windows only for now: on Mac coe5.wrap returns false.
----| "BATTLE_DRAW"               # fn(next): once per frame of a battle's screen, after the battlefield and its units and before the battle's GUI. Draw with coe5.ui.drawLine, drawText and drawRect here; after next, over everything. Take a click on what you drew in a BATTLE_WAIT wrap, after next, with uiPointerX, uiPointerY and mouseButtons. Windows only.
+---| "BATTLE_DRAW"               # fn(next): once per frame of a battle's screen, after the battlefield and its units and before the battle's GUI. Draw with coe5.ui.drawLine, drawText and drawRect here; after next, over everything. Take a click on what you drew in a BATTLE_WAIT wrap, after next, with uiPointerX, uiPointerY and mouseButtons.
 ---| "MESSAGES_WAIT"             # fn(next, block, mode): each frame of the Messages screen, as a human turn starts (View messages shares it). next returns the clicked id; return coe5.box.messagesOk to close it, as the player's Ok does.
 ---| "WARN_WAIT"                 # fn(next, block, mode): each frame of the game's warning box ("<name> has been eliminated" and the like). next returns the clicked id; return coe5.box.warnOk to press its Ok.
 ---| "MESSAGE_BOX_WAIT"          # fn(next, block, mode): each frame of the game's message box (the End Turn Warning, and any question the game asks with one or two buttons). next returns the clicked id, 0 for none; return coe5.box.firstButton, secondButton or cancel to answer it as the player would. Its text reads as messageBoxText meanwhile. Windows only for now: on Mac coe5.wrap returns false.
@@ -239,6 +241,9 @@ function require(name) end
 ---| "AI_MAKE_GUARDS"            # fn(next, player, x, y, n): n of the player's units on square (x, y) become guards, which never leave it; x and y are -1 for the player's units anywhere: at game start for each player's army (-1, -1, n 4), and in the AI's turn on each square it defends with an Enchanted Gate, Mirror Wall, Wall of Torment or Murderous Mist (n 1). next(player, x, y, n) makes them; pass another n (1 or more) for this call, or don't call it for none. Another player or square in next is refused (player_changed, square_changed), and an n below 1 (out_of_range) keeps the game's. A wrap that errors runs it. Not in network games.
 ---| "AI_RITUAL_TARGET"          # fn(next, commander, ritual): the square an AI commander casts its planned ritual at, from up to 25,000 random squares of Elysium, the Sky and Agartha: a seen square with an enemy army for an aitarg 1 ritual, a seen square with 5 corpses or more for aitarg 2, the first square for any other. next(commander, ritual) returns 1, x, y for a square found, 0 for none (the plan waits). Return 1, x, y for a square on a plane, or 0 for none; 1 with no square, a square off the map or off every plane, or another value is refused (lua_refused reason=no_square, off_map, no_plane, out_of_range, not_a_score, not_a_square) and next's kept. Return nothing for next's. Another commander or ritual in next is refused (commander_changed, ritual_changed). A wrap that errors gives the game's. Not in network games.
 ---| "DECORATE_SQUARE"           # fn(next, x, y): one square's random special terrain by its terrain (villages, farms, mines, ports; towers, castles and ancient ruins only on Elysium): in world building, a map file's random squares, and the map editor's Create Fancy Terrain. next(x, y) places them; don't call it to keep the square as it is. Another square in next is refused (square_changed). A wrap that errors runs it. Not in network games.
+---| "WEAPON_HIT"                # fn(next, attacker, target, weapon, damage, value, dmgtype): one hit's damage in a battle, after the game's MR checks and its weapon flags, before its double-damage rules. value is the spell's or monster attack's dmg (999 on the kill spells; an affliction's mask, low 32 bits); dmgtype is the weapon's damage type, and a type the game doesn't have takes its plain damage. Return the damage the hit does: 0 makes the hit and its effect do nothing. next returns CoE5SE's answer (killres, polymorphres, petrifyres, doesntaffect and the rest). Runs on every hit: keep it quick. Not in network games.
+---| "BATTLE_TARGET_CHECK"       # fn(next, unit, type, weapon, value, target): whether a target is worth a spell or a mind weapon to the battle AI. next returns the game's and CoE5SE's answer, coe5.target.useful or below; return coe5.target.notAffected to make casters pass the target over. A target the game picks itself, at random, isn't asked. Not in network games.
+---| "BATTLE_SPELL_PICK"         # fn(next, unit, path): the spell a caster's spell attack casts in a battle, picked at random among its memorized spells of that path; the attack asks again, up to 50 times, until the spell has a target. Return another spell (any spell the table holds, known or not) or -1 for none; nothing for next's. Another number is refused (not_a_spell, not_a_number) and next's kept; another unit or path in next is refused (unit_changed, path_changed). A wrap that errors gives the game's. Not in network games.
 ---| "CEREMONY_PERFORM"          # fn(next, ceremony, commander, target): one of the Voice of El's ceremonies, a player's (the Ceremonies screen, a map order) or the AI's. ceremony is the game's number for it: match it by coe5.get("ceremonyName", ceremony), never by the number. target is the player a Start Crusade goes against, -1 for every other ceremony. next(ceremony, commander, target) is the game's own: it checks the rank, limits and cost (and does nothing when one fails), charges the cost and action points, and does the ceremony. Skip next and none of it happens: no cost, no action points, no effect, and no message. Code after next adds effects of your own. Another ceremony, commander or target in next is refused (ceremony_changed, commander_changed, target_changed) and the game's kept. A wrap that errors runs it. Not in network games.
 ---| "CEREMONY_COSTS"            # fn(next, commander): the game works out every ceremony's cost for a priest of El: at the top of the Ceremonies screen, before a map order's ceremony, and before the AI's. After next(commander), coe5.get("ceremonyCost", ceremony) holds each one and coe5.set("ceremonyCost", ceremony, value) changes it: the screen shows that cost, the ceremony checks and charges it, and the AI weighs it, until the next time the game works them out. The game multiplies some: Break Seal's by the seal's number (1 for the first), Bolster Devotion's by one more than the player's earlier Bolster Devotions, Increase Divine Favor's by the level it raises the favor to, Convert Settlement's by a fifth of the square's gold income (its action points too). Each is gold, or relics for Break Seal, Bolster Devotion and Increase Divine Favor. Another commander in next is refused (commander_changed). Not in network games.
 ---| "SEAL_BREAK"                # fn(next, slot, seal): one of the Seven Seals breaking, by a player's Break Seal ceremony or an item, slot that player; seal is the seal it breaks, 1 to 7. Inside the wrap the seals broken are still seal - 1; next(slot, seal) breaks it, as the game does. Skip next and the seal stays unbroken, so none of what follows from it happens (its event, SEAL_EVENT; El's minions for the Voice of El players get no stronger), and the next Break Seal ceremony breaks the same seal again. The ceremony's cost and action points are spent either way. To break the seal but replace its event, wrap SEAL_EVENT instead. The seals the game breaks on its own at a month's end ("Cardinal Intervenes", "Heavenly Surge of Power") don't come here. Another slot or seal in next is refused (slot_changed, seal_changed). A wrap that errors breaks it. Not in network games.
@@ -264,6 +269,31 @@ function require(name) end
 ---| "DO_ALL_FIGHTS"             # (): every battle on the map is fought; three times after each round of players' moves, and twice in the month's update. No result.
 ---| "MOVE_ALL_INDEPENDENTS"     # (player): an independent slot's armies move (24 to 30); for the Inferno, Hades and the Celestial after their own steps. No result.
 ---| "CONQUER_SQUARE"            # (x, y, player): a player takes the square: an army that took it (world population included), the month's update, a ritual, or a unit's own step. The result is nil.
+---| "FIGHT_THE_FIGHT"           # (x, y): one battle on the square, its rounds to a winner; the field is built and both sides deployed before it. The result is the winner's player, -1 for none, -2 when no side is left.
+---| "BATTLE_ROUND"              # (): a battle round starts (battleRound holds it), before starvation, movement and attacks; a replay's rounds too (battleReplay). No result.
+---| "DAMAGE_UNIT"               # (unit, damage): damage comes off a unit's hp (below 0 heals); its death runs inside when the hp falls to 0 or below. In battle and out of it; a replay's too (battleReplay); not a meteor's kills. The result is nil.
+---| "DOATTACK"                  # (unit, slot, spell): one unit's attack in a battle round: an attack slot with spell -1, or slot -1 with the spell an item casts. Damage it deals reaches DAMAGE_UNIT inside it. The result is nil.
+---| "EXECUTE_RITUAL"            # (unit, ritual, x, y, percent, pay): a ritual is cast: the Rituals screen (x -999: the caster picks the target), the AI, repeated rituals, a cast by name, world building on Elysium. The result is -1 when the cast was refused.
+---| "NEW_UNIT"                  # (x, y, player, commander, monster): a unit is made on square (x, y) for the player, under the commander (-1 none): recruits, summons, every populate's units, battle summons and splits. The result is the new unit, -1 when the unit table is full.
+---| "REMOVE_UNIT"               # (unit): a unit leaves the game without dying: the event killunit at 9999 and above, killsquare, a mirror image's end, units the game clears. A death by damage is DAMAGE_UNIT's. The result is nil.
+---| "TURN_UNIT_UPKEEP"          # (player): a player's units' step near the end of its turn start: damage on terrain, disease, ability spawns, sinners, colonies, terraforming, promotions. The result is nil.
+---| "SQUARE_UPKEEP"             # (player, -1, x, y): one square with an army of the player's team: at its turn start, and after a commander's step there. The second value is always -1. The result is nil.
+---| "RECRUIT_BUY"               # (player, offer, x, y): a human player's buy of shop offer `offer` at square (x, y): the Recruit screen and the auto-recruit. Its units reach NEW_UNIT inside it. The result is 1.
+---| "PROMOTE_UNIT"              # (owner, unit, monster, n): a unit becomes `monster`: the event actions promote and promoteunits, a ritual's promotion, a promotion by experience. The result is nil.
+---| "MASTERY_TRANSFORM"         # (commander): the ritual of mastery and the library's mastery: the commander's new form and the spells its gained levels teach. The result is nil.
+---| "BATTLE_SETUP"              # (x, y, mode): a battlefield is built for square (x, y): each battle and replay (mode 0), and the backdrop of the army screens, rituals, summons and the battle map editor. The result is nil.
+---| "BATTLE_SETUP_SIDE"         # (player, x, y, side, filter): one side's units are placed on the battlefield, the defender's (side 1) first. The result is nil.
+---| "BATTLE_SETUP_AMBUSH"       # (player, x, y, side, filter): one side's units are placed for an ambush. The result is nil.
+---| "BATTLE_ADVANCE_UNIT"       # (unit, ambush): one unit's move in a battle round: fleeing, confused, burrowed, flying, holding by rank, or a step toward the enemy; a fast unit moves twice. The result is nil.
+---| "BATTLE_TURN_EFFECTS"       # (unit, aftermath): a battle round's effects on a unit: regeneration, decay, damage over time; `aftermath` is 0 in the rounds and nonzero after the fight. The result is nil.
+---| "BATTLE_TRANSFORM"          # (unit, monster, attacker): a hit turns `unit` into `monster` on the attacker's side: mutate, replicate, ghoulify. The result is nil.
+---| "FOUND_ITEM"                # (x, y, item): a commander on square (x, y) finds `item`: a battle's loot, a conquered square's, a dead unit's. The result is nil.
+---| "REMOVE_DEAD_PLAYERS"       # (): the game takes out every player with no citadel or commander left ("has been eliminated"): after each round of moves, in the month's update, after battles, when a square is taken. Which players went shows in the slots before and after. No result.
+---| "CREATE_CITADEL"            # (player, x, y): a player's citadel is made at square (x, y) as the game places the player. The result is nil.
+---| "INQUISITION_SPAWN"         # (player): the Inquisition's army arrives for the player (Call the Inquisition). The result is nil.
+---| "ANIMAL_SUMMONING"          # (commander, value): a commander's animal summoning, the animals by its square's terrain; `value` is the ritual effect's. The result is nil.
+---| "ORDER_SLAVE_HUNT"          # (commander): a commander's slave hunt on its square: the map's order, the AI's, and the repeated rituals'. The result is nil.
+---| "ORDER_EAT_VILLAGE"         # (commander): a commander eats the village on its square: the map's order and the AI's. The result is nil.
 
 ---The game values coe5.get and coe5.set reach.
 ---@alias coe5.Variable
@@ -272,6 +302,12 @@ function require(name) end
 ---| "loadedGame"            # integer: nonzero for a game loaded from a save. Setting it nonzero logs lua_loaded_game_set with your mod.
 ---| "loadedMapName"         # string: the map file the game started on, empty for a random map. Read-only.
 ---| "society"               # integer: 0 Random, 1 Dark Ages, 2 Agricultural, 3 Empire, 4 Fallen Empire, 5 Monarchy, 6 Dawn of a New Empire, 7-11 sub-societies; nothing else (the game's society table). Changes the moment the player clicks it.
+---| "genAncientRuinChance"  # integer: the society's ancient ruin chance per mille (Elysium's ruins; the Sky's Ancient Temples and Magic Libraries), set when the world is built. Read-only.
+---| "genLibraryChance"      # integer: the society's Magic Library chance per mille, set when the world is built. Read-only.
+---| "genBattlefieldChance"  # integer: the society's battlefield chance per mille (the Sky's Gallows and Cloud Graveyards), set when the world is built. Read-only.
+---| "genTowerChance"        # integer: the society's tower chance per mille (Elysium's towers, the Sky's Cloud Towers), set when the world is built. Read-only.
+---| "genVillageChance"      # integer: the society's settlement chance per mille (the Sky's Cloud Cities, Villages and Hamlets), set when the world is built. Read-only.
+---| "genTownShare"          # integer: the society's town share per mille, the settlements that are towns (the Sky's Cloud Cities), set when the world is built. Read-only.
 ---| "commonCause"           # integer: the Advanced Options checkbox. Changes the moment the player clicks it. Read during play and saved, so a change in a game counts.
 ---| "scoreGraphs"           # integer: the Advanced Options checkbox. Changes the moment the player clicks it. Read during play and saved, so a change in a game counts.
 ---| "battleReports"         # integer: the Advanced Options checkbox. Changes the moment the player clicks it. Read during play and saved, so a change in a game counts.
@@ -355,8 +391,8 @@ function require(name) end
 ---| "messageBoxText"        # string: the game's message box's text, as it shows it. Nil outside a wrap of MESSAGE_BOX_WAIT. Read-only. Windows only for now.
 ---| "mapPointerX"          # integer: the map square under the pointer in this map frame, -1 when none (it is a square of the world, planes side by side). Nil outside a wrap of MAP_SCREEN_WAIT; read it after next. Read-only.
 ---| "mapPointerY"           # integer: that square's y, -1 when none. Nil outside a wrap of MAP_SCREEN_WAIT. Read-only.
----| "uiPointerX"            # number: the pointer's x in UI units, from the left, the space coe5.ui.drawText and drawRect take (the UI is 914 wide at 1152x756 and wider in a wider window: coe5.mapView's screenW). Updated each frame of any screen. Read-only. Windows only for now: nil on Mac.
----| "uiPointerY"            # number: the pointer's y in UI units, up from the bottom, as uiPointerX. With mouseButtons in a MAP_SCREEN_WAIT wrap, after next, a script takes a click on what it drew: test the pointer against its text's rectangle, set mouseButtons to 0 while the button is down, and return 0 for next's id (a click over the game's own buttons gives their id). Read-only. Windows only for now: nil on Mac.
+---| "uiPointerX"            # number: the pointer's x in UI units, from the left, the space coe5.ui.drawText and drawRect take (the UI is 914 wide at 1152x756 and wider in a wider window: coe5.mapView's screenW). Updated each frame of any screen. Read-only.
+---| "uiPointerY"            # number: the pointer's y in UI units, up from the bottom, as uiPointerX. With mouseButtons in a MAP_SCREEN_WAIT wrap, after next, a script takes a click on what it drew: test the pointer against its text's rectangle, set mouseButtons to 0 while the button is down, and return 0 for next's id (a click over the game's own buttons gives their id). Read-only.
 ---| "mouseButtons"          # integer: this frame's mouse buttons, 1 left, 2 right, 4 middle, added; the first frame of a press, then each frame it is held. In a wrap of MAP_SCREEN_WAIT, after next, set it to 0 to keep the map from acting on the click (a left click moves the selected commander), and keep setting it to 0 while the button stays down. 0 to 7.
 ---| "keyHeld"               # index: a key, as coe5.key names it or a character's byte (1-399, no ctrl or alt), boolean: the key is held down now. The key itself, so a key rebindKey moved reads as the key the player presses. Every key reads false again when the game window gains or loses focus, as the game clears its own key state then. Read-only.
 ---| "windowMode"            # integer: the window's mode now: 0 a window, 1 fullscreen, 2 a borderless fullscreen window. Read-only.
@@ -477,6 +513,8 @@ function require(name) end
 ---| "battleSeed"            # integer: the random seed of the battle being fought, or of the last one. Read-only.
 ---| "battleX"               # integer: that battle's square. Read-only.
 ---| "battleY"               # integer: its y. Read-only.
+---| "battleAttacker"        # integer: that battle's attacking player. Read-only.
+---| "battleDefender"        # integer: that battle's defending player. Read-only.
 ---| "battleWidth"           # integer: that battle's battlefield columns. Read-only.
 ---| "battleRound"           # integer: that battle's round: -15 first, movement from 0. Read-only.
 ---| "battleWinner"          # integer: the winning side's player once the fight ends, -1 for none. Read-only.
@@ -485,6 +523,7 @@ function require(name) end
 ---| "battleAmbush"          # boolean: that battle is an ambush. Read-only.
 ---| "battleAtSea"           # boolean: that battle is at sea. Read-only.
 ---| "battleSiege"           # boolean: that battle is a siege. Read-only.
+---| "battleReplay"          # boolean: a battle replay is refighting a battle (its rounds and damage reach BATTLE_ROUND and DAMAGE_UNIT). Read-only.
 ---| "eventPlayer"           # integer: the player of the event being run. Read-only.
 ---| "eventTargetX"          # integer: that event's target square, -1 for none. Read-only.
 ---| "eventTargetY"          # integer: its y. Read-only.
@@ -1616,6 +1655,14 @@ function coe5.deleteIni(name) end
 ---@return boolean shown false when refused (lua_refused): in_game, bad_monster, bad_enemy, bad_count, bad_spell, no_spell_weapon, not_own_weapon, bad_weapon, no_free_slot
 function coe5.testBattle(monster, spell, enemy, count, standIn) end
 
+---Adds a line to the unit card's traits, after the game's own and CoE5SE's (Polymorph Immunity and the rest), on
+---each unit `visible` says true for. Call it while your script loads.
+---@param line {label: string, text?: string, icon?: integer|string, visible: fun(unit: integer, monster: integer): boolean}
+---label up to 63 characters; icon a game icon number (0 to 667) or a picture in your mod's folder ("./icon.tga",
+---32 x 32), 211 (Magic Shield) when left out; visible runs each time the card draws (not in network games).
+---@return integer|false id false when refused (lua_refused): no_label, label_too_long, no_visible, bad_icon (plus findModImage's), too_many_pictures, out_of_memory
+function coe5.addTraitLine(line) end
+
 ---One record of the game's spell table, mods' spells included: its name, path, level, the weapon that is
 ---its effect, and the damage value the weapon is used with.
 ---@param spell integer
@@ -1937,6 +1984,35 @@ function coe5.gen.randomSquareOfTerrain(code) end
 ---@return integer|nil y
 function coe5.gen.randomMarkedSquare(mark, code, openLand) end
 
+---The map generator's terrain blob ("terrblob", the Sky's cloud banks): n times a random walk of up to 25 steps
+---from (x, y), held within maxDist of it and on the plane, lays terrain on the first square holding onto (-1: any
+---square not already that terrain). Squares reached off the plane are put back.
+---@param terrain integer
+---@param x integer
+---@param y integer
+---@param n integer 1 to the plane's squares
+---@param onto integer a terrain, or -1
+---@param maxDist integer
+---@return integer laid
+function coe5.gen.terrainBlob(terrain, x, y, n, onto, maxDist) end
+
+---A random square of the plane matching code whose 3 x 3, itself included, holds min to max squares matching
+---nearCode (the Sky's Castle Arcanum: Sky, Sky, 9, 100), 500,000 tries.
+---@param code integer a terrain number or terrain group
+---@param nearCode integer a terrain number or terrain group
+---@param min integer 0 to 9
+---@param max integer
+---@return integer|nil x nil when none
+---@return integer|nil y
+function coe5.gen.findSpotByNeighbours(code, nearCode, min, max) end
+
+---Whether a monster's path leads from the square to Elysium's centre, or 10 squares west or east of it, through
+---the portals the world has so far: the Sky's test for a Cloud City.
+---@param x integer
+---@param y integer
+---@return boolean
+function coe5.gen.reachesElysium(x, y) end
+
 ---A portal from a square of the plane to a square of any plane: n on the first, n (two ways) or -n
 ---(one way) on the second. A portal pairs with every square holding its number.
 ---@param x1 integer
@@ -2068,7 +2144,7 @@ function coe5.ui.columnX(x) end
 ---one. Draw the cells with coe5.ui.text at coe5.ui.columnX, then close it with coe5.ui.rowEnd.
 ---Refused (lua_refused), drawing nothing: a row already open (row_open), a width of 0 or less, an
 ---id past the game's 32-bit int, or a colour outside 0 to 1 (out_of_range), NaN or an infinity
----(not_finite), Mac (windows_only, for now). A row left open is closed at coe5.ui.wait or
+---(not_finite). A row left open is closed at coe5.ui.wait or
 ---screenBegin (row_open).
 ---@param id integer
 ---@param width number
@@ -2147,6 +2223,26 @@ function coe5.ui.drawText(x, y, size, text, r, g, b, alpha) end
 ---@param b number
 ---@param alpha number
 function coe5.ui.drawRect(x, y, width, height, r, g, b, alpha) end
+
+---Draws the game's icon for a resource as the next element of a screen's line: the icon the
+---recruit screen shows beside a cost, as high as the text. In a row (coe5.ui.rowBegin) a
+---coe5.ui.text after it sits beside it, and coe5.ui.tooltip after it is its hover text. `resource`
+---is 0 Gold to 13 Lifeforce, the numbers slotResource takes. A resource outside 0 to 13 draws
+---nothing (out_of_range), and so does a value that isn't a whole number (bad_type).
+---@param id integer the click id, as coe5.ui.text's
+---@param resource integer 0 Gold, 1 Iron, 2 Herbs, 3 Fungus, 4 Sacrifices, 5 Hand of Glory, 6 Enchanted Weed, 7 Rubies, 8 Sapphires, 9 Diamonds, 10 Emeralds, 11 Trade, 12 Relics, 13 Lifeforce
+function coe5.ui.resourceIcon(id, resource) end
+
+---Draws the game's icon for a resource with its bottom left corner at (x, y), UI coordinates,
+---`size` UI units square. Only inside a MAP_EDITOR_DRAW, MAP_DRAW or BATTLE_DRAW wrap, as
+---drawText. `resource` as coe5.ui.resourceIcon's. A size of 0 or less, or a resource outside 0
+---to 13, draws nothing (out_of_range); so does NaN or an infinity (not_finite) and a resource
+---that isn't a whole number (bad_type).
+---@param x number
+---@param y number
+---@param size number
+---@param resource integer 0 Gold to 13 Lifeforce
+function coe5.ui.drawResourceIcon(x, y, size, resource) end
 
 -- ---- Game numbers ------------------------------------------------------------------------------
 -- The game's own numbers that a script passes to CoE5SE or gets back, by name. The values are the
@@ -2328,6 +2424,13 @@ coe5.ritual = {
   reasonPlane = -7,
   rowCastable = 1000,   -- a castable ritual's row id is its slot + 1000
   rowGreyed = 12288,    -- a greyed-out one's is its slot + 12288 (0x3000)
+}
+
+---A battle target check's answers (C: TARGET_USEFUL, TARGET_NOT_AFFECTED), for BATTLE_TARGET_CHECK.
+---@class coe5.target
+coe5.target = {
+  useful = 1,         -- the target is worth the spell or mind weapon
+  notAffected = -3,   -- the weapon wouldn't affect it: casters pass it over
 }
 
 ---The game's file browser (Load Game's list) and the square info window (C: FILE_BROWSER_*,

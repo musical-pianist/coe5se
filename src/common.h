@@ -487,16 +487,20 @@ static UNUSED void listGap(float g) {
     LAYOUT_TYPE(e) = LAYOUT_TYPE_LIST_GAP;
     layoutAdvance();
 }
-static UNUSED void rowArea(int id, float width) {
+static UNUSED void rowAreaColour(int id, float width, float r, float g, float b, float alpha) {
     unsigned char *e = layoutNew();
     if (!e) return;
     LAYOUT_F(e, LAYOUT_ELEMENT_COLUMN_X) = GF(RVA_COLUMN_BASE);
     LAYOUT_F(e, LAYOUT_ELEMENT_WIDTH) = width;
-    LAYOUT_F(e, 0x14) = LAYOUT_F(e, 0x18) = LAYOUT_F(e, 0x1c) = LAYOUT_F(e, 0x20) = 0.0f;
+    LAYOUT_F(e, 0x14) = r;
+    LAYOUT_F(e, 0x18) = g;
+    LAYOUT_F(e, 0x1c) = b;
+    LAYOUT_F(e, 0x20) = alpha;
     LAYOUT_ID(e) = id;
     LAYOUT_TYPE(e) = LAYOUT_TYPE_ROW_AREA;
     layoutAdvance();
 }
+static UNUSED void rowArea(int id, float width) { rowAreaColour(id, width, 0.0f, 0.0f, 0.0f, 0.0f); }
 static UNUSED void rowBegin(int on) {
     G32(RVA_ROW_OPEN) = on;
     int last = G32(RVA_LAYOUT_LAST);

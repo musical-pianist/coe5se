@@ -11,6 +11,18 @@ local UNSTABLE_CLOUDS, DISPERSING_CLOUDS = 305, 306
 local CLOUD_FOREST, THUNDER_CLOUD = 208, 307
 local KATABATIC_CAVE, DVALIN_STATUE = 331, 233
 local GATEWAY, INACTIVE_GATEWAY, NEXUS = 204, 321, 223
+local FOREST, JUNGLE, LAKE, FARM, VILLAGE, TOWN = 2, 115, 10, 5, 18, 17
+local SACRED_SPRING, DIVINE_CASTLE, BRONZE_CASTLE = 222, 252, 329
+local ELYSIUM_SPIRE, MOUNTAIN_SPIRE, ELYSIUM_RAINBOW, RAINBOW = 253, 254, 264, 263
+local ELYSIUM_BEANSTALK, BEANSTALK, BEANSTALK_CASTLE = 267, 268, 269
+local ANCIENT_TEMPLE, MAGIC_LIBRARY, GALLOWS, CLOUD_GRAVEYARD = 39, 13, 153, 310
+local CLOUD_FUNGUS, SKY_FLOWERS, CLOUD_TOWER = 308, 309, 330
+local CLOUD_CITY, CLOUD_VILLAGE, CLOUD_HAMLET, CLOUD_CASTLE = 260, 261, 262, 313
+local CASTLE_ARCANUM, ENCHANTED_LAKE = 337, 295
+local MIRROR_POOL, GRANITE_CITADEL, SEALED_CHAMBER = 344, 209, 225
+local FUNGUS_FOREST, CRYSTAL_FOREST, CAVERN_POOLS, STALAGMITES = 195, 196, 341, 342
+local DEEP_GEMS, DEEP_GOLD, DEEP_SILVER, DEEP_IRON, CAVE_TEMPLE = 174, 179, 186, 187, 343
+local GIANT_GEODE = 333
 
 local FLAG_WATER, FLAG_FOREST, FLAG_MOUNTAIN = 1 << 2, 1 << 13, 1 << 16
 
@@ -63,6 +75,57 @@ recipes.Celestial = {
     end
     finish(p, true)
   end,
+  special = function(p)
+    if not gen.refuseSmallPlane("celestial special squares", 26, 26) then return end
+    local cx, cy = p.x + p.w // 2, p.y + p.h // 2
+    local function terrainAt(x, y)
+      if x < p.x or y < p.y or x >= p.x + p.w or y >= p.y + p.h then return -1 end
+      return get("squareTerrain", x, y)
+    end
+    local ground = terrainAt(cx, cy)
+    for _, d in ipairs({{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) do
+      for k = 0, 99 do
+        local t = terrainAt(cx + k * d[1], cy + k * d[2])
+        if t ~= ground and t ~= BRONZE_CASTLE then
+          local back = k < 1 and 0 or k - 1
+          put(p, cx + back * d[1], cy + back * d[2], BRONZE_CASTLE)
+          break
+        end
+      end
+    end
+    for _, ray in ipairs({{cx, -1, -1}, {cx - 1, -1, -1}, {cx, 1, -1}, {cx + 1, 1, -1},
+                          {cx, -1, 1}, {cx - 1, -1, 1}, {cx, 1, 1}, {cx + 1, 1, 1}}) do
+      for k = 0, 99 do
+        local x, y = ray[1] + k * ray[2], cy + k * ray[3]
+        local t = terrainAt(x, y)
+        if t ~= PLAIN and t ~= MOUNTAINS then
+          local back = k < 1 and 0 or 1
+          put(p, x - back * ray[2], y - back * ray[3], MOUNTAINS)
+          break
+        end
+        gen.setTerrain(x, y, MOUNTAINS)
+      end
+    end
+    put(p, cx, cy, DIVINE_CASTLE)
+    put(p, cx, cy - 1, MOUNTAINS)
+    put(p, cx, cy + 1, MOUNTAINS)
+    for y = p.y, p.y + p.h - 1 do
+      for x = p.x, p.x + p.w - 1 do
+        if get("squareTerrain", x, y) == PLAIN then
+          if gen.random(100) < 20 then gen.setTerrain(x, y, FOREST)
+          elseif gen.random(100) < 20 then gen.setTerrain(x, y, JUNGLE)
+          elseif gen.random(100) < 4 then gen.setTerrain(x, y, LAKE + gen.random(2))
+          else
+            local farm, roll = gen.random(100), gen.random(100)
+            if farm <= 5 then gen.setTerrain(x, y, FARM + roll % 2)
+            elseif roll < 6 then gen.setTerrain(x, y, VILLAGE)
+            elseif gen.random(100) < 3 then gen.setTerrain(x, y, TOWN)
+            elseif gen.random(100) < 1 then gen.setTerrain(x, y, SACRED_SPRING) end
+          end
+        end
+      end
+    end
+  end,
 }
 
 -- ---- Sky: Sky over Elysium, cloud banks with Cloud Forests, Thunder Clouds ----
@@ -111,6 +174,76 @@ recipes.Sky = {
       end
     end
     finish(p, true)
+  end,
+  special = function(p)
+    local owed = gen.random(1000) < get("genTownShare") // 2 and 1 or 0
+    for j = 0, math.min(p.h, p.elysiumH) - 1 do
+      for i = 0, math.min(p.w, p.elysiumW) - 1 do
+        local t, x, y = get("squareTerrain", i, j), p.x + i, p.y + j
+        local site, size
+        if t == ELYSIUM_SPIRE then
+          site, size = MOUNTAIN_SPIRE, gen.random(10) + gen.random(10) + 2
+        elseif t == ELYSIUM_RAINBOW then
+          site, size = RAINBOW, gen.random(8) + 1
+        elseif t == ELYSIUM_BEANSTALK then
+          site = gen.random(100) < 50 and BEANSTALK_CASTLE or BEANSTALK
+          size = gen.random(10) + 2 + gen.random(10)
+        end
+        if site then
+          gen.terrainBlob(CLOUDS, x, y, size, SKY, 25)
+          gen.setTerrain(x, y, site)
+        end
+      end
+    end
+    gen.setGround(p.x, p.y, p.w, p.h, -1)
+    for y = p.y, p.y + p.h - 1 do
+      for x = p.x, p.x + p.w - 1 do
+        if get("squareTerrain", x, y) == CLOUDS then
+          local first, second = gen.random(1000), gen.random(1000)
+          if first < get("genAncientRuinChance") then
+            if second % 100 < 50 then gen.setTerrain(x, y, ANCIENT_TEMPLE)
+            elseif gen.random(1000) < get("genLibraryChance") then gen.setTerrain(x, y, MAGIC_LIBRARY) end
+          else
+            local third = gen.random(1000)
+            if second < get("genBattlefieldChance") then
+              gen.setTerrain(x, y, third % 100 < 5 and GALLOWS or CLOUD_GRAVEYARD)
+            else
+              local fourth = gen.random(1000)
+              if third < 50 then
+                gen.setTerrain(x, y, fourth % 100 < 50 and CLOUD_FUNGUS or SKY_FLOWERS)
+              elseif fourth < get("genTowerChance") then
+                gen.setTerrain(x, y, CLOUD_TOWER)
+              elseif gen.random(1000) < get("genVillageChance") then
+                local town = gen.random(1000)
+                local townRoll = town < get("genTownShare")
+                if (townRoll or owed > 0) and gen.reachesElysium(x, y) then
+                  gen.setTerrain(x, y, CLOUD_CITY)
+                  owed = math.max(owed - 1, 0)
+                else
+                  if townRoll then owed = owed + 1 end
+                  gen.setTerrain(x, y, gen.random(1000) < 350 and CLOUD_VILLAGE or CLOUD_HAMLET)
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+    if gen.random(100) < 20 then
+      local x, y = gen.randomSquareOfTerrain(CLOUDS)
+      if x and y then gen.setTerrain(x, y, CLOUD_CASTLE) end
+    end
+    if gen.random(100) < 20 then
+      local x, y = gen.findSpotByNeighbours(SKY, SKY, 9, 100)
+      if x and y then
+        gen.terrainBlob(PLAIN, x, y, gen.random(3) + 3, SKY, 25)
+        gen.setTerrain(x, y, CASTLE_ARCANUM)
+        for _, t in ipairs({VILLAGE, FOREST, ENCHANTED_LAKE}) do
+          if gen.random(100) < 75 then gen.terrainBlob(t, x, y, 1, PLAIN, 2) end
+        end
+      end
+    end
+    gen.setGround(p.x, p.y, p.w, p.h, -1)
   end,
 }
 
@@ -187,6 +320,63 @@ recipes.Agartha = {
     if flooded then gen.updateMoistWalls() end
     gen.updateMoistWalls()
     gen.setGround(p.x, p.y, p.w, p.h, -1)
+  end,
+  special = function(p)
+    local depth, height = get("mapDepth"), get("mapH")
+    local function cavernSquare()
+      for _ = 1, 100000 do
+        local x, y = gen.random(depth), gen.random(height)
+        if x >= p.x and y >= p.y and x < p.x + p.w and y < p.y + p.h and get("squareTerrain", x, y) == ROCK_GROUND_2
+            and get("squareOpenLand", x, y) then
+          return x, y
+        end
+      end
+      return nil
+    end
+    local x, y = cavernSquare()
+    if x and y then gen.setTerrain(x, y, LAKE) end
+    if gen.random(10000) < p.w * p.h then
+      x, y = cavernSquare()
+      if x and y then gen.setTerrain(x, y, MIRROR_POOL) end
+    end
+    x, y = cavernSquare()
+    if x and y then gen.setTerrain(x, y, GRANITE_CITADEL) end
+    local society = get("society")
+    if gen.random(100) < 25 or society == 1 or society == 11 then
+      x, y = gen.findSpotByNeighbours(CAVE_WALL, ROCK_GROUND, 2, 3)
+      if x and y then gen.setTerrain(x, y, SEALED_CHAMBER) end
+    end
+    local CAVE_SITES = {[0] = FUNGUS_FOREST, CRYSTAL_FOREST, CAVERN_POOLS, STALAGMITES}
+    local DEPOSITS = {[4] = DEEP_IRON, [5] = DEEP_IRON, [6] = DEEP_SILVER, [7] = DEEP_SILVER, [8] = DEEP_GOLD, [9] = CAVE_TEMPLE}
+    local mapW = get("mapW")
+    for sy = p.y, p.y + p.h - 1 do
+      for sx = p.x, p.x + p.w - 1 do
+        local t = get("squareTerrain", sx, sy)
+        if t == ROCK_GROUND_2 then
+          if gen.random(100) < 25 then
+            gen.setTerrain(sx, sy, CAVE_SITES[gen.random(4)])
+            gen.spreadTerrain(sx, sy, 3, ROCK_GROUND_2)
+          end
+        elseif t == ROCK_GROUND then
+          local first, second = gen.random(100), gen.random(100)
+          if first < 10 then
+            gen.setTerrain(sx, sy, CAVE_SITES[second % 4])
+          elseif second < 8 then
+            local kind = gen.random(10)
+            gen.setTerrain(sx, sy, kind <= 3 and DEEP_GEMS + gen.random(4) or DEPOSITS[kind])
+          end
+        elseif t == CAVE_WALL and gen.random(1000) < 7 then
+          local walls = 0
+          for dx = -1, 1 do
+            for dy = -1, 1 do
+              local nx, ny = sx + dx, sy + dy
+              if nx >= 0 and ny >= 0 and nx < mapW and ny < height and get("squareTerrain", nx, ny) == CAVE_WALL then walls = walls + 1 end
+            end
+          end
+          if walls > 8 then gen.setTerrain(sx, sy, GIANT_GEODE) end
+        end
+      end
+    end
   end,
 }
 

@@ -7,6 +7,7 @@ void fanpatchLog(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 int fanpatchGameCodeMatches(const char *fix);
 unsigned char *fanpatchItemTable(void);
 int fanpatchItemRecords(void);
+int fanpatchOfficialGame(void);
 int fanpatchNetworkGame(void);
 int fanpatchSpellAboveLevel(int unit);
 int fanpatchReplacedSprite(unsigned file, unsigned spr);

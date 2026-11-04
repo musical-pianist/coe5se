@@ -38,21 +38,40 @@ static int findGameCode(const unsigned char *image, const unsigned char **code, 
 #endif
 }
 
-static int hashMemorySha256(const void *data, size_t size, char hex[GAME_CODE_SHA256_HEX_LEN + 1]) {
+static int hashPiecesSha256(const void *const data[], const size_t sizes[], int count, char hex[GAME_CODE_SHA256_HEX_LEN + 1]) {
     unsigned char digest[32];
 #ifdef __APPLE__
-    CC_SHA256(data, (CC_LONG)size, digest);
+    CC_SHA256_CTX context;
+    CC_SHA256_Init(&context);
+    for (int i = 0; i < count; i++) CC_SHA256_Update(&context, data[i], (CC_LONG)sizes[i]);
+    CC_SHA256_Final(digest, &context);
     int ok = 1;
 #else
     BCRYPT_ALG_HANDLE alg = NULL;
     BCRYPT_HASH_HANDLE hash = NULL;
-    int ok = size <= 0xffffffffu && BCRYPT_SUCCESS(BCryptOpenAlgorithmProvider(&alg, BCRYPT_SHA256_ALGORITHM, NULL, 0)) &&
-             BCRYPT_SUCCESS(BCryptCreateHash(alg, &hash, NULL, 0, NULL, 0, 0)) &&
-             BCRYPT_SUCCESS(BCryptHashData(hash, (PUCHAR)(uintptr_t)data, (ULONG)size, 0)) &&
-             BCRYPT_SUCCESS(BCryptFinishHash(hash, digest, sizeof digest, 0));
+    int ok = BCRYPT_SUCCESS(BCryptOpenAlgorithmProvider(&alg, BCRYPT_SHA256_ALGORITHM, NULL, 0)) &&
+             BCRYPT_SUCCESS(BCryptCreateHash(alg, &hash, NULL, 0, NULL, 0, 0));
+    for (int i = 0; ok && i < count; i++)
+        ok = sizes[i] <= 0xffffffffu && BCRYPT_SUCCESS(BCryptHashData(hash, (PUCHAR)(uintptr_t)data[i], (ULONG)sizes[i], 0));
+    ok = ok && BCRYPT_SUCCESS(BCryptFinishHash(hash, digest, sizeof digest, 0));
     if (hash) BCryptDestroyHash(hash);
     if (alg) BCryptCloseAlgorithmProvider(alg, 0);
 #endif
     for (int i = 0; ok && i < 32; i++) snprintf(hex + 2 * i, 3, "%02x", digest[i]);
     return ok;
+}
+
+static int hashMemorySha256(const void *data, size_t size, char hex[GAME_CODE_SHA256_HEX_LEN + 1]) {
+    const void *pieces[1] = {data};
+    size_t sizes[1] = {size};
+    return hashPiecesSha256(pieces, sizes, 1, hex);
+}
+
+static int hashCodeWithBytes(const unsigned char *code, size_t size, const unsigned char *at, const unsigned char *bytes,
+                             size_t length, char hex[GAME_CODE_SHA256_HEX_LEN + 1]) {
+    if (at < code || length > size || (size_t)(at - code) > size - length) return 0;
+    size_t before = (size_t)(at - code);
+    const void *pieces[3] = {code, bytes, at + length};
+    size_t sizes[3] = {before, length, size - before - length};
+    return hashPiecesSha256(pieces, sizes, 3, hex);
 }

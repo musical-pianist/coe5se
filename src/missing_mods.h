@@ -251,12 +251,6 @@ static void freeSavedModHashes(SavedModHashes *saved) {
     *saved = (SavedModHashes){"none", NULL, 0};
 }
 
-static const SavedModHash *findSavedModHash(const char *name) {
-    for (int i = 0; i < savedModHashes.count; i++)
-        if (!strcmp(savedModHashes.mods[i].name, name)) return &savedModHashes.mods[i];
-    return NULL;
-}
-
 static const char *readModHashPayload(const unsigned char *payload, int size, SavedModHashes *saved) {
     if (size < 16) return "bad";
     SaveCursor c = {payload, payload + size - 8, 0};
@@ -428,10 +422,12 @@ static int isSkippableMissingMod(const char *name) {
 
 static void readLoadedSavePlanes(const char *path);
 static void readLoadedSaveFactions(const char *path);
+static void checkLoadedSaveVersion(const char *path);
 
 static void *openLoadedSave(const char *path, void *file) {
     playerModStates.noted = 0;
     if (file) {
+        checkLoadedSaveVersion(path);
         notePlayerModStates();
         readSavedModContent(path, &savedMods, &savedModHashes);
         writeResultLog(strcmp(savedMods.result, "bad"), "save_mod_record_read", "result=%s%s mods=%d", savedMods.result,

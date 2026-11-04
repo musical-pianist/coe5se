@@ -102,7 +102,7 @@ static void hk_add(int unit, unsigned long long bits)
 {
     int before = valid_unit(unit) && is_feeble(unit);
     o_add(unit, bits);
-    if (fanpatchNetworkGame())   /* CoE5SE: the game's own in a network game */
+    if (fanpatchOfficialGame())   /* CoE5SE: the game's own in an official game */
         return;
     if (valid_unit(unit) && !before && is_feeble(unit))
         do_rebuild(unit, "became Feebleminded");
@@ -113,7 +113,7 @@ static void check_unit(int unit, const char *why)
 {
     unsigned char now;
 
-    if (!valid_unit(unit) || unit >= MAX_TRACKED || fanpatchNetworkGame())   /* CoE5SE: not in a network game */
+    if (!valid_unit(unit) || unit >= MAX_TRACKED || fanpatchOfficialGame())   /* CoE5SE: not in an official game */
         return;
     now = is_feeble(unit) ? 2 : 1;
     /* CoE5SE: a Feebleminded unit still holding a spell above its level is rebuilt whatever its state

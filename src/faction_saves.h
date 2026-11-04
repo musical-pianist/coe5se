@@ -23,7 +23,7 @@ static void factionSaveArea(int *w, int *h) {
 }
 
 // ---- Writing ------------------------------------------------------------------------------------
-static void addFactionChunks(SaveList *list) {
+static void addFactionDataChunks(SaveList *list) {
     if (!factionsInWorld()) return;
     int w, h;
     factionSaveArea(&w, &h);
@@ -50,6 +50,10 @@ static void addFactionChunks(SaveList *list) {
             }
         saveListAdd(list, SAVE_TAG_FCDT, &b);
     }
+}
+
+static void addFactionIndexChunk(SaveList *list) {
+    if (!factionsInWorld()) return;
     SaveBuffer b = {0};
     saveBufferInt(&b, SAVE_FCTN_VERSION);
     saveBufferInt(&b, factionCount);

@@ -261,3 +261,10 @@ static void drawUiText(float x, float y, float size, const char *text, float r, 
         (const char *)GAME_PTR(RVA_STR_GUIFONT), x * sx, y * sy, size * sy * DRAW_TEXT_SIZE_SCALE, G32(RVA_TEXT_RENDER_FLAGS), r, g, b,
         alpha, text);
 }
+
+#define UI_SPRITE_FLAGS 4
+static void drawUiSprite(int kind, int sprite, float x, float y, float size) {
+    GL_IMPORT(void (*)(float, float, float, float), RVA_GL_COLOR4F)(1.0f, 1.0f, 1.0f, 1.0f);
+    GAME_FN(void (*)(int, int, int, float, float, float, float, float), RVA_SPRITE_DRAW_SCALED)(kind, sprite, UI_SPRITE_FLAGS, x, y, size,
+                                                                                              size, 1.0f);
+}

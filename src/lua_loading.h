@@ -22,7 +22,7 @@ static const luaL_Reg LUA_COE5[] = {
     {"builtinOffers", lBuiltinOffers}, {"builtinOfferChance", lBuiltinOfferChance}, {"replaceBuiltinOffer", lReplaceBuiltinOffer},
     {"addShopOffer", lAddShopOffer}, {"guildCount", lGuildCount},
     {"aiBuyOffer", lAiBuyOffer}, {"aiActions", lAiActions}, {"runAiTurn", lRunAiTurn}, {"recruitScreen", lRecruitScreen}, {"showSight", lShowSight}, {"restoreSight", lRestoreSight}, {"reportBattlesTo", lReportBattlesTo}, {"changedBy", lChangedBy}, {"addMapEditorLine", lAddMapEditorLine}, {"mapView", lMapView},
-    {"addCommanderLine", lAddCommanderLine}, {"teleportCommander", lTeleportCommander}, {"mayEnterSquare", lMayEnterSquare},
+    {"addCommanderLine", lAddCommanderLine}, {"addTraitLine", lAddTraitLine}, {"teleportCommander", lTeleportCommander}, {"mayEnterSquare", lMayEnterSquare},
     {"keepTraceLines", lKeepTraceLines}, {"addPlane", lAddPlane}, {"setPlaneShape", lSetPlaneShape}, {"planeIndex", lPlaneIndex}, {"factionSlot", lFactionSlot}, {"addFaction", lAddFaction},
     {"setPlaneTint", lSetPlaneTint}, {"clearPlaneTint", lClearPlaneTint}, {"setTerrainLooks", lSetTerrainLooks},
     {"addBattleMap", lAddBattleMap}, {"setBattleScatter", lSetBattleScatter},
@@ -34,7 +34,8 @@ static const luaL_Reg LUA_UI[] = {
     {"listBegin", lListBegin}, {"listRow", lListRow}, {"listEnd", lListEnd}, {"bindEscape", lBindEscape},
     {"bindKey", lBindKey}, {"wait", lWait}, {"sectionHeader", lSectionHeader}, {"screenWidth", lScreenWidth},
     {"setupScreenWidth", lSetupScreenWidth}, {"screenMusic", lScreenMusic}, {"columnX", lColumnX},
-    {"nameBox", lNameBox}, {"monsterRow", lMonsterRow}, {"drawLine", lDrawLine}, {"drawText", lDrawText}, {"drawRect", lDrawRect}, {"rowBegin", lRowBegin}, {"rowEnd", lRowEnd}, {NULL, NULL},
+    {"nameBox", lNameBox}, {"monsterRow", lMonsterRow}, {"drawLine", lDrawLine}, {"drawText", lDrawText}, {"drawRect", lDrawRect}, {"rowBegin", lRowBegin}, {"rowEnd", lRowEnd},
+    {"resourceIcon", lResourceIcon}, {"drawResourceIcon", lDrawResourceIcon}, {NULL, NULL},
 };
 
 static const struct { const char *table, *name; int value; } GAME_NUMBERS[] = {
@@ -80,6 +81,7 @@ static const struct { const char *table, *name; int value; } GAME_NUMBERS[] = {
     {"ritual", "rowGreyed", RITUAL_ROW_GREYED},
     {"screen", "fileBrowserRowFirst", FILE_BROWSER_ROW_FIRST}, {"screen", "fileBrowserDelete", FILE_BROWSER_DELETE},
     {"screen", "squareInfoOk", SQUARE_INFO_OK},
+    {"target", "useful", TARGET_USEFUL}, {"target", "notAffected", TARGET_NOT_AFFECTED},
     {"aiMove", "none", AI_MOVE_NONE}, {"aiMove", "target", AI_MOVE_TARGET}, {"aiMove", "explore", AI_MOVE_EXPLORE},
     {"aiMove", "noSquare", AI_NO_SQUARE}, {"aiMove", "exploreBelow", AI_EXPLORE_BELOW},
     {"aiMove", "farExploreBelow", AI_FAR_EXPLORE_BELOW},
@@ -165,6 +167,7 @@ static int luaGate(lua_State *L) {
     const char *reason = s && s->stopping ? "script_stopped"
                        : !s || s != luaRunning ? "not_running"
                        : luaCommandsLoading && !luaCommandsFileCall(fn) ? "commands_file"
+                       : luaFunctionOffForBuild(lua_tostring(L, lua_upvalueindex(2))) ? "off_for_game_build"
                        : NULL;
     if (!reason) {
         if (fn->func != lGet) unitsChangeEpoch++;

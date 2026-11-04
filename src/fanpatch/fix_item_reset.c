@@ -101,7 +101,7 @@ static void hk_find_all_mods(void)
 
 static void hk_restore(void)
 {
-    if (s_items_saved && !fanpatchNetworkGame()) {   /* CoE5SE: the game's own in a network game */
+    if (s_items_saved && !fanpatchNetworkGame()) {   /* CoE5SE: the game's own in a network game: 5.42 resets items itself */
         int before = last_item_number();
         memcpy(GAME_PTR(void *, VA_ITEMS), s_items_saved, ITEM_TABLE_BYTES);
         *GAME_PTR(int *, VA_ITEM_COUNT) = s_count_saved;

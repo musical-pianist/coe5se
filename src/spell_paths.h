@@ -18,11 +18,8 @@ static struct {
 } spellPaths = {.selected = -1};
 
 static const char **spellPathNames(void) {
-    if (pathTakeover.names) return pathTakeover.names;
     return spellPathsExpanded ? spellPathCopy : (const char **)(gameBase + RVA_SPELL_PATH_NAMES);
 }
-
-static int spellPathsInUse(void) { return spellPaths.state != 0 || spellPaths.added != 0; }
 
 static int spellPathTableReady(void) {
     if (spellPaths.state) return spellPaths.state > 0;
@@ -51,7 +48,7 @@ static int spellPathTableReady(void) {
 }
 
 static int spellPathTableWritable(void) {
-    if (spellPathsExpanded || pathTakeover.names) return 1;
+    if (spellPathsExpanded) return 1;
     if (!spellPaths.writable)
         spellPaths.writable = makeGameDataWritable(spellPathNames(), GAME_SPELL_PATH_COUNT * sizeof(const char *)) ? 1 : -1;
     return spellPaths.writable > 0;
@@ -100,46 +97,6 @@ static int spellPathWordTakes(const char *word, int mod) {
     return 0;
 }
 
-#define SPELL_PATHS_SHORT_TITLE "CoE5SE: Spell paths left out"
-
-static int showSpellPathsShortBox(const char *text, int restartable) {
-    if (!restartable) {
-        messageBox(SPELL_PATHS_SHORT_TITLE, text, "Ok", "", 0, 0, 0);
-        return 0;
-    }
-    return messageBox(SPELL_PATHS_SHORT_TITLE, text, "Restart", "Play on", 0, 0, 0) == 1;
-}
-static int (*spellPathsShortBox)(const char *text, int restartable) = showSpellPathsShortBox;
-static int spellPathsShortTold;
-
-static void spellPathsShortText(int dllMod, char *text, size_t size) {
-    int used = snprintf(text, size, "More spell paths than this copy supports.\n"
-                                    "Spells would not match other players'.\n\n");
-    if (used < 0 || (size_t)used >= size) return;
-    if (dllMod < 0)
-        snprintf(text + used, size - (size_t)used, "Same mods required for all players, with the same\nCoE5SE Spell Paths Extension.");
-    else
-        snprintf(text + used, size - (size_t)used, "%.60s on in this game. DLL loads at startup only.\nRestart, then rejoin?",
-                 modName(dllMod));
-}
-
-static void spellPathsShortInNetworkGame(int mod, const char *name) {
-    if (spellPathsShortTold) return;
-    spellPathsShortTold = 1;
-    int dllMod = dllModOnSinceSnapshot();
-    int atPluginCap = pathTakeover.names && spellPathCount() == pathTakeover.count;
-    writeLog("spell_paths_short_in_network_game", "mod=%s name=%s paths=%d at_plugin_cap=%d dll_mod_not_running=%s", spellModName(mod), name,
-             spellPathCount(), atPluginCap, dllMod >= 0 ? modName(dllMod) : "-");
-    if (atPluginCap) return;
-    char text[POPUP_TEXT_SIZE];
-    spellPathsShortText(dllMod, text, sizeof text);
-    int restart = spellPathsShortBox(text, dllMod >= 0);
-    writeLog("spell_paths_short_choice", "choice=%s", dllMod < 0 ? "ok" : restart ? "restart" : "play_on");
-    if (!restart) return;
-    GAME_FN(void (*)(void), RVA_WRITE_CONFIG)();
-    relaunchGame("spell_paths_short_in_network_game");
-}
-
 static void newspellpathLine(const char *args, int mod, int level) {
     if (level != 2) return;
     finishSpellBlock();
@@ -156,7 +113,6 @@ static void newspellpathLine(const char *args, int mod, int level) {
     if (number >= spellPathCount()) {
         refuseC5mLine(NEWSPELLPATH_WORD, spellModName(mod), "no_free_path", "line=%d name=%s", G32(RVA_MOD_LINE), name);
         noteSpellProblem(mod, G32(RVA_MOD_LINE), "no free spell path for %s", name);
-        if (isNetworkGame()) spellPathsShortInNetworkGame(mod, name);
         return;
     }
     const char *kept = keptSpellName(name);

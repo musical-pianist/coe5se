@@ -457,6 +457,52 @@ static int lGenRandomMarkedSquare(lua_State *L) {
     return 2;
 }
 
+#define TERRAIN_BLOB_STEPS 25
+static int lGenTerrainBlob(lua_State *L) {
+    int terrain, x, y, n, onto, maxDist;
+    const char *call = "coe5.gen.terrainBlob";
+    if (!genTerrain(L, call, 1, &terrain) || !genSquare(L, call, 2, &x, &y) || !genInt(L, call, 4, "n", 1, genPlaneSquares(), &n) ||
+        !genInt(L, call, 5, "onto", -1, G32(RVA_LAST_TERRAIN), &onto) || !genInt(L, call, 6, "max_dist", 0, MAP_COLUMNS_MAX, &maxDist))
+        return 0;
+    int reach = (maxDist < TERRAIN_BLOB_STEPS ? maxDist : TERRAIN_BLOB_STEPS) + 1;
+    SquareGuard g;
+    guardSquares(&g, x - reach, y - reach, x + reach + 1, y + reach + 1);
+    int laid = GAME_FN(int (*)(int, int, int, int, int, int), RVA_GEN_TERRAIN_BLOB)(terrain, x, y, n, onto, maxDist);
+    unguardSquares(&g);
+    lua_pushinteger(L, laid);
+    return 1;
+}
+
+static int lGenFindSpotByNeighbours(lua_State *L) {
+    int code, nearCode, min, max, x = -1, y = -1;
+    const char *call = "coe5.gen.findSpotByNeighbours";
+    if (!genCode(L, call, 1, &code) || !genCode(L, call, 2, &nearCode) || !genInt(L, call, 3, "min", 0, 9, &min) ||
+        !genInt(L, call, 4, "max", 0, INT_MAX, &max) || !genBuilding(L, call))
+        return 0;
+    GAME_FN(int (*)(int, int, int, int, int, int *, int *), RVA_GEN_FIND_SPOT_BY_NEIGHBOURS)(planeBuild.index, code, nearCode, min, max, &x, &y);
+    if (x < 0 || y < 0 || !insidePlaneBuilt(x, y)) return 0;
+    lua_pushinteger(L, x);
+    lua_pushinteger(L, y);
+    return 2;
+}
+
+#define SKY_PATH_MODE    0x40
+#define SKY_PATH_AP_MAX  200
+#define SKY_PATH_SHIFT   10
+static int lGenReachesElysium(lua_State *L) {
+    int x, y;
+    if (!genSquare(L, "coe5.gen.reachesElysium", 1, &x, &y)) return 0;
+    int plane = GAME_FN(int (*)(int, int), RVA_PLANE_AT)(x, y), reached = plane == 0;
+    if (plane > 0) {
+        int (*path)(int, int, int, int, int, int) = GAME_FN(int (*)(int, int, int, int, int, int), RVA_MONSTER_PATH);
+        int cx = planeField(0, PLANE_X) + planeField(0, PLANE_W) / 2, cy = planeField(0, PLANE_Y) + planeField(0, PLANE_H) / 2;
+        reached = path(SKY_PATH_MODE, x, y, cx, cy, SKY_PATH_AP_MAX) >= 0 || path(SKY_PATH_MODE, x, y, cx - SKY_PATH_SHIFT, cy, SKY_PATH_AP_MAX) >= 0 ||
+                  path(SKY_PATH_MODE, x, y, cx + SKY_PATH_SHIFT, cy, SKY_PATH_AP_MAX) >= 0;
+    }
+    lua_pushboolean(L, reached);
+    return 1;
+}
+
 #define HEAT_BLOB_STEPS_MAX 1000
 static unsigned char heatBlobDone[MAP_COLUMNS_MAX * MAP_COLUMN_SQUARES];
 static void heatBlob(int x0, int y0, int squares, int amount) {
@@ -549,7 +595,8 @@ static const luaL_Reg LUA_GEN[] = {
     {"fixDiagonals", lGenFixDiagonals}, {"spreadTerrain", lGenSpreadTerrain}, {"specBlob", lGenSpecBlob}, {"drawRiver", lGenDrawRiver},
     {"decorateSquare", lGenDecorateSquare}, {"addGroundItems", lGenAddGroundItems}, {"randomSquareOfTerrain", lGenRandomSquareOfTerrain},
     {"setPortalPair", lGenSetPortalPair}, {"linkNewPortal", lGenLinkNewPortal}, {"refuseSmallPlane", lGenRefuseSmallPlane},
-    {"stampPiece", lGenStampPiece}, {"randomMarkedSquare", lGenRandomMarkedSquare}, {"heatBlob", lGenHeatBlob}, {NULL, NULL},
+    {"stampPiece", lGenStampPiece}, {"randomMarkedSquare", lGenRandomMarkedSquare}, {"heatBlob", lGenHeatBlob},
+    {"terrainBlob", lGenTerrainBlob}, {"findSpotByNeighbours", lGenFindSpotByNeighbours}, {"reachesElysium", lGenReachesElysium}, {NULL, NULL},
 };
 
 // ---- The recipes and the generate functions -----------------------------------------------------
@@ -739,6 +786,52 @@ static void addDefaultPortal(const CustomPlane *p) {
              ex, ey, n, was);
 }
 
+static short *keepPlaneTerrains(const CustomPlane *p) {
+    short *kept = malloc(sizeof(short) * (size_t)p->w * (size_t)p->h);
+    if (!kept) {
+        writeLogError("plane_refresh_skipped", "mod=%s name=%s reason=out_of_memory", p->mod, p->name);
+        return NULL;
+    }
+    int x0 = planeField(p->index, PLANE_X), y0 = planeField(p->index, PLANE_Y);
+    for (int i = 0; i < p->w; i++)
+        for (int j = 0; j < p->h; j++) kept[(size_t)i * p->h + j] = *(short *)(squareRecordAt(x0 + i, y0 + j) + SQUARE_TERRAIN_TYPE);
+    return kept;
+}
+
+#define START_FLAG_NO_SQUARE_NAMES 2
+static int squareNamesOn(void) {
+#ifdef __APPLE__
+    int on = !(G8(RVA_CITY_NAMES_SWITCH) & 1);
+#else
+    int on = (int)G32(RVA_CITY_NAMES_SWITCH) > 0;
+#endif
+    return on && !(G16(RVA_START_FLAGS) & START_FLAG_NO_SQUARE_NAMES);
+}
+
+#define SQUARE_NAME_TEXT_BYTES 1024
+static void refreshChangedSquares(const CustomPlane *p, const short *kept) {
+    int x0 = planeField(p->index, PLANE_X), y0 = planeField(p->index, PLANE_Y), names = squareNamesOn(), changed = 0;
+    char text[SQUARE_NAME_TEXT_BYTES];
+    for (int j = 0; j < p->h; j++)
+        for (int i = 0; i < p->w; i++) {
+            int x = x0 + i, y = y0 + j;
+            unsigned char *square = squareRecordAt(x, y);
+            short terrain = *(short *)(square + SQUARE_TERRAIN_TYPE);
+            if (terrain == kept[(size_t)i * p->h + j]) continue;
+            changed++;
+            GAME_FN(void (*)(int, int), RVA_INIT_SQUARE_CORPSES)(x, y);
+            GAME_FN(void (*)(int, int), RVA_INIT_SQUARE_GEMS)(x, y);
+            if (!names) continue;
+            memset(square + SQUARE_NAME, 0, SQUARE_NAME_SIZE);
+            if (terrain <= 0) continue;
+            text[0] = '\0';
+            GAME_FN(void (*)(int, int, char *), RVA_SQUARE_NAME_TEXT)(x, y, text);
+            text[sizeof text - 1] = '\0';
+            memcpy(square + SQUARE_NAME, text, strnlen(text, SQUARE_NAME_SIZE - 1));
+        }
+    writeLog("plane_squares_refreshed", "mod=%s name=%s changed=%d names=%d", p->mod, p->name, changed, names);
+}
+
 static unsigned char *guardPlacedPieces(const PlaneLayout *layout);
 static void keepPlacedPieces(const CustomPlane *p, unsigned char *saved);
 static void applyZoneSwaps(const CustomPlane *p);
@@ -748,8 +841,11 @@ static void addCustomPlanesSpecialSquares(void) {
         if (p->skipped || p->index < 0) continue;
         if (p->recipe >= 0) {
             unsigned char *pieces = guardPlacedPieces(&p->layout);
+            short *kept = keepPlaneTerrains(p);
             runPlaneStep(p, PLANE_STEP_SPECIAL);
             keepPlacedPieces(p, pieces);
+            if (kept) refreshChangedSquares(p, kept);
+            free(kept);
         }
         applyZoneSwaps(p);
         addDefaultPortal(p);

@@ -429,6 +429,7 @@ static int dispatchCommanderLineClick(int id);
 static int (*nextMapScreenWait)(int, int);
 static int boundMapScreenWait(int a, int b) {
     siteResultMod[SITE_MAP_SCREEN_WAIT] = NULL;
+    noteSpellPathsNetworkGame("map_screen");
     int id = nextMapScreenWait(a, b);
     int last = G32(RVA_LAST_COMMANDER);
     const char *mod = siteResultMod[SITE_MAP_SCREEN_WAIT];

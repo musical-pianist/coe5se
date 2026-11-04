@@ -17,6 +17,9 @@
 #include "loader_start.h"
 #include "mod_order.h"
 #include "log_files.h"
+#include "official_mode.h"
+
+static int officialLaunch;
 #ifdef __APPLE__
 #include "workshop_cache.h"
 #endif
@@ -295,7 +298,7 @@ static void findAllPlugins(const char *userDir) {
     int workshop = findWorkshopRoot(gameDir, modRoots[1], sizeof modRoots[1]);
 #ifdef __APPLE__
     char cache[MAX_PATH];
-    if (buildPath(cache, sizeof cache, __func__, "%s" USER_DIR_SEP WORKSHOP_CACHE_FILE, userDir))
+    if (!officialLaunch && buildPath(cache, sizeof cache, __func__, "%s" USER_DIR_SEP WORKSHOP_CACHE_FILE, userDir))
         writeWorkshopCacheFor(cache, modRoots[0], modRoots[1], !readMacWorkshopList());
     if (!readLocalMods(modRoots[0], &localModFolders, NULL, NULL)) writeLogWarning("loader_local_folders_cut", "reason=out_of_memory");
     if (workshop && sameRealFolder(modRoots[0], modRoots[1])) workshop = 0;
@@ -393,10 +396,11 @@ static int setAsideModPlugins(void) {
     int count = 0;
     for (int i = 0; i < foundCount; i++) {
         FoundPlugin *p = &found[i];
-        if (p->state != PLUGIN_FOUND || !_stricmp(p->name, COE5SE_FILE) || isExtraPlugin(p)) continue;
+        if (p->state != PLUGIN_FOUND || !_stricmp(p->name, COE5SE_FILE) || (!officialLaunch && isExtraPlugin(p))) continue;
         p->state = PLUGIN_REFUSED;
         count++;
-        writeLog("loader_plugin_skipped", "name=%s source=%s reason=plugins_set_aside mod=%s", p->name, p->source, p->mod);
+        writeLog("loader_plugin_skipped", "name=%s source=%s reason=%s mod=%s", p->name, p->source,
+                 officialLaunch ? "official_game" : "plugins_set_aside", p->mod);
     }
     return count;
 }
@@ -413,7 +417,9 @@ static void *coe5seExport(void *module, const char *name) {
 #endif
 }
 
+static void *coe5seModule;
 static void connectCoe5se(void *module) {
+    coe5seModule = module;
     void (*start)(void) = (void (*)(void))coe5seExport(module, "coe5seStart");
     writeLog("loader_coe5se_start", "export=%d", start != NULL);
     if (start) start();
@@ -421,7 +427,7 @@ static void connectCoe5se(void *module) {
     coe5sePluginLoading = (void (*)(const char *))coe5seExport(module, "coe5sePluginLoading");
     coe5seCheckPlugin = (const char *(*)(const char *, const char *))coe5seExport(module, "coe5seCheckPlugin");
     if (!coe5seLoadsPlugins || !coe5sePluginLoading || !coe5seCheckPlugin) inactiveReason = "coe5se_exports_missing";
-    else if (!coe5seLoadsPlugins()) inactiveReason = "declined_on_unknown_game";
+    else if (!coe5seLoadsPlugins()) inactiveReason = officialLaunch ? "official_game" : "declined_on_unknown_game";
 }
 
 static void loadPlugin(FoundPlugin *p, int isCoe5se, int autoApprove) {
@@ -465,7 +471,7 @@ static void loadPlugin(FoundPlugin *p, int isCoe5se, int autoApprove) {
 }
 
 static void loadAllPlugins(const char *modDir, const char *source, const char *layoutPath) {
-    findExtraPlugins();
+    if (!officialLaunch) findExtraPlugins();
     readEnabledMods(userDir(), layoutPath);
     findAllPlugins(userDir());
     (void)modDir;
@@ -482,11 +488,101 @@ static void loadAllPlugins(const char *modDir, const char *source, const char *l
         if (inactiveReason) found[i].state = PLUGIN_INACTIVE;
         else loadPlugin(&found[i], i == 0, autoApprove);
     }
-    if (inactiveReason && !strcmp(inactiveReason, "declined_on_unknown_game"))
+    if (inactiveReason && (!strcmp(inactiveReason, "declined_on_unknown_game") || !strcmp(inactiveReason, "official_game")))
         writeLog("loader_inactive", "reason=%s found=%d", inactiveReason, foundCount);
     else if (inactiveReason) writeLogError("loader_inactive", "reason=%s found=%d", inactiveReason, foundCount);
     writeFoundList();
     writeLog("loader_done", "found=%d loaded=%d set_aside=%d", foundCount, loadedCount, setAside);
+}
+
+// ---- Official games' mod list (official_session.h) -------------------------------------------------
+
+#include "auto_enable.h"
+#include "official_session.h"
+
+static OfficialModList officialEnabled, officialDrop;
+static char officialConfigPath[MAX_PATH], officialSessionPath[MAX_PATH], officialDonePath[MAX_PATH];
+
+static void addModsNeedingCoe5se(const OfficialModList *enabled, OfficialModList *drop) {
+    char pattern[MAX_PATH], sub[MAX_PATH], c5m[MAX_PATH];
+    officialListAdd(drop, COE5SE_MOD);
+    for (int r = 0; r < 2; r++) {
+        if (!modRoots[r][0] || !buildPath(pattern, sizeof pattern, __func__, "%s" USER_DIR_SEP "*", modRoots[r])) continue;
+        WIN32_FIND_DATAA fd;
+        HANDLE h = FindFirstFileA(pattern, &fd);
+        if (h == INVALID_HANDLE_VALUE) continue;
+        do {
+            if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) || fd.cFileName[0] == '.') continue;
+            if (!buildPath(sub, sizeof sub, __func__, "%s" USER_DIR_SEP "%s", modRoots[r], fd.cFileName)) continue;
+            for (int i = 0; i < enabled->count; i++) {
+                if (officialListHas(drop, enabled->names[i])) continue;
+                if (!buildPath(c5m, sizeof c5m, __func__, "%s" USER_DIR_SEP "%s.c5m", sub, enabled->names[i])) continue;
+                if (GetFileAttributesA(c5m) == INVALID_FILE_ATTRIBUTES) continue;
+                if (officialFolderNeedsCoe5se(sub, enabled->names[i])) officialListAdd(drop, enabled->names[i]);
+            }
+        } while (FindNextFileA(h, &fd));
+        FindClose(h);
+    }
+}
+
+static void restoreOfficialMods(void) {
+    const char *reason = officialSessionRestore(officialConfigPath, officialSessionPath, officialDonePath, AUTO_ENABLE_DONE_TEXT, &officialEnabled);
+    writeLog("official_mods_restored", "ok=%d at=exit mods=%d reason=%s", reason == NULL, officialEnabled.count, reason ? reason : "-");
+}
+
+static void stepOfficialMods(void) {
+    char state[32] = "", notice[MAX_PATH], backup[MAX_PATH];
+    static unsigned char data[CONFIG_MAX];
+    size_t len;
+    if (!buildPath(officialConfigPath, sizeof officialConfigPath, __func__, "%s" USER_DIR_SEP CONFIG_FILE, userDir()) ||
+        !coe5seUserFile(OFFICIAL_SESSION_FILE, officialSessionPath, sizeof officialSessionPath) ||
+        !coe5seUserFile(AUTO_ENABLE_DONE_FILE, officialDonePath, sizeof officialDonePath) ||
+        !coe5seUserFile(AUTO_ENABLE_NOTICE_FILE, notice, sizeof notice) || !coe5seUserFile(OFFICIAL_CONFIG_BACKUP_FILE, backup, sizeof backup)) {
+        writeLogError("official_mods", "ok=0 reason=path_too_long");
+        return;
+    }
+    int session = officialReadSession(officialSessionPath, state, sizeof state, &officialEnabled, &officialDrop);
+    if (!officialLaunch) {
+        if (!session) return;
+        if (strcmp(state, "active")) {
+            remove(officialSessionPath);
+            writeLog("official_session_cleared", "state=%s", state);
+            return;
+        }
+        const char *reason = officialSessionRestore(officialConfigPath, officialSessionPath, officialDonePath, AUTO_ENABLE_DONE_TEXT, &officialEnabled);
+        remove(notice);
+        if (reason) writeLogError("official_mods_restored", "ok=0 at=next_launch reason=%s", reason);
+        else writeLog("official_mods_restored", "ok=1 at=next_launch mods=%d", officialEnabled.count);
+        return;
+    }
+    int (*allowed)(void) = coe5seModule ? (int (*)(void))coe5seExport(coe5seModule, "coe5seOfficialModsAllowed") : NULL;
+    if (!allowed || !allowed()) {
+        writeLogWarning("official_mods_unticked", "ok=0 reason=%s", allowed ? "not_official_games_build" : "coe5se_not_loaded");
+        return;
+    }
+    if (!session || !strcmp(state, "active")) {
+        const char *reason = officialReadFile(officialConfigPath, data, sizeof data, &len);
+        static OfficialModList now;
+        if (!reason && !officialConfigList(data, len, &now)) reason = "config_unreadable";
+        if (reason) {
+            writeLogError("official_mods_unticked", "ok=0 reason=%s", reason);
+            return;
+        }
+        if (!session) officialEnabled = now;
+    }
+    addModsNeedingCoe5se(&officialEnabled, &officialDrop);
+    const char *reason = officialSessionApply(officialConfigPath, backup, officialSessionPath, officialDonePath, &officialEnabled, &officialDrop);
+    if (reason) {
+        writeLogError("official_mods_unticked", "ok=0 reason=%s", reason);
+        return;
+    }
+    atexit(restoreOfficialMods);
+    int off = 0;
+    for (int i = 0; i < officialEnabled.count; i++) off += officialListHas(&officialDrop, officialEnabled.names[i]);
+    writeLog("official_mods_unticked", "ok=1 unticked=%d of %d session=%s backup=" OFFICIAL_CONFIG_BACKUP_FILE " done_file_removed=1", off,
+             officialEnabled.count, session ? state : "none");
+    for (int i = 0; i < officialEnabled.count; i++)
+        if (officialListHas(&officialDrop, officialEnabled.names[i])) writeLog("official_mod_unticked", "mod=%s", officialEnabled.names[i]);
 }
 
 static void setLogPath(void) {
@@ -529,12 +625,13 @@ __declspec(dllexport) int coe5seLoaderStart(const LoaderStart *start) {
     const char *source = version && START_HAS(start, source) ? start->source : NULL;
     const char *stubUserDir = version && START_HAS(start, userDir) ? start->userDir : NULL;
     stubVersion = glu32Version;
-    writeLog("loader_started", "glu32_version=%u interface=%u started_from=%s", glu32Version, version,
+    officialLaunch = isOfficialLaunch();
+    writeLog("loader_started", "glu32_version=%u interface=%u started_from=%s official=%d", glu32Version, version,
 #ifdef __APPLE__
              startedFrom == LOADER_STARTED_IN_CONSTRUCTOR ? "constructor" :
              startedFrom == LOADER_STARTED_AT_SRAND ? "srand" :
 #endif
-             startedFrom == LOADER_STARTED_IN_DLLMAIN ? "dllmain" : "sdl_set_main_ready");
+             startedFrom == LOADER_STARTED_IN_DLLMAIN ? "dllmain" : "sdl_set_main_ready", officialLaunch);
     if (!version || version > LOADER_START_VERSION) {
         writeLogError("loader_inactive", "reason=unknown_interface interface=%u known=%d", version, LOADER_START_VERSION);
         return 0;
@@ -545,6 +642,8 @@ __declspec(dllexport) int coe5seLoaderStart(const LoaderStart *start) {
     writeLog("loader_user_dir", "from=%s", stubUserDir && stubUserDir[0] ? "stub" : "legacy");
     char layout[MAX_PATH] = "";
     if (modDir) buildPath(layout, sizeof layout, __func__, "%s" USER_DIR_SEP CONFIG_LAYOUT_FILE, modDir);
+    if (!officialLaunch) stepOfficialMods();
     loadAllPlugins(modDir, source, layout[0] ? layout : NULL);
+    if (officialLaunch) stepOfficialMods();
     return foundCount > 0 && found[0].state == PLUGIN_LOADED && !_stricmp(found[0].name, COE5SE_FILE);
 }

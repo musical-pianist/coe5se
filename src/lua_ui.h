@@ -115,21 +115,36 @@ static int luaDrawFloats(lua_State *L, const char *call, int first, int last, fl
 }
 
 // ---- coe5.ui.rowBegin and rowEnd: a row of texts side by side, with a background colour ----------
-// @platform-split lua_row: Windows calls the game's row_area with the colour; Mac inlined it, so coe5.ui.rowBegin is refused there
 static int luaRowOpen;
+
+static void openLuaGameRow(int id, float width, const float colour[4]) {
+#ifdef __APPLE__
+    rowBegin(1);
+    rowAreaColour(id, width, colour[0], colour[1], colour[2], colour[3]);
+#else
+    GAME_FN(void (*)(int), RVA_ROW_BEGIN)(0);
+    GAME_FN(void (*)(int, float, float, float, float, float), RVA_ROW_AREA)(id, width, colour[0], colour[1], colour[2], colour[3]);
+#endif
+    columnX(0.0f);
+}
+
+static void closeLuaGameRow(void) {
+#ifdef __APPLE__
+    rowBegin(0);
+#else
+    GAME_FN(void (*)(int), RVA_ROW_BEGIN)(1);
+#endif
+}
 
 static void closeLuaRow(lua_State *L, const char *call) {
     if (!luaRowOpen) return;
     LuaScript *s = luaScriptOf(L);
     refuseLuaCall(s ? s->mod : "?", call, "row_open", "closed=1");
-#ifndef __APPLE__
-    GAME_FN(void (*)(int), RVA_ROW_BEGIN)(1);
-#endif
+    closeLuaGameRow();
     luaRowOpen = 0;
 }
 
-static const char *luaRowRefusal(int open, lua_Integer id, float width, const float colour[4], int windows) {
-    if (!windows) return "windows_only";
+static const char *luaRowRefusal(int open, lua_Integer id, float width, const float colour[4]) {
     if (open) return "row_open";
     if (!fitsInt(id) || width <= 0) return "out_of_range";
     for (int i = 0; i < 4; i++)
@@ -142,23 +157,14 @@ static int lRowBegin(lua_State *L) {
     float width, colour[4] = {0, 0, 0, 0};
     if (!luaDrawFloats(L, "coe5.ui.rowBegin", 2, 2, &width)) return 0;
     if (!lua_isnoneornil(L, 3) && !luaDrawFloats(L, "coe5.ui.rowBegin", 3, 6, colour)) return 0;
-#ifdef __APPLE__
-    int windows = 0;
-#else
-    int windows = 1;
-#endif
-    const char *reason = luaRowRefusal(luaRowOpen, id, width, colour, windows);
+    const char *reason = luaRowRefusal(luaRowOpen, id, width, colour);
     if (reason) {
         LuaScript *s = luaScriptOf(L);
         refuseLuaCall(s ? s->mod : "?", "coe5.ui.rowBegin", reason, "id=%lld width=%g alpha=%g", (long long)id, (double)width,
                       (double)colour[3]);
         return 0;
     }
-#ifndef __APPLE__
-    GAME_FN(void (*)(int), RVA_ROW_BEGIN)(0);
-    GAME_FN(void (*)(int, float, float, float, float, float), RVA_ROW_AREA)((int)id, width, colour[0], colour[1], colour[2], colour[3]);
-    GAME_FN(void (*)(float), RVA_COLUMN_X)(0.0f);
-#endif
+    openLuaGameRow((int)id, width, colour);
     luaRowOpen = 1;
     return 0;
 }
@@ -169,9 +175,7 @@ static int lRowEnd(lua_State *L) {
         refuseLuaCall(s ? s->mod : "?", "coe5.ui.rowEnd", "no_row", "open=0");
         return 0;
     }
-#ifndef __APPLE__
-    GAME_FN(void (*)(int), RVA_ROW_BEGIN)(1);
-#endif
+    closeLuaGameRow();
     luaRowOpen = 0;
     return 0;
 }
@@ -220,6 +224,49 @@ static int lDrawText(lua_State *L) {
     char cut[DRAW_TEXT_SIZE];
     text = fitGameText((void *)lDrawText, "coe5.ui.drawText", text, cut, sizeof cut);
     drawUiText(pos[0], pos[1], pos[2], text, colour[0], colour[1], colour[2], colour[3]);
+    return 0;
+}
+
+// ---- coe5.ui.resourceIcon and coe5.ui.drawResourceIcon: the game's resource icons ------------------
+#define RESOURCE_ICON_FIRST 0x45
+#define RESOURCE_TYPE_LAST  13
+static int luaResourceIconSprite(lua_State *L, int arg, const char *call) {
+    int whole = 0;
+    lua_Integer resource = lua_type(L, arg) == LUA_TNUMBER ? lua_tointegerx(L, arg, &whole) : 0;
+    if (!whole) {
+        refuseLuaCall(runningLuaMod(), call, "bad_type", "type=%s", luaL_typename(L, arg));
+        return -1;
+    }
+    if (resource < 0 || resource > RESOURCE_TYPE_LAST) {
+        refuseLuaCall(runningLuaMod(), call, "out_of_range", "resource=%lld", (long long)resource);
+        return -1;
+    }
+    return RESOURCE_ICON_FIRST + (int)resource;
+}
+
+static int lResourceIcon(lua_State *L) {
+    lua_Integer id = luaL_checkinteger(L, 1);
+    if (!fitsInt(id)) {
+        refuseLuaCall(runningLuaMod(), "coe5.ui.resourceIcon", "out_of_range", "id=%lld", (long long)id);
+        return 0;
+    }
+    int sprite = luaResourceIconSprite(L, 2, "coe5.ui.resourceIcon");
+    if (sprite < 0) return 0;
+    GAME_FN(void *(*)(int, int, int, int), RVA_SPRITE_BUTTON)((int)id, SPRITE_KIND_ICON, sprite, UI_SPRITE_FLAGS);
+    return 0;
+}
+
+static int lDrawResourceIcon(lua_State *L) {
+    float f[3];
+    if (!luaDrawFloats(L, "coe5.ui.drawResourceIcon", 1, 3, f)) return 0;
+    if (f[2] <= 0) {
+        refuseLuaCall(runningLuaMod(), "coe5.ui.drawResourceIcon", "out_of_range", "size=%g", (double)f[2]);
+        return 0;
+    }
+    int sprite = luaResourceIconSprite(L, 4, "coe5.ui.drawResourceIcon");
+    if (sprite < 0) return 0;
+    if (!luaMayDraw(L, "coe5.ui.drawResourceIcon")) return 0;
+    drawUiSprite(SPRITE_KIND_ICON, sprite, f[0], f[1], f[2]);
     return 0;
 }
 

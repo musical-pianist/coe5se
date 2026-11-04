@@ -126,38 +126,43 @@ static int codeModsChanged(void) {
     return seen < 0;
 }
 
-static int dllModOnSinceSnapshot(void) {
-    if (codeModSnapshotFailed) return -1;
-    for (int m = 0; m <= G32(RVA_MOD_LAST_INDEX); m++) {
-        if (!modEnabled(m) || !folderHasPlugin(modFolder(m))) continue;
-        int k = 0;
-        while (k < codeModCount && _stricmp(codeMods[k].folder, modFolder(m))) k++;
-        if (k == codeModCount || !codeMods[k].enabled) return m;
-    }
-    return -1;
-}
-
 #ifdef __APPLE__
-static void relaunchGame(const char *reason) {
+static void relaunchGameWith(const char *reason, const char *extraArg) {
     char exe[MAX_PATH];
     GetModuleFileNameA(NULL, exe, sizeof exe);
+    int argc = *_NSGetArgc();
+    char **argv = *_NSGetArgv(), **args = argv;
+    if (extraArg) {
+        args = calloc((size_t)argc + 2, sizeof *args);
+        if (!args) {
+            writeLogError("restart_failed", "reason=out_of_memory");
+            return;
+        }
+        memcpy(args, argv, (size_t)argc * sizeof *args);
+        args[argc] = (char *)extraArg;
+    }
     pid_t pid;
-    int error = posix_spawn(&pid, exe, NULL, NULL, *_NSGetArgv(), *_NSGetEnviron());
+    int error = posix_spawn(&pid, exe, NULL, NULL, args, *_NSGetEnviron());
+    if (args != argv) free(args);
     if (error) {
         writeLogError("restart_failed", "reason=launch_failed error=%d", error);
         return;
     }
-    writeLog("restarting", "reason=%s", reason);
+    writeLog("restarting", "reason=%s extra_arg=%s", reason, extraArg ? extraArg : "-");
     exit(0);
 }
 #else
-static void relaunchGame(const char *reason) {
+static void relaunchGameWith(const char *reason, const char *extraArg) {
     char exe[MAX_PATH], dir[MAX_PATH], cmd[2048];
     GetModuleFileNameA(NULL, exe, sizeof exe);
     snprintf(dir, sizeof dir, "%s", exe);
     char *slash = strrchr(dir, '\\');
     if (slash) *slash = '\0';
-    snprintf(cmd, sizeof cmd, "%s", GetCommandLineA());
+    int length = snprintf(cmd, sizeof cmd, "%s%s%s", GetCommandLineA(), extraArg ? " " : "", extraArg ? extraArg : "");
+    if (length < 0 || (size_t)length >= sizeof cmd) {
+        writeLogError("restart_failed", "reason=command_line_too_long bytes=%d", length);
+        return;
+    }
     STARTUPINFOA si;
     ZeroMemory(&si, sizeof si);
     si.cb = sizeof si;
@@ -168,10 +173,12 @@ static void relaunchGame(const char *reason) {
     }
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);
-    writeLog("restarting", "reason=%s", reason);
+    writeLog("restarting", "reason=%s extra_arg=%s", reason, extraArg ? extraArg : "-");
     ExitProcess(0);
 }
 #endif
+
+static void relaunchGame(const char *reason) { relaunchGameWith(reason, NULL); }
 
 static u64 modsScreenWrapper(u64 a1, u64 a2, u64 a3, u64 a4) {
     unsigned int readingsBefore = settingsPassCount(), spellPassesBefore = spellPassCount();

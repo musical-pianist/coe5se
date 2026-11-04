@@ -1,50 +1,48 @@
-#include "spell_path_takeover.h"
-
-#define SPELL_PATH_COUNT       128
+#define SPELL_PATH_COUNT       470
 #define GAME_SPELL_PATH_COUNT  100
 #define EXPANDED_PATH_COUNT    (SPELL_PATH_COUNT - GAME_SPELL_PATH_COUNT)
+#define SPELL_PATH_LAST        (SPELL_PATH_COUNT - 1)
+#define SPELL_PATH_LAST_LESS1  (SPELL_PATH_COUNT - 2)
+_Static_assert(SPELL_PATH_COUNT < 0x1000, "a Mac cmp's immediate holds 12 bits");
 
 static int spellPathsExpanded;
 static const char **spellPathCopy;
 
-static struct {
-    const char **names;
-    int count;
-    char mod[MOD_NAME_MAX];
-    char dll[64];
-    HMODULE module;
-    int modIndex;
-    int lastOn;
-} pathTakeover = {.modIndex = -1, .lastOn = -1};
+static int spellPathTableSize(void) { return spellPathsExpanded ? SPELL_PATH_COUNT : GAME_SPELL_PATH_COUNT; }
 
-static int pathTakeoverModOn(void) {
-    int last = G32(RVA_MOD_LAST_INDEX);
-    int m = pathTakeover.modIndex;
-    if (m < 0 || m > last || _stricmp(modName(m), pathTakeover.mod)) {
-        for (m = 0; m <= last && _stricmp(modName(m), pathTakeover.mod); m++) {}
-        pathTakeover.modIndex = m <= last ? m : -1;
-    }
-    int on = pathTakeover.modIndex >= 0 && modEnabled(pathTakeover.modIndex);
-    if (on != pathTakeover.lastOn) {
-        writeLog("spell_path_count", "paths=%d mod=%s mod_on=%d", on ? pathTakeover.count : SPELL_PATH_COUNT, pathTakeover.mod, on);
-        pathTakeover.lastOn = on;
-    }
-    return on;
-}
-
-static int spellPathTableSize(void) {
-    return pathTakeover.names ? pathTakeover.count : spellPathsExpanded ? SPELL_PATH_COUNT : GAME_SPELL_PATH_COUNT;
-}
-
-static int spellPathCount(void) {
-    if (pathTakeover.names && !pathTakeoverModOn() && pathTakeover.count > SPELL_PATH_COUNT) return SPELL_PATH_COUNT;
-    return spellPathTableSize();
-}
+static int spellPathCount(void) { return spellPathTableSize(); }
 
 static void startSpellPathCopy(const char **copy) {
     memcpy(copy, gameBase + RVA_SPELL_PATH_NAMES, GAME_SPELL_PATH_COUNT * sizeof *copy);
     for (int p = GAME_SPELL_PATH_COUNT; p < SPELL_PATH_COUNT; p++) copy[p] = NULL;
     spellPathCopy = copy;
+}
+
+// ---- Network games -------------------------------------------------------------------------------
+static uint32_t spellPathNamesHash(const char *const *names, int count, int *named) {
+    uint32_t h = 2166136261u;
+    *named = 0;
+    for (int p = 0; p < count; p++) {
+        const char *name = names[p] ? names[p] : "-";
+        for (const char *c = name; *c; c++) h = (h ^ (unsigned char)*c) * 16777619u;
+        h = (h ^ 0) * 16777619u;
+        char placeholder[16];
+        snprintf(placeholder, sizeof placeholder, "Path %d", p);
+        if (p >= 70 && names[p] && strcmp(names[p], placeholder)) (*named)++;
+    }
+    return h;
+}
+
+static int spellPathsLastNetwork;
+
+static void noteSpellPathsNetworkGame(const char *from) {
+    int network = isNetworkGame();
+    if (network == spellPathsLastNetwork) return;
+    spellPathsLastNetwork = network;
+    int named = 0;
+    uint32_t hash = spellPathsExpanded ? spellPathNamesHash(spellPathCopy, SPELL_PATH_COUNT, &named) : 0;
+    writeLog("spell_paths_network_game", "network=%d from=%s paths=%d named=%d names_hash=0x%08x", network, from, spellPathCount(), named,
+             (unsigned)hash);
 }
 
 // ---- Transforms ----------------------------------------------------------------------------------
@@ -66,6 +64,7 @@ static int transformSnapshotHook(int unit, int path) {
 }
 
 static void transformMemorizeHook(int unit) {
+    noteSpellPathsNetworkGame("transform");
     if (transformLevels.unit == unit) {
         for (int i = 0; i < EXPANDED_PATH_COUNT; i++) {
             int path = GAME_SPELL_PATH_COUNT + i, before = transformLevels.levels[i], now = unitSpellWeaponLevel(unit, path);
@@ -77,8 +76,68 @@ static void transformMemorizeHook(int unit) {
     chooseMemorized(unit);
 }
 
+// ---- Windows path bounds -------------------------------------------------------------------------
+typedef struct {
+    unsigned int rva;
+    int limit;
+    const char *name;
+} PathBoundSite;
+
+static UNUSED int writeBoundStub(const PathBoundSite *s, unsigned char *stub, unsigned char site[10]) {
+    unsigned char *at = gameBase + s->rva;
+    int rex = (at[0] & 0xf0) == 0x40, jumpAt = rex + 3, size, rel;
+    if (at[rex] != 0x83 || (at[rex + 1] & 0x38) != 0x38) return 0;
+    unsigned char condition, *target;
+    if (at[jumpAt] == 0x0f && (at[jumpAt + 1] & 0xf0) == 0x80) {
+        size = jumpAt + 6;
+        condition = at[jumpAt + 1];
+        memcpy(&rel, at + jumpAt + 2, 4);
+        target = at + size + rel;
+    } else if ((at[jumpAt] & 0xf0) == 0x70) {
+        size = jumpAt + 2;
+        condition = (unsigned char)(at[jumpAt] + 0x10);
+        target = at + size + (signed char)at[jumpAt + 1];
+    } else {
+        return 0;
+    }
+    int c = jumpAt - 1;
+    unsigned char *back = at + size;
+    long long toTarget = target - (stub + c + 10), toBack = back - (stub + c + 15), toStub = stub - (at + 5);
+    if (toTarget < INT32_MIN || toTarget > INT32_MAX || toBack < INT32_MIN || toBack > INT32_MAX || toStub < INT32_MIN || toStub > INT32_MAX)
+        return 0;
+    if (rex) stub[0] = at[0];
+    stub[rex] = 0x81;
+    stub[rex + 1] = at[rex + 1];
+    memcpy(stub + c, &s->limit, 4);
+    stub[c + 4] = 0x0f;
+    stub[c + 5] = condition;
+    rel = (int)toTarget;
+    memcpy(stub + c + 6, &rel, 4);
+    stub[c + 10] = 0xe9;
+    rel = (int)toBack;
+    memcpy(stub + c + 11, &rel, 4);
+    site[0] = 0xe9;
+    rel = (int)toStub;
+    memcpy(site + 1, &rel, 4);
+    memset(site + 5, 0x90, (size_t)(size - 5));
+    return size;
+}
+
 #ifndef __APPLE__
 // ---- Windows: the patch --------------------------------------------------------------------------
+static struct { unsigned char *at; int size; unsigned char bytes[10], old[10]; } pathWrites[64];
+static int pathWriteCount;
+
+static void queuePathWrite(unsigned char *at, const void *bytes, int size) {
+    if (pathWriteCount >= (int)(sizeof pathWrites / sizeof pathWrites[0])) return;
+    pathWrites[pathWriteCount].at = at;
+    pathWrites[pathWriteCount].size = size;
+    memcpy(pathWrites[pathWriteCount].old, at, (size_t)size);
+    memcpy(pathWrites[pathWriteCount++].bytes, bytes, (size_t)size);
+}
+
+#include "spell_path_loops.h"
+
 typedef struct {
     unsigned int rva;
     unsigned char immAt, imm, jumpAt, jump;
@@ -86,21 +145,28 @@ typedef struct {
 } PathBytePatch;
 
 static const PathBytePatch PATH_BYTE_PATCHES[] = {
-    {RVA_PARSER_SPELLWEAPON50S_PATH,    2, 0x7e, 0, 0, "parser_spellweapon50s"},
-    {RVA_PARSER_SPELLWEAPON_PATH,       2, 0x7e, 0, 0, "parser_spellweapon"},
-    {RVA_PARSER_SPELLWEAPONBONUS_PATH,  2, 0x7e, 0, 0, "parser_spellweaponbonus"},
-    {RVA_PARSER_SPELLWEAPON50_PATH,     2, 0x7e, 0, 0, "parser_spellweapon50"},
-    {RVA_PARSER_SPELLWEAPONSINGLE_PATH, 2, 0x7e, 0, 0, "parser_spellweaponsingle"},
-    {RVA_ITEM_PATH_BOOST_BOUND,         2, 0x7e, 0, 0, "item_path_boost"},
-    {RVA_STATS_SPELL_ATTACK_PATH_BOUND, 2, 0x7f, 0, 0, "stats_path_level"},
     {RVA_STATS_KNOWN_SPELLS_PATH_LOOP,  3, 0x7f, 5, 0x8e, "stats_known_spells"},
     {RVA_LIBRARY_PATH_LOOP,             2, 0x7f, 4, 0x8e, "library"},
     {RVA_LEARN_START_SPELLS_PATH_LOOP,  3, 0x7f, 5, 0x8e, "learn_start_spells"},
     {RVA_CHOOSE_MEMORIZED_PATH_LOOP,    2, 0x7f, 4, 0x8f, "choose_memorized"},
-    {RVA_UNIT_DEBUG_PATH_BOUND,         3, 0x7f, 4, 0x7f, "debug_unit_screen"},
 };
 #define PATH_BYTE_PATCH_COUNT ((int)(sizeof PATH_BYTE_PATCHES / sizeof PATH_BYTE_PATCHES[0]))
 #define PATH_BUG_CHECK_SKIP_SIZE 6
+
+static const PathBoundSite PATH_BOUND_SITES[] = {
+    {RVA_PARSER_SPELLWEAPON50S_PATH,    SPELL_PATH_LAST_LESS1, "parser_spellweapon50s"},
+    {RVA_PARSER_SPELLWEAPON_PATH,       SPELL_PATH_LAST_LESS1, "parser_spellweapon"},
+    {RVA_PARSER_SPELLWEAPONBONUS_PATH,  SPELL_PATH_LAST_LESS1, "parser_spellweaponbonus"},
+    {RVA_PARSER_SPELLWEAPON50_PATH,     SPELL_PATH_LAST_LESS1, "parser_spellweapon50"},
+    {RVA_PARSER_SPELLWEAPONSINGLE_PATH, SPELL_PATH_LAST_LESS1, "parser_spellweaponsingle"},
+    {RVA_ITEM_PATH_BOOST_BOUND,         SPELL_PATH_LAST_LESS1, "item_path_boost"},
+    {RVA_STATS_SPELL_ATTACK_PATH_BOUND, SPELL_PATH_LAST,       "stats_path_level"},
+    {RVA_UNIT_DEBUG_PATH_BOUND,         SPELL_PATH_COUNT,      "debug_unit_screen"},
+};
+#define PATH_BOUND_COUNT ((int)(sizeof PATH_BOUND_SITES / sizeof PATH_BOUND_SITES[0]))
+#define PATH_BOUND_STUB_AT   0x100
+#define PATH_BOUND_STUB_SIZE 32
+_Static_assert(PATH_BOUND_STUB_AT + PATH_BOUND_COUNT * PATH_BOUND_STUB_SIZE <= 0x1000, "the stubs fit the one page allocNear gives");
 
 typedef struct {
     unsigned int rva;
@@ -127,29 +193,19 @@ static const PathTransformCall PATH_TRANSFORM_CALLS[] = {
     {RVA_RITUAL_TRANSFORM_MEMORIZE_CALL, RVA_CHOOSE_MEMORIZED,        0, "ritual_transform_memorize"},
 };
 #define PATH_TRANSFORM_CALL_COUNT ((int)(sizeof PATH_TRANSFORM_CALLS / sizeof PATH_TRANSFORM_CALLS[0]))
-#define PATH_SITE_COUNT (PATH_BYTE_PATCH_COUNT + 1 + PATH_READER_COUNT + PATH_TRANSFORM_CALL_COUNT)
+#define PATH_SITE_COUNT (PATH_BYTE_PATCH_COUNT + 1 + PATH_BOUND_COUNT + PATH_READER_COUNT + PATH_TRANSFORM_CALL_COUNT + PATH_LOOP_SITE_COUNT)
+_Static_assert(PATH_SITE_COUNT <= (int)(sizeof pathWrites / sizeof pathWrites[0]), "every site's write fits pathWrites");
 
-static struct { unsigned char *at; int size; unsigned char bytes[8], old[8]; } pathWrites[PATH_SITE_COUNT];
-static int pathWriteCount;
-static unsigned char *pathStubs;
-
-static void queuePathWrite(unsigned char *at, const void *bytes, int size) {
-    pathWrites[pathWriteCount].at = at;
-    pathWrites[pathWriteCount].size = size;
-    memcpy(pathWrites[pathWriteCount].old, at, (size_t)size);
-    memcpy(pathWrites[pathWriteCount++].bytes, bytes, (size_t)size);
-}
-
-static int queueSpellPathWrites(const char **copy, unsigned char *stubs) {
+static int queueSpellPathWrites(const char **copy, unsigned char *stubs, unsigned char *loopStubs) {
     int matched = 0;
     pathWriteCount = 0;
     for (int i = 0; i < PATH_BYTE_PATCH_COUNT; i++) {
         const PathBytePatch *s = &PATH_BYTE_PATCHES[i];
         unsigned char *at = gameBase + s->rva, bytes[8];
-        int size = (s->jumpAt ? s->jumpAt : s->immAt) + 1;
+        int size = s->jumpAt + 1;
         memcpy(bytes, at, (size_t)size);
         bytes[s->immAt] = s->imm;
-        if (s->jumpAt) bytes[s->jumpAt] = s->jump;
+        bytes[s->jumpAt] = s->jump;
         queuePathWrite(at, bytes, size);
         matched++;
     }
@@ -161,6 +217,17 @@ static int queueSpellPathWrites(const char **copy, unsigned char *stubs) {
     jump[5] = 0x90;
     queuePathWrite(skip, jump, PATH_BUG_CHECK_SKIP_SIZE);
     matched++;
+    for (int i = 0; i < PATH_BOUND_COUNT; i++) {
+        const PathBoundSite *s = &PATH_BOUND_SITES[i];
+        unsigned char site[10];
+        int size = writeBoundStub(s, stubs + PATH_BOUND_STUB_AT + PATH_BOUND_STUB_SIZE * i, site);
+        if (!size) {
+            writeLogError("spell_paths_site_mismatch", "reason=bytes_differ group=bound name=%s rva=0x%x", s->name, s->rva);
+            continue;
+        }
+        queuePathWrite(gameBase + s->rva, site, size);
+        matched++;
+    }
     long long delta = (const unsigned char *)copy - (gameBase + RVA_SPELL_PATH_NAMES);
     for (int i = 0; i < PATH_READER_COUNT; i++) {
         const PathReaderSite *s = &PATH_READER_SITES[i];
@@ -185,7 +252,6 @@ static int queueSpellPathWrites(const char **copy, unsigned char *stubs) {
     for (int i = 0; i < PATH_TRANSFORM_CALL_COUNT; i++) {
         const PathTransformCall *c = &PATH_TRANSFORM_CALLS[i];
         unsigned char *call = gameBase + c->callRva, *stub = stubs + 16 * c->snapshot;
-        int rel;
         memcpy(&rel, call + 1, 4);
         long long toStub = stub - (call + 5);
         if (call[0] != 0xe8 || call + 5 + rel != gameBase + c->targetRva || toStub < INT32_MIN || toStub > INT32_MAX) {
@@ -196,7 +262,15 @@ static int queueSpellPathWrites(const char **copy, unsigned char *stubs) {
         queuePathWrite(call + 1, &out, 4);
         matched++;
     }
-    return matched;
+    return matched + queueSpellPathLoopWrites(loopStubs);
+}
+
+static void chooseMemorizedPastInPlace(int unit) { chooseMemorizedHook(unit); }
+
+static void freeSpellPathMemory(const char **copy, unsigned char *stubs, unsigned char *loopStubs) {
+    if (copy) VirtualFree((void *)copy, 0, MEM_RELEASE);
+    if (stubs) VirtualFree(stubs, 0, MEM_RELEASE);
+    if (loopStubs) VirtualFree(loopStubs, 0, MEM_RELEASE);
 }
 
 static int installSpellPathExpansion(void) {
@@ -204,29 +278,28 @@ static int installSpellPathExpansion(void) {
         writeLogError("spell_paths_not_expanded", "reason=game_code_differs sites=0 of %d", PATH_SITE_COUNT);
         return 0;
     }
-    unsigned char *stubs = allocNear(gameBase + RVA_TEXT_SECTION);
+    unsigned char *stubs = allocNear(gameBase + RVA_TEXT_SECTION), *loopStubs = allocNear(gameBase + RVA_TEXT_SECTION);
     const char **copy = (const char **)allocNearImage(SPELL_PATH_COUNT * sizeof(const char *));
-    if (!copy || !stubs) {
-        writeLogError("spell_paths_not_expanded", "reason=no_memory_near_game names=%p stubs=%p sites=0 of %d", (void *)copy, (void *)stubs,
-                 PATH_SITE_COUNT);
-        if (copy) VirtualFree(copy, 0, MEM_RELEASE);
-        if (stubs) VirtualFree(stubs, 0, MEM_RELEASE);
+    if (!copy || !stubs || !loopStubs) {
+        writeLogError("spell_paths_not_expanded", "reason=no_memory_near_game names=%p stubs=%p loop_stubs=%p sites=0 of %d", (void *)copy,
+                      (void *)stubs, (void *)loopStubs, PATH_SITE_COUNT);
+        freeSpellPathMemory(copy, stubs, loopStubs);
         return 0;
     }
-    int matched = queueSpellPathWrites(copy, stubs);
+    int matched = queueSpellPathWrites(copy, stubs, loopStubs);
     const char *reason = matched != PATH_SITE_COUNT ? "game_build_differs"
                          : !openGameCode(gameBase + RVA_TEXT_SECTION, (size_t)(RVA_RDATA_SECTION - RVA_TEXT_SECTION)) ? "code_unwritable" : NULL;
     if (reason) {
         writeLogError("spell_paths_not_expanded", "reason=%s sites=%d of %d error=%lu", reason, matched, PATH_SITE_COUNT,
                  matched == PATH_SITE_COUNT ? GetLastError() : 0UL);
-        VirtualFree(copy, 0, MEM_RELEASE);
-        VirtualFree(stubs, 0, MEM_RELEASE);
+        freeSpellPathMemory(copy, stubs, loopStubs);
         return 0;
     }
     makePagesReadExecute(stubs, 0x1000);
     unitSpellWeaponLevel = GAME_FN(int (*)(int, int), RVA_UNIT_SPELL_WEAPON_LEVEL);
     learnPromotionSpells = GAME_FN(void (*)(int, int, int), RVA_LEARN_PROMOTION_SPELLS);
-    chooseMemorized = GAME_FN(void (*)(int), RVA_CHOOSE_MEMORIZED);
+    chooseMemorized = chooseMemorizedPastInPlace;
+    setPathGameFunctions(copy);
     startSpellPathCopy(copy);
     for (int i = 0; i < pathWriteCount; i++) {
         if (writeGameCode(pathWrites[i].at, pathWrites[i].bytes, (size_t)pathWrites[i].size)) continue;
@@ -235,43 +308,12 @@ static int installSpellPathExpansion(void) {
         closeGameCode();
         writeLogError("spell_paths_not_expanded", "reason=code_unwritable sites=%d of %d error=%lu", matched, PATH_SITE_COUNT, error);
         spellPathCopy = NULL;
-        VirtualFree(copy, 0, MEM_RELEASE);
-        VirtualFree(stubs, 0, MEM_RELEASE);
+        freeSpellPathMemory(copy, stubs, loopStubs);
         return 0;
     }
     closeGameCode();
-    pathStubs = stubs;
     spellPathsExpanded = 1;
     writeLog("spell_paths_expanded", "paths=%d sites=%d of %d names=%p", SPELL_PATH_COUNT, matched, PATH_SITE_COUNT, (void *)copy);
-    return 1;
-}
-
-static int uninstallSpellPathExpansion(void) {
-    for (int i = 0; i < pathWriteCount; i++)
-        if (memcmp(pathWrites[i].at, pathWrites[i].bytes, (size_t)pathWrites[i].size)) {
-            writeLogError("spell_paths_not_uninstalled", "reason=site_changed rva=0x%x", (unsigned)(pathWrites[i].at - gameBase));
-            return 0;
-        }
-    if (!openGameCode(gameBase + RVA_TEXT_SECTION, (size_t)(RVA_RDATA_SECTION - RVA_TEXT_SECTION))) {
-        writeLogError("spell_paths_not_uninstalled", "reason=code_unwritable error=%lu", GetLastError());
-        return 0;
-    }
-    for (int i = 0; i < pathWriteCount; i++) {
-        if (writeGameCode(pathWrites[i].at, pathWrites[i].old, (size_t)pathWrites[i].size)) continue;
-        DWORD error = GetLastError();
-        for (int j = i; j >= 0; j--) writeGameCode(pathWrites[j].at, pathWrites[j].bytes, (size_t)pathWrites[j].size);
-        closeGameCode();
-        writeLogError("spell_paths_not_uninstalled", "reason=code_unwritable error=%lu", error);
-        return 0;
-    }
-    closeGameCode();
-    spellPathsExpanded = 0;
-    VirtualFree((void *)spellPathCopy, 0, MEM_RELEASE);
-    VirtualFree(pathStubs, 0, MEM_RELEASE);
-    spellPathCopy = NULL;
-    pathStubs = NULL;
-    writeLog("spell_paths_uninstalled", "sites=%d", pathWriteCount);
-    pathWriteCount = 0;
     return 1;
 }
 #else
@@ -279,21 +321,21 @@ static int uninstallSpellPathExpansion(void) {
 typedef struct { unsigned int rva, value; const char *name; } PathCompareSite;
 
 static const PathCompareSite PATH_COMPARE_SITES[] = {
-    {RVA_PARSER_SPELLWEAPON50S_PATH,    0x7e, "parser_spellweapon50s"},
-    {RVA_PARSER_SPELLWEAPON_PATH,       0x7e, "parser_spellweapon"},
-    {RVA_PARSER_SPELLWEAPONBONUS_PATH,  0x7e, "parser_spellweaponbonus"},
-    {RVA_PARSER_SPELLWEAPON50_PATH,     0x7e, "parser_spellweapon50"},
-    {RVA_PARSER_SPELLWEAPONSINGLE_PATH, 0x7e, "parser_spellweaponsingle"},
-    {RVA_ITEM_PATH_BOOST_BOUND,         0x7e, "item_path_boost"},
-    {RVA_ITEM_PATH_BOOST_BOUND_2,       0x7e, "item_path_boost_2"},
-    {RVA_ITEM_PATH_BOOST_BOUND_3,       0x7e, "item_path_boost_3"},
-    {RVA_ITEM_PATH_BOOST_BOUND_4,       0x7e, "item_path_boost_4"},
-    {RVA_STATS_SPELL_ATTACK_PATH_BOUND, 0x7f, "stats_path_level"},
-    {RVA_UNIT_DEBUG_PATH_BOUND,         0x7f, "debug_unit_screen"},
-    {RVA_STATS_KNOWN_SPELLS_PATH_LOOP,  0x80, "stats_known_spells"},
-    {RVA_LIBRARY_PATH_LOOP,             0x80, "library"},
-    {RVA_LEARN_START_SPELLS_PATH_LOOP,  0x80, "learn_start_spells"},
-    {RVA_CHOOSE_MEMORIZED_PATH_LOOP,    0x80, "choose_memorized"},
+    {RVA_PARSER_SPELLWEAPON50S_PATH,    SPELL_PATH_LAST_LESS1, "parser_spellweapon50s"},
+    {RVA_PARSER_SPELLWEAPON_PATH,       SPELL_PATH_LAST_LESS1, "parser_spellweapon"},
+    {RVA_PARSER_SPELLWEAPONBONUS_PATH,  SPELL_PATH_LAST_LESS1, "parser_spellweaponbonus"},
+    {RVA_PARSER_SPELLWEAPON50_PATH,     SPELL_PATH_LAST_LESS1, "parser_spellweapon50"},
+    {RVA_PARSER_SPELLWEAPONSINGLE_PATH, SPELL_PATH_LAST_LESS1, "parser_spellweaponsingle"},
+    {RVA_ITEM_PATH_BOOST_BOUND,         SPELL_PATH_LAST_LESS1, "item_path_boost"},
+    {RVA_ITEM_PATH_BOOST_BOUND_2,       SPELL_PATH_LAST_LESS1, "item_path_boost_2"},
+    {RVA_ITEM_PATH_BOOST_BOUND_3,       SPELL_PATH_LAST_LESS1, "item_path_boost_3"},
+    {RVA_ITEM_PATH_BOOST_BOUND_4,       SPELL_PATH_LAST_LESS1, "item_path_boost_4"},
+    {RVA_STATS_SPELL_ATTACK_PATH_BOUND, SPELL_PATH_LAST,       "stats_path_level"},
+    {RVA_UNIT_DEBUG_PATH_BOUND,         SPELL_PATH_LAST,       "debug_unit_screen"},
+    {RVA_STATS_KNOWN_SPELLS_PATH_LOOP,  SPELL_PATH_COUNT,      "stats_known_spells"},
+    {RVA_LIBRARY_PATH_LOOP,             SPELL_PATH_COUNT,      "library"},
+    {RVA_LEARN_START_SPELLS_PATH_LOOP,  SPELL_PATH_COUNT,      "learn_start_spells"},
+    {RVA_CHOOSE_MEMORIZED_PATH_LOOP,    SPELL_PATH_COUNT,      "choose_memorized"},
 };
 #define PATH_COMPARE_COUNT ((int)(sizeof PATH_COMPARE_SITES / sizeof PATH_COMPARE_SITES[0]))
 
@@ -391,6 +433,18 @@ static int queueSpellPathWrites(const char **copy) {
     return matched;
 }
 
+static int macRedirectCalls(unsigned int rva, void *hook, const char *name);
+static void (*macLearnStartSpells)(int unit);
+static void macLearnStartSpellsHook(int unit) {
+    noteSpellPathsNetworkGame("learn_start_spells");
+    macLearnStartSpells(unit);
+}
+static int (*macChooseMemorized)(int unit);
+static int macChooseMemorizedHook(int unit) {
+    noteSpellPathsNetworkGame("choose_memorized");
+    return macChooseMemorized(unit);
+}
+
 static int installSpellPathExpansion(void) {
     if (!gameCodeMatches) {
         writeLogError("spell_paths_not_expanded", "reason=game_code_differs sites=0 of %d", PATH_SITE_COUNT);
@@ -426,27 +480,10 @@ static int installSpellPathExpansion(void) {
     pathMemorySize = total;
     spellPathsExpanded = 1;
     writeLog("spell_paths_expanded", "paths=%d sites=%d of %d names=%p", SPELL_PATH_COUNT, matched, PATH_SITE_COUNT, (void *)copy);
-    return 1;
-}
-
-static int uninstallSpellPathExpansion(void) {
-    for (int i = 0; i < pathWriteCount; i++)
-        if (pathGameWord((unsigned int)(pathWrites[i].at - gameBase)) != pathWrites[i].word) {
-            writeLogError("spell_paths_not_uninstalled", "reason=site_changed va=0x%llx", (unsigned long long)(pathWrites[i].at - gameBase) + 0x100000000ULL);
-            return 0;
-        }
-    for (int i = 0; i < pathWriteCount; i++) {
-        if (writeGameCode(pathWrites[i].at, &pathWrites[i].old, 4)) continue;
-        for (int j = i; j >= 0; j--) writeGameCode(pathWrites[j].at, &pathWrites[j].word, 4);
-        writeLogError("spell_paths_not_uninstalled", "reason=code_unwritable va=0x%llx", (unsigned long long)(pathWrites[i].at - gameBase) + 0x100000000ULL);
-        return 0;
-    }
-    spellPathsExpanded = 0;
-    spellPathCopy = NULL;
-    mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)pathMemory, pathMemorySize);
-    pathMemory = NULL;
-    writeLog("spell_paths_uninstalled", "sites=%d", pathWriteCount);
-    pathWriteCount = 0;
+    macLearnStartSpells = GAME_FN(void (*)(int), RVA_LEARN_START_SPELLS);
+    macChooseMemorized = GAME_FN(int (*)(int), RVA_CHOOSE_MEMORIZED);
+    macRedirectCalls(RVA_LEARN_START_SPELLS, (void *)macLearnStartSpellsHook, "learn_start_spells");
+    macRedirectCalls(RVA_CHOOSE_MEMORIZED, (void *)macChooseMemorizedHook, "choose_memorized");
     return 1;
 }
 #endif
@@ -455,61 +492,8 @@ static void spellPathExpansionInit(void) {
     installSpellPathExpansion();
 }
 
-// ---- Handing the paths to a plugin ---------------------------------------------------------------
-static int spellPathsInUse(void);
-
-static int takeOverSpellPaths(void *caller, SpellPathInstallFn install) {
-    const char *call = SPELL_PATH_TAKEOVER_EXPORT;
-    PluginRecord *r = loadingPlugin[0] ? pluginRecordFor(loadingPlugin) : NULL;
-    if (!install) {
-        refuseApiCall(caller, call, "no_callback", "paths=%d", spellPathTableSize());
-        return spellPathTableSize();
-    }
-    if (!r || !r->entryCalled || r->reason) {
-        refuseApiCall(caller, call, "not_in_plugin_entry", "paths=%d", spellPathTableSize());
-        return spellPathTableSize();
-    }
-    if (pathTakeover.names) {
-        refuseApiCall(caller, call, "already_taken", "by=%s paths=%d", pathTakeover.dll, pathTakeover.count);
-        return pathTakeover.count;
-    }
-    if (spellPathsInUse()) {
-        refuseApiCall(caller, call, "too_late", "paths=%d", spellPathTableSize());
-        return spellPathTableSize();
-    }
-    int wasExpanded = spellPathsExpanded;
-    if (wasExpanded && !uninstallSpellPathExpansion()) {
-        refuseApiCall(caller, call, "coe5se_patch_changed", "paths=%d", spellPathTableSize());
-        return spellPathTableSize();
-    }
-    int count = 0;
-    const char **names = NULL;
-    int installed = install(&count, &names);
-    if (!installed || !names || count < GAME_SPELL_PATH_COUNT) {
-        refuseApiCall(caller, call, installed ? "bad_result" : "not_installed", "count=%d names=%p", count, (void *)names);
-        if (installed) return GAME_SPELL_PATH_COUNT;
-        if (wasExpanded) installSpellPathExpansion();
-        return spellPathTableSize();
-    }
-    pathTakeover.names = names;
-    pathTakeover.count = count;
-    pathTakeover.module = r->module;
-    snprintf(pathTakeover.mod, sizeof pathTakeover.mod, "%s", r->mod);
-    snprintf(pathTakeover.dll, sizeof pathTakeover.dll, "%.63s", r->file);
-    writeLog("spell_paths_taken_over", "dll=%s mod=%s paths=%d names=%p", pathTakeover.dll, pathTakeover.mod, count, (void *)names);
-    return count;
-}
-
-__declspec(dllexport) int coe5seTakeOverSpellPaths(SpellPathInstallFn install) {
-    return takeOverSpellPaths(__builtin_return_address(0), install);
-}
-
 __declspec(dllexport) int coe5seSpellPathCount(void) {
     return spellPathCount();
 }
 
-static int runsInNetworkGames(const void *address) {
-    if (isCoe5seCode(address)) return 1;
-    HMODULE m = pathTakeover.module ? moduleOf(address) : NULL;
-    return m && m == pathTakeover.module;
-}
+static int runsInNetworkGames(const void *address) { return isCoe5seCode(address); }

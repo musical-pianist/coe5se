@@ -111,7 +111,7 @@ static void hk_draw_sprite(unsigned file, unsigned spr, int flags, float x,
     size_t idx;
 
     if (_ReturnAddress() != s_token_ret || file != ITEM_SPRFILE || spr >= MAX_SPRITES
-        || fanpatchNetworkGame()) {   /* CoE5SE: the game's own in a network game */
+        || fanpatchOfficialGame()) {   /* CoE5SE: the game's own in an official game */
         o_draw_sprite(file, spr, flags, x, y, width, height, scale);
         return;
     }

@@ -155,6 +155,34 @@ static const LuaSite luaSites[] = {
     {"DO_ALL_FIGHTS",                 SITE_DO_ALL_FIGHTS,                 K_OBSERVE, "v:"},
     {"MOVE_ALL_INDEPENDENTS",         SITE_MOVE_ALL_INDEPENDENTS,         K_OBSERVE, "v:i"},
     {"CONQUER_SQUARE",                SITE_CONQUER_SQUARE,                K_OBSERVE, "x:iii"},
+    {"FIGHT_THE_FIGHT",               SITE_FIGHT_THE_FIGHT,               K_OBSERVE, "i:ii"},
+    {"BATTLE_ROUND",                  SITE_BATTLE_ROUND,                  K_OBSERVE, "x:"},
+    {"DAMAGE_UNIT",                   SITE_DAMAGE_UNIT,                   K_OBSERVE, "x:ii"},
+    {"DOATTACK",                      SITE_DOATTACK,                      K_OBSERVE, "x:iii"},
+    {"BATTLE_SPELL_PICK",             SITE_BATTLE_SPELL_PICK,             K_CALL,    "i:ii"},
+    {"WEAPON_HIT",                    SITE_WEAPON_HIT,                    K_CALL,    "i:iiiiii"},
+    {"BATTLE_TARGET_CHECK",           SITE_BATTLE_TARGET_CHECK,           K_CALL,    "i:iiiii"},
+    {"EXECUTE_RITUAL",                SITE_EXECUTE_RITUAL,                K_OBSERVE, "i:iiiiii"},
+    {"NEW_UNIT",                      SITE_NEW_UNIT,                      K_OBSERVE, "i:iiiii"},
+    {"REMOVE_UNIT",                   SITE_REMOVE_UNIT,                   K_OBSERVE, "x:i"},
+    {"TURN_UNIT_UPKEEP",              SITE_TURN_UNIT_UPKEEP,              K_OBSERVE, "x:i"},
+    {"SQUARE_UPKEEP",                 SITE_SQUARE_UPKEEP,                 K_OBSERVE, "x:iiii"},
+    {"RECRUIT_BUY",                   SITE_RECRUIT_BUY,                   K_OBSERVE, "i:iiii"},
+    {"PROMOTE_UNIT",                  SITE_PROMOTE_UNIT,                  K_OBSERVE, "x:iiii"},
+    {"MASTERY_TRANSFORM",             SITE_MASTERY_TRANSFORM,             K_OBSERVE, "x:i"},
+    {"BATTLE_SETUP",                  SITE_BATTLE_SETUP,                  K_OBSERVE, "x:iii"},
+    {"BATTLE_SETUP_SIDE",             SITE_BATTLE_SETUP_SIDE,             K_OBSERVE, "x:iiiii"},
+    {"BATTLE_SETUP_AMBUSH",           SITE_BATTLE_SETUP_AMBUSH,           K_OBSERVE, "x:iiiii"},
+    {"BATTLE_ADVANCE_UNIT",           SITE_BATTLE_ADVANCE_UNIT,           K_OBSERVE, "x:ii"},
+    {"BATTLE_TURN_EFFECTS",           SITE_BATTLE_TURN_EFFECTS,           K_OBSERVE, "x:ii"},
+    {"BATTLE_TRANSFORM",              SITE_BATTLE_TRANSFORM,              K_OBSERVE, "x:iii"},
+    {"FOUND_ITEM",                    SITE_FOUND_ITEM,                    K_OBSERVE, "x:iii"},
+    {"REMOVE_DEAD_PLAYERS",           SITE_REMOVE_DEAD_PLAYERS,           K_OBSERVE, "v:"},
+    {"CREATE_CITADEL",                SITE_CREATE_CITADEL,                K_OBSERVE, "x:iii"},
+    {"INQUISITION_SPAWN",             SITE_INQUISITION_SPAWN,             K_OBSERVE, "x:i"},
+    {"ANIMAL_SUMMONING",              SITE_ANIMAL_SUMMONING,              K_OBSERVE, "x:ii"},
+    {"ORDER_SLAVE_HUNT",              SITE_ORDER_SLAVE_HUNT,              K_OBSERVE, "x:i"},
+    {"ORDER_EAT_VILLAGE",             SITE_ORDER_EAT_VILLAGE,             K_OBSERVE, "x:i"},
 };
 #define LUA_SITE_COUNT ((int)(sizeof luaSites / sizeof luaSites[0]))
 static LuaSiteState luaSiteState[LUA_SITE_COUNT];
@@ -294,6 +322,15 @@ static void checkNextArgs(const LuaSite *ls, LuaArgs *a, const LuaArgs *orig, co
             refuseLuaCall(mod, ls->name, "out_of_range", "arg=n value=%d min=1", (int)a->a[3]);
             a->a[3] = orig->a[3];
         }
+        return;
+    }
+    if (ls->site == SITE_BATTLE_SPELL_PICK) {
+        if ((int)a->a[0] != (int)orig->a[0])
+            refuseLuaCall(mod, ls->name, "unit_changed", "unit=%d own=%d", (int)a->a[0], (int)orig->a[0]);
+        if ((int)a->a[1] != (int)orig->a[1])
+            refuseLuaCall(mod, ls->name, "path_changed", "path=%d own=%d", (int)a->a[1], (int)orig->a[1]);
+        a->a[0] = orig->a[0];
+        a->a[1] = orig->a[1];
         return;
     }
     if (ls->kind == K_VETO) {
@@ -545,6 +582,25 @@ static u64 takeComstr(lua_State *L, const LuaSite *ls, const LuaArgs *a, const L
     return 0;
 }
 
+static int battleSpellInTable(lua_Integer spell) {
+    if (spell < 0 || spell >= spellTableRecords()) return 0;
+    const SpellRecord *r = spellSlot((int)spell);
+    return r->name && r->path != SPELL_END_PATH;
+}
+
+static u64 takeSpellPick(lua_State *L, const LuaSite *ls, const LuaArgs *a, const LuaFrame *f, const char *mod, int *callNext) {
+    *callNext = 0;
+    if (lua_isnil(L, -1)) return f->result;
+    lua_Integer spell = 0;
+    const char *reason = !luaWholeNumber(L, -1, &spell) ? "not_a_number" : spell != -1 && !battleSpellInTable(spell) ? "not_a_spell" : NULL;
+    if (!reason) return (u64)(int)spell;
+    refuseLuaCall(mod, ls->name, reason, "type=%s spell=%lld spells=%d unit=%d path=%d", luaL_typename(L, -1), (long long)spell,
+                  spellTableRecords(), (int)a->a[0], (int)a->a[1]);
+    if (f->nextCalled) return f->result;
+    *callNext = 1;
+    return 0;
+}
+
 static int pushLuaWrapCall(lua_State *L, void *frame) {
     LuaFrame *f = frame;
     luaL_checkstack(L, 2 + LUA_CALL_ARGS, "a wrap's arguments");
@@ -574,6 +630,7 @@ static u64 runLuaWrap(LuaWrap *w, const LuaArgs *a) {
         }
         else if (ls->kind == K_VETO) result = takeVeto(s->L, ls, a, &f, s->mod, &vetoNext);
         else if (ls->site == SITE_AI_MOVE_COMSTR) result = takeComstr(s->L, ls, a, &f, s->mod, &vetoNext);
+        else if (ls->site == SITE_BATTLE_SPELL_PICK) result = takeSpellPick(s->L, ls, a, &f, s->mod, &vetoNext);
         else if (ls->kind == K_SEAL_EVENT) result = f.nextCalled ? f.result : 0;
         else result = lua_isinteger(s->L, -1) ? (u64)lua_tointeger(s->L, -1) : f.result;
         lua_pop(s->L, results);

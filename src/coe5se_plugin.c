@@ -59,6 +59,7 @@ static HMODULE callingPlugin(void *returnAddress);
 static HMODULE moduleOf(const void *address);
 static int isCoe5seCode(const void *address);
 static int runsInNetworkGames(const void *address);
+static void noteSpellPathsNetworkGame(const char *from);
 static const char *runningLuaMod(void);
 static PRINTF_FORMAT(4, 5) void refuseLuaCall(const char *mod, const char *call, const char *reason, const char *fmt, ...);
 static int isScriptObserver(const void *fn);
@@ -528,6 +529,7 @@ static int menuWaitHook(int a, int b) {
 #define GAME_ADDRESSES_SITE_TABLE
 #include "game_addresses.h"
 #include "player_slots.h"
+#include "build_features.h"
 
 static int gameCodeMatches;
 
@@ -581,10 +583,14 @@ static unsigned char *siteCallAt(CallSite site, int i) {
     return i < MAX_SITE_CALLS && SITES[site].rvas[i] ? gameBase + SITES[site].rvas[i] : NULL;
 }
 static int topBarIncomeAsGame(int player, int resource, int income);
+static int weaponHitDamageAsGame(int attacker, int target, int weapon, int damage, int value, int dmgtype);
+static int targetCheckAsGame(int unit, int type, int weapon, int value, int target);
 static unsigned char *siteCallTarget(CallSite site) {
     unsigned char *generated = generatedSiteTarget(site);
     if (generated) return generated;
     if (site == SITE_TOP_BAR_INCOME) return (unsigned char *)topBarIncomeAsGame;
+    if (site == SITE_WEAPON_HIT) return (unsigned char *)weaponHitDamageAsGame;
+    if (site == SITE_BATTLE_TARGET_CHECK) return (unsigned char *)targetCheckAsGame;
     if (!SITES[site].targetRva) return NULL;
     unsigned char *target = gameBase + SITES[site].targetRva;
     return siteThroughSlot[site] ? *(unsigned char **)target : target;
@@ -600,7 +606,10 @@ static int isSiteCall(const unsigned char *call, const unsigned char *target, co
     return (call[0] == 0xe8 || call[0] == 0xe9) && call + 5 + rel == target;
 }
 
-static int siteRunByCoe5se(CallSite site) { return site == SITE_MAP_DRAW || site == SITE_BATTLE_DRAW || site == SITE_TOP_BAR_INCOME; }
+static int siteRunByCoe5se(CallSite site) {
+    return site == SITE_MAP_DRAW || site == SITE_BATTLE_DRAW || site == SITE_TOP_BAR_INCOME || site == SITE_WEAPON_HIT ||
+           site == SITE_BATTLE_TARGET_CHECK;
+}
 
 static int installSite(CallSite site) {
     const SiteInfo *info = &SITES[site];
@@ -751,7 +760,11 @@ static void *makeGate(void *hook, void *next) {
     X(SITE_RITUAL_SCREEN_LOCATION_CHECK) X(SITE_RITUAL_SCREEN_CAN_CAST) \
     X(SITE_GAME_START) X(SITE_MONTH_START) X(SITE_PLAYER_TURN_START) X(SITE_HUMAN_TURN) X(SITE_AI_TURN) \
     X(SITE_PLAYER_TURN_END) X(SITE_GAME_OVER) X(SITE_GAME_SAVE) X(SITE_GAME_LOAD) \
-    X(SITE_AFTER_GAME_TURN) X(SITE_DO_ALL_FIGHTS) X(SITE_MOVE_ALL_INDEPENDENTS) X(SITE_CONQUER_SQUARE)
+    X(SITE_AFTER_GAME_TURN) X(SITE_DO_ALL_FIGHTS) X(SITE_MOVE_ALL_INDEPENDENTS) X(SITE_CONQUER_SQUARE) \
+    X(SITE_FIGHT_THE_FIGHT) X(SITE_BATTLE_ROUND) X(SITE_DAMAGE_UNIT) X(SITE_DOATTACK) X(SITE_EXECUTE_RITUAL) \
+    X(SITE_NEW_UNIT) X(SITE_REMOVE_UNIT) X(SITE_TURN_UNIT_UPKEEP) X(SITE_SQUARE_UPKEEP) X(SITE_RECRUIT_BUY) X(SITE_PROMOTE_UNIT) \
+    X(SITE_MASTERY_TRANSFORM) X(SITE_BATTLE_SETUP) X(SITE_BATTLE_SETUP_SIDE) X(SITE_BATTLE_SETUP_AMBUSH) X(SITE_BATTLE_ADVANCE_UNIT) X(SITE_BATTLE_TURN_EFFECTS) \
+    X(SITE_BATTLE_TRANSFORM) X(SITE_FOUND_ITEM) X(SITE_REMOVE_DEAD_PLAYERS) X(SITE_CREATE_CITADEL) X(SITE_INQUISITION_SPAWN) X(SITE_ANIMAL_SUMMONING) X(SITE_ORDER_SLAVE_HUNT) X(SITE_ORDER_EAT_VILLAGE)
 
 static int isInternalSite(CallSite site) {
     return site == SITE_MODS_RUN || site == SITE_MOD_COMMAND || site == SITE_TEXT_FORMAT || site == SITE_TEXT_BUILD ||
@@ -887,7 +900,8 @@ typedef struct {
 static int insertWrap(CallSite site, void *hook, void **next, WrapPlace place, const char *owner, const char **reason) {
     const char *why = NULL;
     SiteWrap *w = NULL;
-    if (!siteInstalled[site] && !installSite(site)) why = "site_unavailable";
+    if (siteNameOffForBuild(SITES[site].name)) why = "off_for_game_build";
+    else if (!siteInstalled[site] && !installSite(site)) why = "site_unavailable";
     else if (!(w = calloc(1, sizeof *w)) ||
              !growList((void **)&siteWraps[site].list, &siteWraps[site].capacity, siteWraps[site].count + 1, sizeof w))
         why = "out_of_memory";
@@ -998,6 +1012,22 @@ static int isNetworkGame(void) {
 #endif
 }
 
+static int isOfficialGame(void) {
+#ifdef __APPLE__
+    return G8(RVA_NET_LOBBY) != 0;
+#else
+    return G32(RVA_NET_LOBBY) != 0;
+#endif
+}
+
+static int isNetworkClient(void) {
+#ifdef __APPLE__
+    return G8(RVA_NET_CLIENT) != 0;
+#else
+    return G32(RVA_NET_CLIENT) > 0;
+#endif
+}
+
 #include "restart_prompt.h"
 
 #include "mod_command_hook.h"
@@ -1046,6 +1076,7 @@ static int apiObserve(CallSite site, ObserverFn before, ObserverFn after) {
     if ((unsigned)site >= SITE_COUNT) return REFUSE_API(0, "observe", "unknown_site", "site=%d", (int)site);
     if (!isObserveOnlySite(site)) return REFUSE_API(0, "observe", "not_observe_only", "site=%s", SITES[site].name);
     if (!before && !after) return REFUSE_API(0, "observe", "no_callback", "site=%s", SITES[site].name);
+    if (siteNameOffForBuild(SITES[site].name)) return REFUSE_API(0, "observe", "off_for_game_build", "site=%s", SITES[site].name);
     if (!nextObserved[site] && !wrapSite(site, observeWrapperFor(site), (void **)&nextObserved[site]))
         return REFUSE_API(0, "observe", "site_unavailable", "site=%s", SITES[site].name);
     if (!growList((void **)&observers[site].list, &observers[site].capacity, observers[site].count + 1, sizeof(Observer)))
@@ -1164,13 +1195,14 @@ typedef struct {
     unsigned int timeDateStamp, imageSize;
     unsigned char uuid[16];
     const char *codeSha256;
+    const char *offFeatures;
 } GameBuild;
 static const GameBuild KNOWN_BUILDS[] = {
 #ifdef __APPLE__
     {"5.42", 0, 0, {0x2e, 0xc7, 0xe0, 0x27, 0xac, 0xe0, 0x36, 0x5a, 0x86, 0x02, 0x4e, 0x17, 0xa6, 0x2f, 0x85, 0x60},
-     "7a1cf5a99f08b6f1f42cbaad5a875c037d1acf2620940bcf554880208c4ce127"},
+     "7a1cf5a99f08b6f1f42cbaad5a875c037d1acf2620940bcf554880208c4ce127", ""},
 #else
-    {"5.42", 0x6ada0282, 0x13728000, {0}, "d39ea78899effadc76a0214b2eb5c8bcbd4aac5991f7862aaccb48a99ff4bfa8"},
+    {"5.42", 0x6ada0282, 0x13728000, {0}, "d39ea78899effadc76a0214b2eb5c8bcbd4aac5991f7862aaccb48a99ff4bfa8", ""},
 #endif
 };
 #define KNOWN_BUILD_COUNT (int)(sizeof KNOWN_BUILDS / sizeof KNOWN_BUILDS[0])
@@ -1220,12 +1252,19 @@ static void identifyGameBuild(void) {
         if (KNOWN_BUILDS[i].timeDateStamp == stamp && KNOWN_BUILDS[i].imageSize == size) gameBuild = &KNOWN_BUILDS[i];
 #endif
     checkGameCode();
+    if (gameBuild) setBuildOffList(gameBuild->offFeatures, gameBuild->gameVersion);
 }
 
-static int askLoadOnUnknownGame(void) {
+#define OFFICIAL_BLOCK_PROMPT_LINE "Official Illwinter server connections not blocked on this version."
+
+static void unknownGamePrompt(char *text, size_t size, int blockFound) {
+    snprintf(text, size, "This CoE5SE was made for CoE5 %s, not this version. Load mods anyway?%s%s",
+             KNOWN_BUILDS[KNOWN_BUILD_COUNT - 1].gameVersion, blockFound ? "" : "\n\n", blockFound ? "" : OFFICIAL_BLOCK_PROMPT_LINE);
+}
+
+static int askLoadOnUnknownGame(int blockFound) {
     char text[256];
-    snprintf(text, sizeof text, "This CoE5SE was made for CoE5 %s, not this version. Load mods anyway?",
-             KNOWN_BUILDS[KNOWN_BUILD_COUNT - 1].gameVersion);
+    unknownGamePrompt(text, sizeof text, blockFound);
 #ifdef __APPLE__
     CFStringRef message = CFStringCreateWithCString(NULL, text, kCFStringEncodingUTF8);
     CFOptionFlags response = kCFUserNotificationDefaultResponse;
@@ -1238,15 +1277,23 @@ static int askLoadOnUnknownGame(void) {
 #endif
 }
 
+#include "official_mode.h"
+#include "coe5config.h"
+#include "official_session.h"
+#include "mod_terrain_fix.h"
+#include "lobby_call_shape.h"
+#include "official_games.h"
+
 static void startCoe5se(const char *via);
 
 __declspec(dllexport) int coe5seLoadsPlugins(void) {
     startCoe5se("older_loader");
-    return !pluginsDeclined && !notStartedByLoader;
+    return !pluginsDeclined && !notStartedByLoader && !officialMode;
 }
 
 __declspec(dllexport) const PluginApi *jazzyGetApi(int version) {
     if (notStartedByLoader) return NULL;
+    if (officialMode) return REFUSE_API(NULL, "jazzyGetApi", "official_game", "version=%d", version);
     const char *held = pluginRefusalFor(__builtin_return_address(0));
     if (held) return REFUSE_API(NULL, "jazzyGetApi", held, "version=%d", version);
     if (!pluginsDeclined && version == PLUGIN_API_VERSION) return &API;
@@ -1562,6 +1609,7 @@ static u64 modErrorDialogWrapper(u64 title, u64 text, u64 a3, u64 a4, u64 a5, u6
 #include "save_tail.h"
 #include "save_names.h"
 #include "missing_mods.h"
+#include "network_versions.h"
 #include "plane_layout.h"
 #include "custom_planes.h"
 #include "faction_sight.h"
@@ -1589,6 +1637,7 @@ static u64 modErrorDialogWrapper(u64 title, u64 text, u64 a3, u64 a4, u64 a5, u6
 #include "lua_sites.h"
 #include "lua_split_chain.h"
 #include "lua_coe5_table.h"
+#include "trait_lines.h"
 #include "portal_crossing.h"
 #include "lua_ai.h"
 #include "lua_play_as.h"
@@ -1651,6 +1700,10 @@ static void startCoe5se(const char *via) {
     if (started || notStartedByLoader) return;
     started = 1;
     writeLog("coe5se_start", "via=%s", via);
+    if (isOfficialLaunch()) {
+        startOfficialMode();
+        return;
+    }
 #ifndef __APPLE__
     installCrashFilter();
 #endif
@@ -1658,9 +1711,11 @@ static void startCoe5se(const char *via) {
     writeLog("coe5se_version", "api=%d game_build=%s game_version=%s", PLUGIN_API_VERSION,
              gameBuildId, gameBuild ? gameBuild->gameVersion : "unknown");
     if (!gameBuild) {
-        pluginsDeclined = !askLoadOnUnknownGame();
+        int blockFound = findOfficialLobbyCall();
+        pluginsDeclined = !askLoadOnUnknownGame(blockFound);
         writeLog("unknown_game_answer", "load=%d", !pluginsDeclined);
         if (pluginsDeclined) {
+            installOfficialBlock();
             int modCommand = wrapSite(SITE_MOD_COMMAND, (void *)declinedModCommandHook, (void **)&nextModCommand);
             writeResultLog(modCommand, "mod_command_hook_installed", "ok=%d declined=1", modCommand);
             int eventLine = wrapSite(SITE_EVENT_LINE, (void *)declinedEventLineHook, (void **)&nextEventLine);
@@ -1669,15 +1724,15 @@ static void startCoe5se(const char *via) {
         }
     }
     checkNameBoxCode();
-    eventFindersInit();
-    battleSnapshotInit();
-    strengthIndexInit();
-    drownSearchInit();
+    if (featureOn(FEATURE_EVENT_FINDERS)) eventFindersInit();
+    if (featureOn(FEATURE_BATTLE_SNAPSHOT)) battleSnapshotInit();
+    if (featureOn(FEATURE_STRENGTH_INDEX)) strengthIndexInit();
+    if (featureOn(FEATURE_DROWN_SEARCH)) drownSearchInit();
 #ifndef __APPLE__
-    traceLogFileInit();
-    installStackCookieHook();
+    if (featureOn(FEATURE_TRACE_LOG_FILE)) traceLogFileInit();
+    if (featureOn(FEATURE_STACK_COOKIE)) installStackCookieHook();
 #endif
-    installMenuHook();
+    if (featureOn(FEATURE_MAIN_MENU)) installMenuHook();
     int modErrorHook = wrapSite(SITE_MOD_ERROR_DIALOG, (void *)modErrorDialogWrapper, (void **)&nextModErrorDialog);
     writeResultLog(modErrorHook, "mod_error_hook_installed", "ok=%d", modErrorHook);
 #ifdef __APPLE__
@@ -1691,45 +1746,48 @@ static void startCoe5se(const char *via) {
     writeResultLog(modsScreen, "restart_prompt_installed", "ok=%d", modsScreen);
     writeResultLog(modCommand, "mod_command_hook_installed", "ok=%d", modCommand);
     writeLog("translation_reach_installed", "text_format=%d text_build=%d", textFormat, textBuild);
-    installGameMenuHooks();
-    installFileBrowserBounds();
-    installWaitIdBounds();
-    installInlinedButtonRows();
-    installMapEditorHooks();
-    installCommanderLineHooks();
+    if (featureOn(FEATURE_GAME_MENU)) installGameMenuHooks();
+    if (featureOn(FEATURE_GAME_MENU)) installFileBrowserBounds();
+    if (featureOn(FEATURE_GAME_MENU)) installWaitIdBounds();
+    if (featureOn(FEATURE_GAME_MENU)) installInlinedButtonRows();
+    if (featureOn(FEATURE_MAP_EDITOR)) installMapEditorHooks();
+    if (featureOn(FEATURE_COMMANDER_LINES)) installCommanderLineHooks();
 #ifndef __aarch64__
-    gameSaveInit();
+    if (featureOn(FEATURE_GAME_SAVE)) gameSaveInit();
 #endif
-    keyRebindInit();
-    needsCoe5seInit();
-    ritualExpansionInit();
-    spellPathExpansionInit();
-    spellTableMoveInit();
-    tableMovesInit();
-    fanpatchInstall();
+    if (featureOn(FEATURE_KEY_ACTIONS)) keyRebindInit();
+    if (featureOn(FEATURE_NEEDS_WORD)) needsCoe5seInit();
+    if (featureOn(FEATURE_RITUAL_EXPANSION)) ritualExpansionInit();
+    if (featureOn(FEATURE_SPELL_TABLE_MOVE)) spellTableMoveInit();
+    if (featureOn(FEATURE_TABLE_MOVES)) tableMovesInit();
+    if (featureOn(FEATURE_SPELL_PATH_EXPANSION)) spellPathExpansionInit();
+    if (featureOn(FEATURE_FANPATCH)) fanpatchInstall();
+    installModTerrainFix();
+    installOfficialGamesBox();
     saveTailInit();
-    missingModsInit();
-    installSaveCountHook();
-    modVersionsInit();
-    spellWordsInit();
-    spellPathWordsInit();
-    planeWordsInit();
-    factionWordsInit();
-    terrainLooksWordsInit();
-    battleMapWordsInit();
-    monsterFlagWordsInit();
-    hatesWordsInit();
-    ritualWordsInit();
-    corpseKindsInit();
-    weaponTraitsInit();
-    noExplodeInit();
-    nameListsInit();
-    aiClassInit();
-    maxdataWordInit();
-    sidecarInit();
-    pluginStartInit();
-    modSettingsInit();
-    loadOrderInit();
+    if (featureOn(FEATURE_MISSING_MODS)) missingModsInit();
+    if (featureOn(FEATURE_SAVE_COUNT)) installSaveCountHook();
+    if (featureOn(FEATURE_MOD_VERSIONS)) modVersionsInit();
+    if (featureOn(FEATURE_SPELL_WORDS)) spellWordsInit();
+    if (featureOn(FEATURE_SPELL_PATH_WORDS)) spellPathWordsInit();
+    if (featureOn(FEATURE_PLANE_WORDS)) planeWordsInit();
+    if (featureOn(FEATURE_FACTION_WORDS)) factionWordsInit();
+    if (featureOn(FEATURE_TERRAIN_LOOKS)) terrainLooksWordsInit();
+    if (featureOn(FEATURE_BATTLE_MAPS)) battleMapWordsInit();
+    if (featureOn(FEATURE_MONSTER_FLAGS)) monsterFlagWordsInit();
+    if (featureOn(FEATURE_HATES)) hatesWordsInit();
+    if (featureOn(FEATURE_RITUAL_WORDS)) ritualWordsInit();
+    if (featureOn(FEATURE_CORPSE_KINDS)) corpseKindsInit();
+    if (featureOn(FEATURE_WEAPON_TRAITS)) weaponTraitsInit();
+    if (featureOn(FEATURE_WEAPON_TRAITS)) traitLinesInit();
+    if (featureOn(FEATURE_NO_EXPLODE)) noExplodeInit();
+    if (featureOn(FEATURE_NAME_LISTS)) nameListsInit();
+    if (featureOn(FEATURE_AI_CLASS)) aiClassInit();
+    if (featureOn(FEATURE_MAXDATA)) maxdataWordInit();
+    if (featureOn(FEATURE_SIDECAR)) sidecarInit();
+    if (featureOn(FEATURE_PLUGIN_CHECKS)) pluginStartInit();
+    if (featureOn(FEATURE_MOD_SETTINGS)) modSettingsInit();
+    if (featureOn(FEATURE_LOAD_ORDER)) loadOrderInit();
 #ifdef COE5SE_EXTRA_START
     COE5SE_EXTRA_START();
 #endif

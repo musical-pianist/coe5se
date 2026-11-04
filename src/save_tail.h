@@ -123,8 +123,14 @@ static void setCustomPlaneCameras(void);
 #define SAVE_TAG_PLNS SAVE_TAG('P', 'L', 'N', 'S')
 #define SAVE_TAG_FCTN SAVE_TAG('F', 'C', 'T', 'N')
 #define SAVE_TAG_FCDT SAVE_TAG('F', 'C', 'D', 'T')
-static void addFactionChunks(SaveList *list);
+static void addFactionDataChunks(SaveList *list);
+static void addFactionIndexChunk(SaveList *list);
 static void useFactionDataChunks(const SaveList *list);
+#define SAVE_TAG_VERS SAVE_TAG('V', 'E', 'R', 'S')
+static void addCoe5seVersionChunk(SaveList *list);
+static const char *readCoe5seVersionChunk(const SaveChunk *chunk, char *version, size_t size);
+static void checkCoe5seVersion(SaveFile kind, const char *where, const char *result, const char *version);
+static int coe5seVersionCheckedAtOpen;
 
 static int saveVanillaLastIndex(int kind) {
     if (kind == 0) return VANILLA_SPELL_COUNT - 1;
@@ -142,7 +148,9 @@ static void buildSaveList(SaveList *list, SaveNamesWritten *written) {
     for (int k = 0; k < SAVE_GAME_KINDS; k++) saveBufferInt(&game, saveVanillaLastIndex(k));
     saveListAdd(list, SAVE_TAG_GAME, &game);
     addSaveNameChunks(list, written);
-    addFactionChunks(list);
+    addFactionDataChunks(list);
+    addCoe5seVersionChunk(list);
+    addFactionIndexChunk(list);
     addCustomPlanesChunk(list);
     addModContentChunk(list);
 }
@@ -238,6 +246,8 @@ static void readSaveTail(void *file, int onlyPlayer, SaveFile kind) {
     if (kind == SAVE_FILE_SAVE) clearChangedSpells(), setCustomPlaneCameras();
     int castCounts = readExtraCastCounts(file, onlyPlayer, SAVE_FILE_NAMES[kind]);
     SaveList list = {0};
+    const char *versionResult = "none";
+    char version[SAVE_STRING_MAX + 1] = "";
     if (castCounts < 0) read->result = "bad_block", read->reason = "cast_counts_block";
     else if (castCounts > 0) {
         const char *failed = readSaveList(file, &list, &read->reason);
@@ -246,6 +256,7 @@ static void readSaveTail(void *file, int onlyPlayer, SaveFile kind) {
             read->chunks = list.count;
             for (int i = 0; i < list.count; i++) {
                 if (list.chunks[i].tag == SAVE_TAG_GAME) readSaveGameChunk(&list.chunks[i], read);
+                else if (list.chunks[i].tag == SAVE_TAG_VERS) versionResult = readCoe5seVersionChunk(&list.chunks[i], version, sizeof version);
                 else if (!isSaveNameTag(list.chunks[i].tag) && list.chunks[i].tag != SAVE_TAG_MODC && list.chunks[i].tag != SAVE_TAG_MODH &&
                          list.chunks[i].tag != SAVE_TAG_PLNS && list.chunks[i].tag != SAVE_TAG_FCTN &&
                          list.chunks[i].tag != SAVE_TAG_FCDT)
@@ -259,6 +270,8 @@ static void readSaveTail(void *file, int onlyPlayer, SaveFile kind) {
              read->result, read->reason, read->skipped[0] ? read->skipped : "-", savePlatformName(read->writtenOn), read->chunks,
              read->unknown);
     saveListFree(&list);
+    if (kind == SAVE_FILE_TURN || !coe5seVersionCheckedAtOpen) checkCoe5seVersion(kind, "tail", versionResult, version);
+    if (kind == SAVE_FILE_SAVE) coe5seVersionCheckedAtOpen = 0;
 }
 
 // ---- The hooks ----------------------------------------------------------------------------------

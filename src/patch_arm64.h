@@ -4,7 +4,7 @@
 #include <mach/mach.h>
 #include <mach/mach_vm.h>
 
-#define MAX_STUBS 96
+#define MAX_STUBS 127
 _Static_assert(SITE_COUNT <= MAX_STUBS, "one stub per site");
 
 typedef struct { void *head; uintptr_t sp; double d8, d9; } StubData;
@@ -13,7 +13,7 @@ __attribute__((used)) StubData coe5seStubData[MAX_STUBS];
 __asm__(
     ".text\n.p2align 2\n.globl _coe5seSiteStubs\n_coe5seSiteStubs:\n"
     ".set stubIndex, 0\n"
-    ".rept 96\n"
+    ".rept 127\n"
     "  adrp x16, _coe5seStubData@PAGE\n"
     "  add x16, x16, _coe5seStubData@PAGEOFF\n"
     "  add x16, x16, #(stubIndex * 32)\n"
@@ -132,8 +132,12 @@ static int isSplitSite(CallSite site) {
     default: return 0;
     }
 }
+static int weaponHitDamageAsGame(int attacker, int target, int weapon, int damage, int value, int dmgtype);
+static int targetCheckAsGame(int unit, int type, int weapon, int value, int target);
 static void *siteGameFunction(CallSite site) {
     if (isSplitSite(site)) return (void *)splitStepGame;
+    if (site == SITE_WEAPON_HIT) return (void *)weaponHitDamageAsGame;
+    if (site == SITE_BATTLE_TARGET_CHECK) return (void *)targetCheckAsGame;
     if (isInlinedButtonRowSite(site)) return (void *)buttonRowMac;
     if (site == SITE_SEAL_EVENT) return (void *)sealEventStandInMac;
     if (site == SITE_NEW_WORLD_INIT_PARTICIPANTS) return (void *)initParticipantsMac;
@@ -585,6 +589,11 @@ static int installSite(CallSite site) {
     if (site == SITE_SEAL_EVENT) return installSealEventMac();
     if (site == SITE_NEW_WORLD_INIT_PARTICIPANTS) return installParticipantsMac();
     if (isSplitSite(site)) return installSplitSiteMac(site);
+    if (site == SITE_BATTLE_DRAW || site == SITE_WEAPON_HIT || site == SITE_BATTLE_TARGET_CHECK) {
+        *siteHead(site) = siteGameFunction(site);
+        siteInstalled[site] = 1;
+        return 1;
+    }
     if (!info->rvas[0]) {
         writeLog("site_skipped", "site=%s reason=not_on_this_build", info->name);
         return 0;

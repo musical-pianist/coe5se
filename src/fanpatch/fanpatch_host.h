@@ -138,6 +138,7 @@ int fanpatchGameCodeMatches(const char *fix) {
 
 unsigned char *fanpatchItemTable(void) { return tableAddress(TABLE_ITEM); }
 int fanpatchItemRecords(void) { return tableRecords(TABLE_ITEM); }
+int fanpatchOfficialGame(void) { return isOfficialGame(); }
 int fanpatchNetworkGame(void) { return isNetworkGame(); }
 
 int fanpatchSpellAboveLevel(int unit) {

@@ -10,11 +10,11 @@ CoE5SE is the script extender for Conquest of Elysium 5. It raises the game's li
 
 This repository contains CoE5SE's full source, and until it's on other platforms (goal is nexus) you can verify its safety with the tools included. See [Verify This Build](#verify-this-build).
 
-## What's Here
+## Downloads
 
-- The script extender: [download](https://github.com/musical-pianist/coe5se/releases/latest)
-- My other mods: [CoE5SE Mods Suite](https://github.com/musical-pianist/coe5se-mods-suite), or [all in one zip](https://github.com/musical-pianist/coe5se-mods-suite/archive/refs/heads/main.zip)
-- My install scripts: [CoE5SE Installer](https://github.com/musical-pianist/coe5se-installer)
+- [CoE5SE](https://github.com/musical-pianist/coe5se/releases/latest): the script extender.
+- [Jazzy mods](https://github.com/musical-pianist/coe5se-mods-suite): my QOL mods, or [all in one zip](https://github.com/musical-pianist/coe5se-mods-suite/archive/refs/heads/main.zip).
+- [Modder tools](https://github.com/musical-pianist/coe5se-modding-tools): my tools for modders.
 
 ## Install
 

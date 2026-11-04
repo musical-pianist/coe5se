@@ -365,11 +365,13 @@ static void runRaiseCorpses(const CorpseCast *cast) {
     }
 }
 
+static ExecuteRitualFn nextCorpseExecute;
 static long long corpseExecuteRitual(int unit, int ritual, int x, int y, int percent, int pay) {
-    if (!corpseRuleCount) return executeRitualGame(unit, ritual, x, y, percent, pay);
+    ExecuteRitualFn executeRitualNext = nextCorpseExecute ? nextCorpseExecute : executeRitualGame;
+    if (!corpseRuleCount) return executeRitualNext(unit, ritual, x, y, percent, pay);
     int depth = corpseCastDepth++;
     if (depth < CORPSE_CASTS_MAX) corpseCasts[depth] = (CorpseCast){ritual, unit, unitOwnerIsHuman(unit), percent, 0, 0, 0};
-    long long result = executeRitualGame(unit, ritual, x, y, percent, pay);
+    long long result = executeRitualNext(unit, ritual, x, y, percent, pay);
     corpseCastDepth--;
     if (depth < CORPSE_CASTS_MAX && result != -1) runRaiseCorpses(&corpseCasts[depth]);
     return result;
@@ -496,24 +498,12 @@ static void corpseKindsInit(void) {
         {RVA_RITUAL_RAISE_DEAD_CALL, RVA_RAISE_DEAD, (void *)corpseRaiseDead, "ritual_raise_dead"},
         {RVA_RITUAL_RAISE_ANIMALS_CALL, RVA_RAISE_ANIMALS, (void *)corpseRaiseAnimals, "ritual_raise_animals"},
         {RVA_RITUAL_PUT_CORPSES_TEXT_CALL, RVA_SQUARE_TEXT, (void *)corpsePutText, "ritual_put_corpses"},
-        {RVA_AI_APPRSPAM_EXECUTE_CALL, RVA_EXECUTE_RITUAL, (void *)corpseExecuteRitual, "ai_apprspam_execute"},
-        {RVA_AI_PLAN_EXECUTE_CALL, RVA_EXECUTE_RITUAL, (void *)corpseExecuteRitual, "ai_plan_execute"},
-        {RVA_AI_ALWAYS_EXECUTE_CALL, RVA_EXECUTE_RITUAL, (void *)corpseExecuteRitual, "ai_always_execute"},
-        {RVA_RITUAL_SCREEN_EXECUTE_CALL, RVA_EXECUTE_RITUAL, (void *)corpseExecuteRitual, "ritual_screen_execute"},
-        {RVA_REPEAT_RITUAL_EXECUTE_CALL, RVA_EXECUTE_RITUAL, (void *)corpseExecuteRitual, "repeat_ritual_execute"},
-#ifdef __APPLE__
-        // @platform-split repeat_ritual_execute: Mac copies the repeat loop's call four times
-        {RVA_REPEAT_RITUAL_EXECUTE_CALL_B, RVA_EXECUTE_RITUAL, (void *)corpseExecuteRitual, "repeat_ritual_execute_b"},
-        {RVA_REPEAT_RITUAL_EXECUTE_CALL_C, RVA_EXECUTE_RITUAL, (void *)corpseExecuteRitual, "repeat_ritual_execute_c"},
-        {RVA_REPEAT_RITUAL_EXECUTE_CALL_D, RVA_EXECUTE_RITUAL, (void *)corpseExecuteRitual, "repeat_ritual_execute_d"},
-#endif
-        {RVA_CAST_BY_NAME_EXECUTE_CALL, RVA_EXECUTE_RITUAL, (void *)corpseExecuteRitual, "cast_by_name_execute"},
-        {RVA_ELYSIUM_EXECUTE_CALL_A, RVA_EXECUTE_RITUAL, (void *)corpseExecuteRitual, "elysium_execute_a"},
-        {RVA_ELYSIUM_EXECUTE_CALL_B, RVA_EXECUTE_RITUAL, (void *)corpseExecuteRitual, "elysium_execute_b"},
-        {RVA_ELYSIUM_EXECUTE_CALL_C, RVA_EXECUTE_RITUAL, (void *)corpseExecuteRitual, "elysium_execute_c"},
     };
-    int count = (int)(sizeof CALLS / sizeof CALLS[0]), calls = 0;
-    if (checkGameFunction("corpse_kinds_check", ""))
+    int count = (int)(sizeof CALLS / sizeof CALLS[0]), calls = 0, cast = 0;
+    if (checkGameFunction("corpse_kinds_check", "")) {
         for (int i = 0; i < count; i++) calls += pointCorpseCall(&CALLS[i], i);
-    writeResultLog(words == 2 && calls == count, "corpse_kinds_installed", "words=%d of 2 calls=%d of %d", words, calls, count);
+        cast = wrapSite(SITE_EXECUTE_RITUAL, (void *)corpseExecuteRitual, (void **)&nextCorpseExecute);
+    }
+    writeResultLog(words == 2 && calls == count && cast, "corpse_kinds_installed", "words=%d of 2 calls=%d of %d cast=%d", words, calls,
+                   count, cast);
 }

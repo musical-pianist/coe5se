@@ -1,10 +1,11 @@
 #pragma once
+#include "monster_tags.h"
 #include "move_words.h"
 #include "ritual_effect_names.h"
 
 #define WEAPON_TRAIT_WORD_SIZE 32
 
-enum { WEAPON_TRAIT_FLAG, WEAPON_TRAIT_MOVE, WEAPON_TRAIT_ABILITY };
+enum { WEAPON_TRAIT_FLAG, WEAPON_TRAIT_MOVE, WEAPON_TRAIT_ABILITY, WEAPON_TRAIT_TAG };
 enum { WEAPON_RULE_ONLY, WEAPON_RULE_NOT, WEAPON_RULE_DOUBLE };
 static const char *const WEAPON_RULE_WORDS[] = {"onlyaffects", "doesntaffect", "doubledmgvs"};
 static const char *const WEAPON_RULE_TEXT[] = {"(only affects %s)", "(doesn't affect %s)", "(double damage vs %s)"};
@@ -59,6 +60,7 @@ static int findWeaponTrait(const char *word, int *kind, unsigned long long *valu
 static int unitHasWeaponTrait(int unit, const WeaponTraitRule *r) {
     if (r->kind == WEAPON_TRAIT_FLAG) return (weaponTraitUnitFlags(unit) & r->value) != 0;
     if (r->kind == WEAPON_TRAIT_MOVE) return (weaponTraitUnitMoves(unit) & r->value) == r->value;
+    if (r->kind == WEAPON_TRAIT_TAG) return unitHasTag(unit, (int)r->value);
     return weaponTraitUnitAbility(unit, (int)r->value) > 0;
 }
 
@@ -84,8 +86,15 @@ static int weaponTraitVerdict(int weapon, int target, const char **word) {
     return doubled ? 2 : 1;
 }
 
-static int weaponTraitDamage(int attacker, int target, int weapon, int damage) {
+static unsigned long long weaponHitFullValue, targetCheckFullValue;
+static unsigned long long fullValueOf(unsigned long long full, int value) {
+    return (int)full == value ? full : (unsigned long long)(unsigned)value;
+}
+
+static int weaponHitDamageAsGame(int attacker, int target, int weapon, int damage, int value, int dmgtype) {
+    (void)dmgtype;
     if (damage < 1) return damage;
+    if (immunityStopsHit(target, weapon, fullValueOf(weaponHitFullValue, value))) return 0;
     const char *word = NULL;
     int verdict = weaponTraitVerdict(weapon, target, &word);
     if (verdict == 0) return 0;
@@ -96,6 +105,13 @@ static int weaponTraitDamage(int attacker, int target, int weapon, int damage) {
         return damage * 2;
     }
     return damage;
+}
+
+static int weaponTraitDamage(int attacker, int target, int weapon, int damage, unsigned long long value) {
+    typedef int (*HitFn)(int, int, int, int, int, int);
+    weaponHitFullValue = value;
+    return ((HitFn)siteEntry(SITE_WEAPON_HIT, (void *)weaponHitDamageAsGame))(attacker, target, weapon, damage, (int)value,
+                                                                              weaponDamageType(weapon));
 }
 
 static void clearWeaponTraitRules(int weapon) {
@@ -130,6 +146,18 @@ static int addWeaponTraitRule(int weapon, int rule, int kind, unsigned long long
     return 1;
 }
 
+static void weaponTagLine(const char *word, int rule, int weapon, const char *p, int mod) {
+    char name[MONSTER_TAG_NAME_SIZE];
+    int len = readTagName(&p, name, sizeof name), tag = len > 0 ? monsterTagId(name, 1) : 0;
+    skipSpaces(&p);
+    if (len < 0)
+        refuseC5mLine(word, spellModName(mod), "too_long", "line=%d max=%d", G32(RVA_MOD_LINE), MONSTER_TAG_NAME_SIZE - 1);
+    else if (!len || !isLineEnd(p))
+        refuseC5mLine(word, spellModName(mod), "no_name", "line=%d", G32(RVA_MOD_LINE));
+    else if (tag < 0 || !addWeaponTraitRule(weapon, rule, WEAPON_TRAIT_TAG, (unsigned long long)tag, name))
+        refuseC5mLine(word, spellModName(mod), "out_of_memory", "line=%d", G32(RVA_MOD_LINE));
+}
+
 static void weaponTraitLine(int rule, const char *args, int mod, int level) {
     if (level != 2) return;
     const char *word = WEAPON_RULE_WORDS[rule], *p = args;
@@ -140,6 +168,8 @@ static void weaponTraitLine(int rule, const char *args, int mod, int level) {
         refuseC5mLine(word, spellModName(mod), "no_weapon", "line=%d", G32(RVA_MOD_LINE));
     else if (!len)
         refuseC5mLine(word, spellModName(mod), "no_trait", "line=%d", G32(RVA_MOD_LINE));
+    else if (!strcmp(trait, "tag"))
+        weaponTagLine(word, rule, weapon, p, mod);
     else if ((size_t)len >= sizeof trait || !findWeaponTrait(trait, &kind, &value))
         refuseC5mLine(word, spellModName(mod), "unknown_trait", "line=%d trait=%.40s", G32(RVA_MOD_LINE), trait);
     else if (!addWeaponTraitRule(weapon, rule, kind, value, trait))
@@ -164,6 +194,7 @@ static int weaponTraitLineHook(const char *line, size_t len, int level) {
 
 static void weaponTraitsBeforePass(int level) {
     if (level != 2) return;
+    monsterTagsBeforePass(level);
     weaponTraits.count = 0;
     if (weaponTraits.named) memset(weaponTraits.named, 0, (size_t)weaponTraits.namedSize);
 }
@@ -184,12 +215,27 @@ static void gameBattleLog(int attacker, int target, const char *text) {
 }
 
 typedef int (*TargetUsefulFn)(int unit, unsigned long long type, int weapon, unsigned long long value, int target);
+typedef void (*AddAfflictionFn)(int unit, unsigned long long bits);
+
+static void woundAfflictionHook(int unit, unsigned long long bits) {
+    unsigned long long left = woundBitsAfterImmunity(unit, bits);
+    if (!left) return;
+    GAME_FN(AddAfflictionFn, RVA_ADD_AFFLICTION)(unit, left);
+}
 typedef void (*WeaponTextFn)(int weapon, unsigned long long dmg, int chained);
 
-static int targetUsefulHook(int unit, unsigned long long type, int weapon, unsigned long long value, int target) {
-    int result = GAME_FN(TargetUsefulFn, RVA_BATTLE_TARGET_USEFUL)(unit, type, weapon, value, target);
-    if (result == 1 && target >= 0 && weaponTraitVerdict(weapon, target, NULL) == 0) return BATTLE_TARGET_NOT_AFFECTED;
+static int targetCheckAsGame(int unit, int type, int weapon, int value, int target) {
+    unsigned long long full = fullValueOf(targetCheckFullValue, value);
+    int result = GAME_FN(TargetUsefulFn, RVA_BATTLE_TARGET_USEFUL)(unit, (unsigned long long)type, weapon, full, target);
+    if (result == 1 && target >= 0 && (immunityStopsHit(target, weapon, full) || weaponTraitVerdict(weapon, target, NULL) == 0))
+        return BATTLE_TARGET_NOT_AFFECTED;
     return result;
+}
+
+static int targetUsefulHook(int unit, unsigned long long type, int weapon, unsigned long long value, int target) {
+    typedef int (*CheckFn)(int, int, int, int, int);
+    targetCheckFullValue = value;
+    return ((CheckFn)siteEntry(SITE_BATTLE_TARGET_CHECK, (void *)targetCheckAsGame))(unit, (int)type, weapon, (int)value, target);
 }
 
 static void weaponTextHook(int weapon, unsigned long long dmg, int chained) {
@@ -247,7 +293,8 @@ static int patchWeaponHit(unsigned char *page) {
         writeLogError("weapon_hit_patched", "ok=0 reason=unwind_info");
         return 0;
     }
-    static const unsigned char ARGS[] = {0x44, 0x89, 0xf1, 0x89, 0xf2, 0x44, 0x8b, 0x45, 0x60, 0x45, 0x89, 0xf9};
+    static const unsigned char ARGS[] = {0x44, 0x89, 0xf1, 0x89, 0xf2, 0x44, 0x8b, 0x45, 0x60, 0x45, 0x89, 0xf9,
+                                         0x48, 0x8b, 0x45, 0x68, 0x48, 0x89, 0x44, 0x24, 0x20};
     static const unsigned char AFTER[] = {0x41, 0x89, 0xc7, 0x89, 0x44, 0x24, 0x40, 0x4c, 0x8b, 0x44, 0x24, 0x58};
     unsigned char *stub = page + WEAPON_HIT_STUB, *p = stub, *check = GAME_PTR(RVA_WEAPON_HIT_DAMAGE_CHECK);
     void *hook = (void *)weaponTraitDamage;
@@ -288,7 +335,10 @@ static int pointWeaponTraitCalls(unsigned char *page) {
            redirectCall(RVA_BATTLE_TARGET_USEFUL_CALL, RVA_BATTLE_TARGET_USEFUL, stubs + 0x40, (void *)targetUsefulHook,
                         "battle_target_useful", NULL) +
            redirectCall(RVA_SPELL_USEFUL_TARGET_CALL, RVA_BATTLE_TARGET_USEFUL, stubs + 0x60, (void *)targetUsefulHook,
-                        "spell_useful_target", NULL);
+                        "spell_useful_target", NULL) +
+           redirectCall(RVA_BATTLE_WOUND_ADD_CALL, RVA_ADD_AFFLICTION, stubs + 0x80, (void *)woundAfflictionHook, "battle_wound", NULL) +
+           redirectCall(RVA_WEAPON_HIT_AFFLICT_ADD_CALL, RVA_ADD_AFFLICTION, stubs + 0xa0, (void *)woundAfflictionHook, "hit_affliction",
+                        NULL);
 }
 
 static int installWeaponTraitHooks(int *hit) {
@@ -302,9 +352,9 @@ static int installWeaponTraitHooks(int *hit) {
 }
 #else
 // @platform-split weapon_hit: Mac's stub is fixed code here, reached through the header padding
-int coe5seWeaponTraitDamage(int attacker, int target, int weapon, int damage);
-__attribute__((used)) int coe5seWeaponTraitDamage(int attacker, int target, int weapon, int damage) {
-    return weaponTraitDamage(attacker, target, weapon, damage);
+int coe5seWeaponTraitDamage(int attacker, int target, int weapon, int damage, unsigned long long value);
+__attribute__((used)) int coe5seWeaponTraitDamage(int attacker, int target, int weapon, int damage, unsigned long long value) {
+    return weaponTraitDamage(attacker, target, weapon, damage, value);
 }
 __attribute__((used)) void *coe5seWeaponHitGoOn;
 __asm__(
@@ -333,6 +383,7 @@ __asm__(
     "  stp q28, q29, [sp, #0x1e0]\n"
     "  stp q30, q31, [sp, #0x200]\n"
     "  ldur w2, [x29, #-0x90]\n"
+    "  ldur x4, [x29, #-0x80]\n"
     "  add x29, sp, #0x90\n"
     "  mov w0, w21\n"
     "  mov w1, w20\n"
@@ -408,7 +459,9 @@ static int installWeaponTraitHooks(int *hit) {
            pointWeaponTraitBranch(RVA_BATTLE_TARGET_USEFUL_CALL, RVA_BATTLE_TARGET_USEFUL, (void *)targetUsefulHook,
                                   "battle_target_useful") +
            pointWeaponTraitBranch(RVA_SPELL_USEFUL_TARGET_CALL, RVA_BATTLE_TARGET_USEFUL, (void *)targetUsefulHook,
-                                  "spell_useful_target");
+                                  "spell_useful_target") +
+           pointWeaponTraitBranch(RVA_BATTLE_WOUND_ADD_CALL, RVA_ADD_AFFLICTION, (void *)woundAfflictionHook, "battle_wound") +
+           pointWeaponTraitBranch(RVA_WEAPON_HIT_AFFLICT_ADD_CALL, RVA_ADD_AFFLICTION, (void *)woundAfflictionHook, "hit_affliction");
 }
 #endif
 
@@ -418,9 +471,9 @@ static void weaponTraitsInit(void) {
     weaponTraitUnitAbility = gameUnitAbility;
     weaponTraitBattleLog = gameBattleLog;
     int words = apiAddModCommand("onlyaffects", onlyaffectsLine) + apiAddModCommand("doesntaffect", doesntaffectLine) +
-                apiAddModCommand("doubledmgvs", doubledmgvsLine);
+                apiAddModCommand("doubledmgvs", doubledmgvsLine) + monsterTagsInit();
     int hit = 0, calls = 0;
     if (checkGameFunction("weapon_hit_check", "part=prologue ") && checkGameFunction("weapon_hit_check", "part=multiply "))
         calls = installWeaponTraitHooks(&hit);
-    writeResultLog(words == 3 && hit && calls == 4, "weapon_trait_words_installed", "words=%d of 3 hit=%d calls=%d of 4", words, hit, calls);
+    writeResultLog(words == 8 && hit && calls == 6, "weapon_trait_words_installed", "words=%d of 8 hit=%d calls=%d of 6", words, hit, calls);
 }
