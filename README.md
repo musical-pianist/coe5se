@@ -18,6 +18,8 @@ This repository contains CoE5SE's full source, and until it's on other platforms
 
 ## Install
 
+If you download from here, please be sure to disable the one from Nexus, and vice versa.
+
 Run the command that matches your OS. The scripts are in the [CoE5SE Installer](https://github.com/musical-pianist/coe5se-installer) repo.
 
 Windows:
