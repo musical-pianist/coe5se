@@ -663,7 +663,7 @@ static void applyZoneSwaps(const CustomPlane *p) {
             squares[z]++;
             const PlaneZone *zone = &layout->zones[z];
             short terrain = *(short *)(squareRecordAt(x, y) + SQUARE_TERRAIN_TYPE);
-            for (int i = 0; i < zone->swapCount; i++) {
+            for (int i = zone->swapCount - 1; i >= 0; i--) {
                 if (terrain != zone->swapFrom[i] || zone->swapTo[i] > last) continue;
                 t.changeTerrain(x, y, zone->swapTo[i]);
                 changed[z]++;

@@ -5,7 +5,6 @@ static int officialModsAllowed;
 
 __declspec(dllexport) int coe5seOfficialModsAllowed(void) { return officialMode && officialModsAllowed; }
 
-#define OFFICIAL_GAMES_TITLE "CoE5SE: Official games"
 #define OFFICIAL_GAMES_TEXT                                                                                    \
     "Normally, Script Extender doesn't allow\nofficial Illwinter server connections.\n\nHowever, right now it supports a " \
     "local-only fix\nthat DOES NOT AFFECT ILLWINTER SERVERS.\nDo you want to restart the game with this fix?"
@@ -72,21 +71,62 @@ static int redirectLobbyCall(void (*hook)(void), const char *label) {
     return redirectLobbyCallAt(GAME_PTR(RVA_NET_SCREEN_LOBBY_CALL), GAME_PTR(RVA_LOBBY_START), hook, label);
 }
 
-#define OFFICIAL_BLOCK_TEXT "Normally, Script Extender doesn't allow official Illwinter server connections."
+#define OFFICIAL_BLOCK_TEXT "Blocked with CoE5SE enabled. This is to keep you from being banned in multiplayer."
+#define OFFICIAL_BLOCK_PARSING_TEXT "CoE5SE: Parsing Mods"
 
+#define OFFICIAL_BLOCK_START_FAILED "Mod check failed:\nCoE5 didn't start.\n\nStill blocked.\nMod list unchanged."
 static void showOfficialBlockDialog(void) {
-#ifdef __APPLE__
-    CFOptionFlags response = kCFUserNotificationDefaultResponse;
-    CFUserNotificationDisplayAlert(0, kCFUserNotificationCautionAlertLevel, NULL, NULL, NULL, CFSTR(OFFICIAL_GAMES_TITLE),
-                                   CFSTR(OFFICIAL_BLOCK_TEXT), CFSTR("Ok"), NULL, NULL, &response);
-#else
-    MessageBoxA(NULL, OFFICIAL_BLOCK_TEXT, OFFICIAL_GAMES_TITLE, MB_OK | MB_ICONINFORMATION | MB_TOPMOST | MB_SETFOREGROUND);
-#endif
+    officialTellDialog(OFFICIAL_BLOCK_TEXT);
+}
+
+static void startOfficialWatch(void) {
+    char id[32];
+    snprintf(id, sizeof id, "%lu", (unsigned long)GetCurrentProcessId());
+    officialSetEnvironment(OFFICIAL_WATCH_ENV, id);
+    relaunchGameWith("official_watch", NULL);
+    officialSetEnvironment(OFFICIAL_WATCH_ENV, NULL);
+}
+
+static int officialBlockUsesGameBox(const void *build, int codeMatches) {
+    return build && codeMatches;
+}
+
+static int askOfficialModCheck(const char *text) {
+    return messageBox(OFFICIAL_GAMES_TITLE, text, "Restart", "Cancel", 0, 0, ESCAPE_KEY()) == 1;
+}
+
+static void tellOfficialModCheck(const char *text) {
+    messageBox(OFFICIAL_GAMES_TITLE, text, "Ok", "", 0, UI_KEY_ENTER, 0);
+}
+
+static void drawOfficialModCheck(void) {
+    GAME_FN(uint64_t (*)(int, const char *, ...), RVA_PROGRESS_TEXT)(-1, OFFICIAL_BLOCK_PARSING_TEXT);
+}
+
+static int runOfficialModCheck(void) {
+    static const OfficialModCheckUi UI = {askOfficialModCheck, tellOfficialModCheck, drawOfficialModCheck};
+    HMODULE loader = GetModuleHandleA(LOADER_DLL_NAME);
+    int (*run)(const OfficialModCheckUi *) = loader ? (int (*)(const OfficialModCheckUi *))(void *)GetProcAddress(loader, "coe5seRunModCheck") : NULL;
+    if (!run) {
+        writeLogError("official_mod_check_started", "reason=loader_has_no_mod_check");
+        return 0;
+    }
+    return run(&UI);
+}
+
+static int officialBlockRestart(int (*check)(void), void (*start)(void)) {
+    if (!check()) return 0;
+    start();
+    return 1;
 }
 
 static void officialBlockHook(void) {
     writeLog("official_block_shown", "at=network_screen");
-    showOfficialBlockDialog();
+    if (!officialBlockUsesGameBox(gameBuild, gameCodeMatches)) {
+        showOfficialBlockDialog();
+        return;
+    }
+    if (officialBlockRestart(runOfficialModCheck, startOfficialWatch)) tellOfficialModCheck(OFFICIAL_BLOCK_START_FAILED);
 }
 
 static LobbyCallShape officialLobbyShape;

@@ -283,6 +283,14 @@ static int isSpellBlockEnder(const char *line, size_t len) {
     return 0;
 }
 
+static int startsC5mBlock(const char *line, size_t len) {
+    static const char *const OTHERS[] = {NEWSPELL_WORD, "newplane", "newfaction", "newnametype", "terrainlooks", "battlemap"};
+    if (isSpellBlockEnder(line, len)) return 1;
+    for (size_t i = 0; i < sizeof OTHERS / sizeof OTHERS[0]; i++)
+        if (spellWordIs(line, len, OTHERS[i])) return 1;
+    return 0;
+}
+
 static int spellBlockTakes(const char *word, int mod, int level) {
     if (level != 2) return 0;
     if (!spellBlock.open) {
@@ -386,7 +394,13 @@ static void weaponLine(const char *args, int mod, int level) {
     const char *p = args;
     int weapon = -1, len = 0;
     const char *reason = NULL;
-    if (!readSpellNumber(&p, &dmg)) reason = "bad_weapon";
+    skipSpaces(&p);
+    if (*p == '"') {
+        len = readSpellQuoted(&p, name, sizeof name);
+        if (len <= 0) reason = "bad_weapon";
+        else if (len > WEAPON_NAME_MAX || (weapon = spellFindWeapon(name)) < 0) reason = "unknown_weapon";
+        else if (!readSpellNumber(&p, &dmg)) reason = "bad_weapon";
+    } else if (!readSpellNumber(&p, &dmg)) reason = "bad_weapon";
     else if ((len = readSpellQuoted(&p, name, sizeof name)) >= 0) {
         if (!len) reason = "bad_weapon";
         else if (len > WEAPON_NAME_MAX || (weapon = spellFindWeapon(name)) < 0) reason = "unknown_weapon";
@@ -401,7 +415,7 @@ static void weaponLine(const char *args, int mod, int level) {
     if (reason) {
         refuseC5mLine("weapon", spellModName(mod), reason, "line=%d text=%.80s", G32(RVA_MOD_LINE), args);
         if (!strcmp(reason, "bad_weapon"))
-            noteSpellProblem(mod, G32(RVA_MOD_LINE), "weapon needs a damage number, then a weapon");
+            noteSpellProblem(mod, G32(RVA_MOD_LINE), "weapon needs a damage number and a weapon");
         else if (name[0])
             noteSpellProblem(mod, G32(RVA_MOD_LINE), "no weapon named %.40s", name);
         else

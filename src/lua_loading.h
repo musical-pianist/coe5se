@@ -26,7 +26,7 @@ static const luaL_Reg LUA_COE5[] = {
     {"keepTraceLines", lKeepTraceLines}, {"addPlane", lAddPlane}, {"setPlaneShape", lSetPlaneShape}, {"planeIndex", lPlaneIndex}, {"factionSlot", lFactionSlot}, {"addFaction", lAddFaction},
     {"setPlaneTint", lSetPlaneTint}, {"clearPlaneTint", lClearPlaneTint}, {"setTerrainLooks", lSetTerrainLooks},
     {"addBattleMap", lAddBattleMap}, {"setBattleScatter", lSetBattleScatter},
-    {"addModCommand", lAddModCommand}, COE5SE_EXTRA_LUA_FUNCTIONS {NULL, NULL},
+    {"addModCommand", lAddModCommand}, {"chooseLocation", lChooseLocation}, LUA_GAME_CALLS(GAME_CALL_REG) COE5SE_EXTRA_LUA_FUNCTIONS {NULL, NULL},
 };
 static const luaL_Reg LUA_UI[] = {
     {"screenBegin", lScreenBegin}, {"sectionBegin", lSectionBegin}, {"sectionEnd", lSectionEnd}, {"text", lText},

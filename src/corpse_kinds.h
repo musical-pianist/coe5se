@@ -175,16 +175,49 @@ static const char *corpseWordLineHook(const char *line, size_t len, int mod, int
     return rewritten;
 }
 
+static int copyCorpseRules(int source, int target) {
+    int kept = 0;
+    for (int i = 0; i < corpseRuleCount; i++)
+        if (corpseRules[i].ritual != target) corpseRules[kept++] = corpseRules[i];
+    corpseRuleCount = kept;
+    for (int i = 0; i < kept; i++) {
+        if (corpseRules[i].ritual != source) continue;
+        if (!growList((void **)&corpseRules, &corpseRuleCapacity, corpseRuleCount + 1, sizeof corpseRules[0])) return 0;
+        corpseRules[corpseRuleCount] = corpseRules[i];
+        corpseRules[corpseRuleCount++].ritual = target;
+    }
+    return 1;
+}
+
+static int storeMonsterCorpseKind(int monster, int stored) {
+    if (monster >= monsterCorpseKindCount) {
+        if (!stored) return 1;
+        int count = tableRecords(TABLE_MONSTER);
+        unsigned char *grown = realloc(monsterCorpseKinds, (size_t)count);
+        if (!grown) return 0;
+        memset(grown + monsterCorpseKindCount, 0, (size_t)(count - monsterCorpseKindCount));
+        monsterCorpseKinds = grown;
+        monsterCorpseKindCount = count;
+    }
+    monsterCorpseKinds[monster] = (unsigned char)stored;
+    return 1;
+}
+
+static int copyMonsterCorpseKind(int source, int target) {
+    return storeMonsterCorpseKind(target, source < monsterCorpseKindCount ? monsterCorpseKinds[source] : 0);
+}
+
 static void corpsekindLine(const char *args, int mod, int level) {
     if (level != 2) return;
     const char *p = args;
-    int mask = 0, kind = -1;
+    int mask = 0, stored = -1;
     skipSpaces(&p);
     size_t len = strcspn(p, " \t\r\n");
-    if (len == 4 && !strncmp(p, "none", 4)) kind = CORPSE_KIND_LEAVES_NONE, p += 4;
-    else if (readCorpseKinds(&p, &mask)) kind = onlyCorpseKind(mask);
+    if (len == 1 && p[0] == '0') stored = 0, p += 1;
+    else if (len == 4 && !strncmp(p, "none", 4)) stored = CORPSE_KIND_LEAVES_NONE + 1, p += 4;
+    else if (readCorpseKinds(&p, &mask) && onlyCorpseKind(mask) >= 0) stored = onlyCorpseKind(mask) + 1;
     skipSpaces(&p);
-    if (kind < 0 || !isLineEnd(p)) {
+    if (stored < 0 || !isLineEnd(p)) {
         refuseC5mLine("corpsekind", spellModName(mod), "bad_kind", "line=%d text=%.40s", G32(RVA_MOD_LINE), args);
         return;
     }
@@ -193,18 +226,7 @@ static void corpsekindLine(const char *args, int mod, int level) {
         refuseC5mLine("corpsekind", spellModName(mod), "no_monster", "line=%d", G32(RVA_MOD_LINE));
         return;
     }
-    if (monster >= monsterCorpseKindCount) {
-        int count = tableRecords(TABLE_MONSTER);
-        unsigned char *grown = realloc(monsterCorpseKinds, (size_t)count);
-        if (!grown) {
-            refuseC5mLine("corpsekind", spellModName(mod), "out_of_memory", "line=%d", G32(RVA_MOD_LINE));
-            return;
-        }
-        memset(grown + monsterCorpseKindCount, 0, (size_t)(count - monsterCorpseKindCount));
-        monsterCorpseKinds = grown;
-        monsterCorpseKindCount = count;
-    }
-    monsterCorpseKinds[monster] = (unsigned char)(kind + 1);
+    if (!storeMonsterCorpseKind(monster, stored)) refuseC5mLine("corpsekind", spellModName(mod), "out_of_memory", "line=%d", G32(RVA_MOD_LINE));
 }
 
 static void raisecorpsesLine(const char *args, int mod, int level) {
@@ -267,7 +289,7 @@ static int corpseEventLine(const char *line, int level) {
     if (!readSpellNumber(&p, &n)) return 0;
     skipSpaces(&p);
     if (isLineEnd(p)) return 0;
-    if ((level != 2 && level != 3) || G32(RVA_EVENT_STATE) < 1) return 1;
+    if (level != 3 || G32(RVA_EVENT_STATE) < 1) return 1;
     int mask = 0;
     if (!readCorpseKinds(&p, &mask) || (skipSpaces(&p), !isLineEnd(p))) {
         refuseC5mLine(remove ? "removecorpses" : sign > 0 ? "+mincorpses" : "-mincorpses", "-", "bad_kind", "line=%.60s", line);

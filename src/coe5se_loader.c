@@ -499,6 +499,9 @@ static void loadAllPlugins(const char *modDir, const char *source, const char *l
 
 #include "auto_enable.h"
 #include "official_session.h"
+#include "official_mod_check.h"
+#include "official_dialog.h"
+#include "official_watch.h"
 
 static OfficialModList officialEnabled, officialDrop;
 static char officialConfigPath[MAX_PATH], officialSessionPath[MAX_PATH], officialDonePath[MAX_PATH];
@@ -585,6 +588,21 @@ static void stepOfficialMods(void) {
         if (officialListHas(&officialDrop, officialEnabled.names[i])) writeLog("official_mod_unticked", "mod=%s", officialEnabled.names[i]);
 }
 
+#ifdef __APPLE__
+__attribute__((constructor)) static void makeModCheckGlContext(void) {
+    if (!getenv(OFFICIAL_MOD_CHECK_GL_ENV)) return;
+    void *gl = dlopen("/System/Library/Frameworks/OpenGL.framework/OpenGL", RTLD_NOW | RTLD_GLOBAL);
+    int (*choose)(const int *, void **, int *) = gl ? (int (*)(const int *, void **, int *))dlsym(gl, "CGLChoosePixelFormat") : NULL;
+    int (*create)(void *, void *, void **) = gl ? (int (*)(void *, void *, void **))dlsym(gl, "CGLCreateContext") : NULL;
+    int (*setCurrent)(void *) = gl ? (int (*)(void *))dlsym(gl, "CGLSetCurrentContext") : NULL;
+    const int attributes[] = {96, 0};
+    void *format = NULL, *context = NULL;
+    int count = 0;
+    if (choose && create && setCurrent && !choose(attributes, &format, &count) && format && !create(format, NULL, &context) && context) setCurrent(context);
+    fprintf(stderr, "coe5se: mod check gl context=%d\n", context != NULL);
+}
+#endif
+
 static void setLogPath(void) {
     GetModuleFileNameA(NULL, gameDir, sizeof gameDir);
     char *slash = strrchr(gameDir, USER_DIR_SEP[0]);
@@ -642,6 +660,7 @@ __declspec(dllexport) int coe5seLoaderStart(const LoaderStart *start) {
     writeLog("loader_user_dir", "from=%s", stubUserDir && stubUserDir[0] ? "stub" : "legacy");
     char layout[MAX_PATH] = "";
     if (modDir) buildPath(layout, sizeof layout, __func__, "%s" USER_DIR_SEP CONFIG_LAYOUT_FILE, modDir);
+    if (!officialLaunch && isOfficialWatchStart()) runOfficialWatch();
     if (!officialLaunch) stepOfficialMods();
     loadAllPlugins(modDir, source, layout[0] ? layout : NULL);
     if (officialLaunch) stepOfficialMods();

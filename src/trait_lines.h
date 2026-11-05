@@ -140,7 +140,7 @@ static int traitLineVisible(int lua, int unit, int monster) {
 }
 
 static int traitLineShown(const TraitLine *line, int unit, int monster) {
-    if (line->resBit) return (monsterResBits(monster) & line->resBit) != 0;
+    if (line->resBit) return (unitResBits(unit) & line->resBit) != 0;
     return traitLineVisible(line->lua, unit, monster);
 }
 
@@ -156,6 +156,17 @@ static unsigned traitListHook(int unit, int monster, unsigned long long flags, u
     for (int i = 0; i < traitLineCount; i++)
         if (traitLineShown(&traitLines[i], unit, m) &&
             GAME_FN(AbilityLineFn, RVA_ABILITY_LIST)(traitLineIcon(&traitLines[i]), "%s", traitLines[i].label))
+            count++;
+    return count;
+}
+
+static unsigned itemTraitListHook(int unit, int item, unsigned long long flags, unsigned long long more) {
+    unsigned count = GAME_FN(TraitListFn, RVA_UNIT_TRAIT_LIST)(unit, item, flags, more);
+    int bits = itemResBits(item);
+    if (!bits) return count;
+    findOwnTraitPictures();
+    for (int i = 0; i < traitLineCount; i++)
+        if ((traitLines[i].resBit & bits) && GAME_FN(AbilityLineFn, RVA_ABILITY_LIST)(traitLineIcon(&traitLines[i]), "%s", traitLines[i].label))
             count++;
     return count;
 }
@@ -201,9 +212,11 @@ static int installTraitListHook(void) {
         return 0;
     }
     return redirectCall(RVA_UNIT_TRAIT_LIST_UNIT_CALL, RVA_UNIT_TRAIT_LIST, stub, (void *)traitListHook, "unit_trait_list", NULL) +
+           redirectCall(RVA_UNIT_TRAIT_LIST_ITEM_CALL, RVA_UNIT_TRAIT_LIST, stub + 0x40, (void *)itemTraitListHook, "item_trait_list", NULL) +
            redirectCall(RVA_ABILITY_LOOKUP_CALL, RVA_ABILITY_LOOKUP, stub + 0x20, (void *)traitLookupHook, "ability_lookup", NULL);
 #else
     return pointWeaponTraitBranch(RVA_UNIT_TRAIT_LIST_UNIT_CALL, RVA_UNIT_TRAIT_LIST, (void *)traitListHook, "unit_trait_list") +
+           pointWeaponTraitBranch(RVA_UNIT_TRAIT_LIST_ITEM_CALL, RVA_UNIT_TRAIT_LIST, (void *)itemTraitListHook, "item_trait_list") +
            pointWeaponTraitBranch(RVA_ABILITY_LOOKUP_CALL, RVA_ABILITY_LOOKUP, (void *)traitLookupHook, "ability_lookup");
 #endif
 }
@@ -255,6 +268,6 @@ static void traitLinesInit(void) {
     if (!traitDescriptions) writeLogWarning("trait_descriptions_unavailable", "reason=no_memory_above_the_table");
     addOwnTraitLines();
     int hooked = installTraitListHook();
-    writeResultLog(hooked == 2, "trait_lines_installed", "hooked=%d of 2 lines=%d descriptions=%d", hooked, traitLineCount,
+    writeResultLog(hooked == 3, "trait_lines_installed", "hooked=%d of 3 lines=%d descriptions=%d", hooked, traitLineCount,
                    traitDescriptions != NULL);
 }

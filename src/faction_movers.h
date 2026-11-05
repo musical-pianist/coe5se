@@ -1159,7 +1159,7 @@ static void giveFactionsTheirPlane(const CustomPlane *p) {
     int x0 = planeField(p->index, PLANE_X), y0 = planeField(p->index, PLANE_Y);
     for (int i = 0; i < factionCount; i++) {
         const Faction *f = &factions[i];
-        if (!f->populate || strcmp(f->home, p->name)) continue;
+        if (!f->populate || strcasecmp(f->home, p->name)) continue;
         int slot = factionSlotOf(f), units = 0, squares = 0, last = G32(RVA_UNIT_COUNT);
         for (int u = 0; u <= last; u++) {
             size_t at = (size_t)u * UNIT_SIZE;

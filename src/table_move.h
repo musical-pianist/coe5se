@@ -404,8 +404,7 @@ static int refusedTableLine(const char *line, size_t len, int mod, int level) {
     }
     if (refusedTableEntry.active) {
         int number = G32(RVA_MOD_LINE);
-        int starts = (len >= 3 && !strncmp(line, "new", 3)) || (len >= 6 && !strncmp(line, "select", 6));
-        if (mod != refusedTableEntry.mod || number < refusedTableEntry.line || starts) {
+        if (mod != refusedTableEntry.mod || number < refusedTableEntry.line || startsC5mBlock(line, len)) {
             endRefusedTableEntry();
         } else {
             const char *nameWord = tableMoves[refusedTableEntry.table].nameWord;

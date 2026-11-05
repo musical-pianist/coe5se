@@ -981,6 +981,8 @@ static int addFactionKeysKnown(lua_State *L, char *bad, size_t size) {
     return 1;
 }
 
+static void settleFactionMonsterNames(Faction *f);
+
 static int lAddFaction(lua_State *L) {
     luaL_checktype(L, 1, LUA_TTABLE);
     lua_settop(L, 1);
@@ -1022,7 +1024,11 @@ static int lAddFaction(lua_State *L) {
     if (!refused) {
         reason = declareFaction(mod ? mod : "?", &factionBlock.draft);
         if (reason) refuseLuaCall(mod, "coe5.addFaction", reason, "field=name name=%.40s", name);
-        else findFaction(name)->fromPass = FACTION_FROM_SCRIPT;
+        else {
+            Faction *added = findFaction(name);
+            added->fromPass = FACTION_FROM_SCRIPT;
+            settleFactionMonsterNames(added);
+        }
     }
     lua_pushboolean(L, !refused && !reason);
     return 1;
@@ -1044,6 +1050,20 @@ static void factionWordsBeforePass(int level) {
     placeSavedFactions();
 }
 
+static void settleFactionMonsterName(const Faction *f, const char *word, char *name, size_t size) {
+    if (!name[0]) return;
+    int monster = monsterByName(name);
+    if (monster < 0) refuseC5mLine(word, f->mod, "unknown_monster", "faction=%s monster=%s", f->name, name);
+    else snprintf(name, size, "%.*s", (int)size - 1, (const char *)monsterRecord(monster));
+}
+
+static void settleFactionMonsterNames(Faction *f) {
+    if (f->hasFuel) settleFactionMonsterName(f, "factionfuel", f->fuel, sizeof f->fuel);
+    if (f->hasMonument) settleFactionMonsterName(f, "factionmonument", f->monument, sizeof f->monument);
+    if (f->hasShift) settleFactionMonsterName(f, "factionplaneshift", f->shiftMonster, sizeof f->shiftMonster);
+    if (f->hasLoyalty) settleFactionMonsterName(f, "factionloyalty", f->loyaltyMonster, sizeof f->loyaltyMonster);
+}
+
 static void factionWordsAfterPass(int level) {
     if (level != 2) return;
     finishFactionBlock();
@@ -1054,6 +1074,7 @@ static void factionWordsAfterPass(int level) {
             continue;
         }
         if (kept != i) factions[kept] = factions[i];
+        settleFactionMonsterNames(&factions[kept]);
         kept++;
     }
     factionCount = kept;

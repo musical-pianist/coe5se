@@ -217,11 +217,10 @@ static void planeiconLine(const char *args, int mod, int level) {
     const char *p = args;
     char spec[PLANE_ICON_SPEC_MAX + 2];
     int len = readSpellQuoted(&p, spec, sizeof spec);
-    const char *reason = len <= 0 ? "no_name" : len > PLANE_ICON_SPEC_MAX ? "bad_icon" : findModImage(modFolder(mod), spec, planeBlock.icon, sizeof planeBlock.icon);
-    if (reason) {
-        planeBlock.icon[0] = '\0';
-        refusePlaneLine("planeicon", mod, reason, "plane=%s text=%.60s", planeBlock.name, args);
-    }
+    char path[MAX_PATH];
+    const char *reason = len <= 0 ? "no_name" : len > PLANE_ICON_SPEC_MAX ? "bad_icon" : findModImage(modFolder(mod), spec, path, sizeof path);
+    if (reason) refusePlaneLine("planeicon", mod, reason, "plane=%s text=%.60s", planeBlock.name, args);
+    else snprintf(planeBlock.icon, sizeof planeBlock.icon, "%s", path);
 }
 
 static int installPlaneFileHook(void);
@@ -231,13 +230,17 @@ static void planefileLine(const char *args, int mod, int level) {
     const char *p = args;
     char spec[PLANE_ICON_SPEC_MAX + 2];
     int len = readSpellQuoted(&p, spec, sizeof spec);
-    const char *reason = len <= 0 ? "no_name" : len > PLANE_ICON_SPEC_MAX ? "bad_file" : findPlaneFile(mod, spec, planeBlock.file, sizeof planeBlock.file);
-    if (!reason && !planeFileMapsize(planeBlock.file, &planeBlock.fileW, &planeBlock.fileH)) reason = "no_mapsize";
+    char path[MAX_PATH];
+    int fileW = 0, fileH = 0;
+    const char *reason = len <= 0 ? "no_name" : len > PLANE_ICON_SPEC_MAX ? "bad_file" : findPlaneFile(mod, spec, path, sizeof path);
+    if (!reason && !planeFileMapsize(path, &fileW, &fileH)) reason = "no_mapsize";
     if (!reason && !installPlaneFileHook()) reason = "hook_not_installed";
     if (reason) {
-        planeBlock.file[0] = '\0';
         refusePlaneLine("planefile", mod, reason, "plane=%s text=%.60s", planeBlock.name, args);
+        return;
     }
+    snprintf(planeBlock.file, sizeof planeBlock.file, "%s", path);
+    planeBlock.fileW = fileW, planeBlock.fileH = fileH;
 }
 
 static void finishPlaneBlock(void) {
@@ -402,6 +405,31 @@ static void findPlaneRefSlots(void) {
     }
 }
 
+static int copyPlaneRefs(int source, int target) {
+    int count = planeRefCount, ok = 1;
+    for (int i = 0; i < count; i++) {
+        if (planeRefs[i].kind != PLANE_REF_RITUAL || planeRefs[i].record != source) continue;
+        PlaneNameRef copy = planeRefs[i];
+        copy.record = target, copy.slot = -1;
+        for (int s = 0; s < RITUAL_FX_MAX; s++) {
+            unsigned char *fx = ritualEffectAt(target, s);
+            int fxId;
+            long long value, number = PLANE_NOT_IN_WORLD;
+            memcpy(&fxId, fx, 4);
+            memcpy(&value, fx + RITUAL_FX_VALUE, 8);
+            if (fxId <= 0) break;
+            if (fxId != copy.id || value != PLANE_REF_PLACEHOLDER + i) continue;
+            if (growList((void **)&planeRefs, &planeRefCapacity, planeRefCount + 1, sizeof planeRefs[0])) {
+                planeRefs[planeRefCount] = copy;
+                number = PLANE_REF_PLACEHOLDER + planeRefCount++;
+            } else ok = 0;
+            memcpy(fx + RITUAL_FX_VALUE, &number, 8);
+            break;
+        }
+    }
+    return ok;
+}
+
 static void resolvePlaneNames(int planesKnown) {
     int resolved = 0, missing = 0;
     for (int i = 0; i < planeRefCount; i++) {
@@ -476,7 +504,7 @@ static int namedPlaneCount, namedPlaneCapacity;
 static void notePlaneNameAt(const char *name, const char *mod, const char *file, int line, int script) {
     if (!name[0] || !mod[0] || vanillaPlaneNamed(name) >= 0) return;
     for (int i = 0; i < namedPlaneCount; i++)
-        if (!strcmp(namedPlanes[i].name, name) && !strcmp(namedPlanes[i].mod, mod)) return;
+        if (!strcasecmp(namedPlanes[i].name, name) && !strcmp(namedPlanes[i].mod, mod)) return;
     if (!growList((void **)&namedPlanes, &namedPlaneCapacity, namedPlaneCount + 1, sizeof *namedPlanes))
         return;
     NamedPlane *p = &namedPlanes[namedPlaneCount++];
@@ -512,7 +540,7 @@ static int refusedPlaneCount, refusedPlaneCapacity;
 static void noteRefusedPlane(const char *name, const char *mod) {
     if (!name[0]) return;
     for (int i = 0; i < refusedPlaneCount; i++)
-        if (!strcmp(refusedPlanes[i].name, name)) return;
+        if (!strcasecmp(refusedPlanes[i].name, name)) return;
     if (!growList((void **)&refusedPlanes, &refusedPlaneCapacity, refusedPlaneCount + 1, sizeof *refusedPlanes))
         return;
     snprintf(refusedPlanes[refusedPlaneCount].name, PLANE_NAME_SIZE, "%s", name);
@@ -522,7 +550,7 @@ static void noteRefusedPlane(const char *name, const char *mod) {
 
 static const char *refusedPlaneMod(const char *name) {
     for (int i = 0; i < refusedPlaneCount; i++)
-        if (!strcmp(refusedPlanes[i].name, name)) return refusedPlanes[i].mod;
+        if (!strcasecmp(refusedPlanes[i].name, name)) return refusedPlanes[i].mod;
     return NULL;
 }
 

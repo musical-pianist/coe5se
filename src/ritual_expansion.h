@@ -350,8 +350,7 @@ static int refusedRitualLine(const char *line, size_t len, int mod, int level) {
     }
     if (!refusedRitual.active) return 0;
     int number = G32(RVA_MOD_LINE);
-    int starts = (len >= 3 && !strncmp(line, "new", 3)) || (len >= 6 && !strncmp(line, "select", 6));
-    if (mod != refusedRitual.mod || number < refusedRitual.line || starts) {
+    if (mod != refusedRitual.mod || number < refusedRitual.line || startsC5mBlock(line, len)) {
         endRefusedRitual();
         return 0;
     }
@@ -860,7 +859,7 @@ static int queueRitualWrites(unsigned char *table, unsigned char *blocks) {
     uint32_t saveCode[6] = {0x58000088u, 0x8b0802e8u, 0x78747908u, 0};
     memcpy(&saveCode[4], &castDelta, 8);
     castDeltaCode[1] = queueBranchToCode(RVA_SAVE_GAME_CAST_COUNT_READ, saveCode, 6, 3, "save_game_cast_counts");
-    uint32_t turnCode[6] = {0x58000088u, 0x8b0802c8u, 0x78797908u, 0};
+    uint32_t turnCode[6] = {0x58000088u, 0x8b0802a8u, 0x78767908u, 0};
     memcpy(&turnCode[4], &castDelta, 8);
     castDeltaCode[2] = queueBranchToCode(RVA_SAVE_2H_CAST_COUNT_READ, turnCode, 6, 3, "save_2h_cast_counts");
     for (int i = 0; i < CAST_DELTA_CODES; i++) ok &= castDeltaCode[i] != NULL;

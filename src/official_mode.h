@@ -5,7 +5,15 @@
 #endif
 
 #define LOBBY_CLIENT_SWITCH "--lobbyclient"
+#define OFFICIAL_WATCH_ENV "COE5SE_OFFICIAL_WATCH"
+#define OFFICIAL_MOD_CHECK_GL_ENV "COE5SE_MOD_CHECK_GL"
 #define OFFICIAL_GAMES_BUILD "5.42"
+
+typedef struct {
+    int (*ask)(const char *text);
+    void (*tell)(const char *text);
+    void (*draw)(void);
+} OfficialModCheckUi;
 
 __attribute__((unused)) static const char *officialGamesRefusal(int codeMatches, const char *gameVersion) {
     if (!gameVersion) return "unknown_game_build";

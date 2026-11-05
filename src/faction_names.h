@@ -93,6 +93,36 @@ static unsigned char *factionRefValueAt(const FactionNameRef *r, int slot, int *
     return (unsigned char *)(pair + 1);
 }
 
+static int copyFactionRefs(int kind, int source, int target) {
+    int count = factionRefCount, ok = 1;
+    for (int i = 0; i < count; i++) {
+        if (factionRefs[i].kind != kind || factionRefs[i].record != source) continue;
+        FactionNameRef copy = factionRefs[i];
+        copy.record = target, copy.slot = -1;
+        for (int s = 0;; s++) {
+            int id;
+            unsigned char *value = factionRefValueAt(&copy, s, &id);
+            if (!value || id <= 0) break;
+            long long held = 0, number = -1;
+            if (kind == FACTION_REF_RITUAL) memcpy(&held, value, 8);
+            else held = *(int *)value;
+            if (id != copy.id || held != FACTION_REF_PLACEHOLDER + i) continue;
+            if (growList((void **)&factionRefs, &factionRefCapacity, factionRefCount + 1, sizeof factionRefs[0])) {
+                factionRefs[factionRefCount] = copy;
+                number = FACTION_REF_PLACEHOLDER + factionRefCount++;
+            } else ok = 0;
+            if (kind == FACTION_REF_RITUAL) memcpy(value, &number, 8);
+            else *(int *)value = (int)number;
+            break;
+        }
+    }
+    return ok;
+}
+
+static int copyMonsterFactionRefs(int source, int target) {
+    return copyFactionRefs(FACTION_REF_MONSTER, source, target);
+}
+
 static void resolveFactionNames(int level) {
     if (level != 2) return;
     int resolved = 0;

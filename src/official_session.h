@@ -160,16 +160,22 @@ static __attribute__((unused)) int officialFolderNeedsCoe5se(const char *dir, co
     return buildPath(path, sizeof path, __func__, "%s" OFFICIAL_SEP "%s.c5m", dir, mod) && officialC5mNeedsCoe5se(path);
 }
 
-static __attribute__((unused)) const char *officialSessionApply(const char *config, const char *backup, const char *session, const char *done,
+static __attribute__((unused)) const char *officialSessionStrip(const char *config, const char *backup, const char *session,
                                                                 const OfficialModList *enabled, const OfficialModList *drop) {
     static unsigned char data[CONFIG_MAX];
     size_t len;
     const char *reason = officialReadFile(config, data, sizeof data, &len);
     if (reason) return reason;
-    if (!writeWholeFile(backup, data, len)) return "backup_write_failed";
+    if (backup && !writeWholeFile(backup, data, len)) return "backup_write_failed";
     if (!officialWriteSession(session, "active", enabled, drop)) return "session_write_failed";
     if ((reason = officialSetConfigList(data, &len, sizeof data, enabled, drop))) return reason;
-    if ((reason = officialReplaceFile(config, data, len))) return reason;
+    return officialReplaceFile(config, data, len);
+}
+
+static __attribute__((unused)) const char *officialSessionApply(const char *config, const char *backup, const char *session, const char *done,
+                                                                const OfficialModList *enabled, const OfficialModList *drop) {
+    const char *reason = officialSessionStrip(config, backup, session, enabled, drop);
+    if (reason) return reason;
     remove(done);
     return NULL;
 }

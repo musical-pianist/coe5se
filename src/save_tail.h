@@ -401,7 +401,7 @@ static int installSaveTailHooks(void) {
         else ok += pointSaveTailCall(CALLS[i].callRva, trampoline, CALLS[i].name);
     }
     if (isSaveTailFclose(RVA_SAVE_2H_FCLOSE, "save_2h_end")) {
-        uint32_t closeCode[8] = {0xaa1303e1u, 0x58000070u, 0xd61f0200u, 0xd503201fu};
+        uint32_t closeCode[8] = {0xaa1a03e1u, 0x58000070u, 0xd61f0200u, 0xd503201fu};
         void *hook = (void *)closeTurnWritten;
         memcpy(&closeCode[4], &hook, 8);
         unsigned char *code = takePadding(sizeof closeCode);

@@ -19,6 +19,8 @@ static struct {
     int markCount, markCapacity;
     unsigned char *res;
     int resSize;
+    unsigned char *itemRes;
+    int itemResSize;
 } monsterTags;
 
 static int monsterTagId(const char *name, int add) {
@@ -51,13 +53,25 @@ static int monsterResBits(int monster) {
     return monster >= 0 && monster < monsterTags.resSize ? monsterTags.res[monster] : 0;
 }
 
+static int itemResBits(int item) {
+    return item >= 0 && item < monsterTags.itemResSize ? monsterTags.itemRes[item] : 0;
+}
+
+static int unitResBits(int unit) {
+    int monster = unitMonsterNumber(unit), bits = monsterResBits(monster);
+    if (monster < 0 || !monsterTags.itemResSize) return bits;
+    for (int i = 0; i < UNIT_ITEM_SLOTS; i++)
+        bits |= itemResBits((short)G16(RVA_UNIT_ITEMS + (size_t)unit * UNIT_SIZE + (size_t)i * 2));
+    return bits;
+}
+
 static int weaponDamageType(int weapon) {
     if (weapon < 0 || weapon >= tableRecords(TABLE_WEAPON)) return -1;
     return *(int *)(tableAddress(TABLE_WEAPON) + (size_t)weapon * WEAPON_SIZE + WEAPON_DMGTYPE);
 }
 
 static int immunityStopsHit(int unit, int weapon, unsigned long long value) {
-    int bits = monsterResBits(unitMonsterNumber(unit));
+    int bits = unitResBits(unit);
     if (!bits) return 0;
     if ((bits & MONSTER_RES_KILL) && value == MONSTER_KILL_VALUE) return 1;
     int type = (bits & (MONSTER_RES_POLYMORPH | MONSTER_RES_PETRIFY)) ? weaponDamageType(weapon) : -1;
@@ -84,6 +98,20 @@ static int readOnOff(const char *p) {
     return -1;
 }
 
+static void removeMonsterTagMarks(int monster, int tag) {
+    int kept = 0;
+    for (int i = 0; i < monsterTags.markCount; i++)
+        if (monsterTags.marks[i].monster != monster || (tag != -1 && monsterTags.marks[i].tag != tag)) monsterTags.marks[kept++] = monsterTags.marks[i];
+    monsterTags.markCount = kept;
+}
+
+static int addMonsterTagMark(int monster, int tag) {
+    if (!growList((void **)&monsterTags.marks, &monsterTags.markCapacity, monsterTags.markCount + 1, sizeof *monsterTags.marks))
+        return 0;
+    monsterTags.marks[monsterTags.markCount++] = (MonsterTagMark){monster, tag};
+    return 1;
+}
+
 static void tagLine(const char *args, int mod, int level) {
     if (level != 2) return;
     const char *p = args;
@@ -104,44 +132,52 @@ static void tagLine(const char *args, int mod, int level) {
             return;
         }
         if (!on) {
-            int kept = 0;
-            for (int i = 0; i < monsterTags.markCount; i++)
-                if (monsterTags.marks[i].monster != monster || monsterTags.marks[i].tag != tag) monsterTags.marks[kept++] = monsterTags.marks[i];
-            monsterTags.markCount = kept;
+            removeMonsterTagMarks(monster, tag);
             return;
         }
         if (monsterHasTag(monster, tag)) return;
-        if (!growList((void **)&monsterTags.marks, &monsterTags.markCapacity, monsterTags.markCount + 1, sizeof *monsterTags.marks)) {
-            refuseC5mLine("tag", spellModName(mod), "out_of_memory", "line=%d", G32(RVA_MOD_LINE));
-            return;
-        }
-        monsterTags.marks[monsterTags.markCount++] = (MonsterTagMark){monster, tag};
+        if (!addMonsterTagMark(monster, tag)) refuseC5mLine("tag", spellModName(mod), "out_of_memory", "line=%d", G32(RVA_MOD_LINE));
     }
+}
+
+static int growMonsterRes(void) {
+    int records = tableRecords(TABLE_MONSTER);
+    if (monsterTags.resSize >= records) return 1;
+    unsigned char *grown = realloc(monsterTags.res, (size_t)records);
+    if (!grown) return 0;
+    memset(grown + monsterTags.resSize, 0, (size_t)(records - monsterTags.resSize));
+    monsterTags.res = grown;
+    monsterTags.resSize = records;
+    return 1;
+}
+
+static int growItemRes(void) {
+    int records = tableRecords(TABLE_ITEM);
+    if (monsterTags.itemResSize >= records) return 1;
+    unsigned char *grown = realloc(monsterTags.itemRes, (size_t)records);
+    if (!grown) return 0;
+    memset(grown + monsterTags.itemResSize, 0, (size_t)(records - monsterTags.itemResSize));
+    monsterTags.itemRes = grown;
+    monsterTags.itemResSize = records;
+    return 1;
 }
 
 static void immunityLine(const char *word, int bit, const char *args, int mod, int level) {
     if (level != 2) return;
-    int monster = G32(RVA_MONSTER_CURRENT), on = readOnOff(args), records = tableRecords(TABLE_MONSTER);
-    if (!monsterRecord(monster)) {
-        refuseC5mLine(word, spellModName(mod), "no_monster", "line=%d", G32(RVA_MOD_LINE));
+    int monster = G32(RVA_MONSTER_CURRENT), item = G32(RVA_ITEM_CURRENT), on = !isFlagOff(args);
+    int isMonster = monsterRecord(monster) != NULL, isItem = item >= 0 && item < tableRecords(TABLE_ITEM);
+    if (!isMonster && !isItem) {
+        refuseC5mLine(word, spellModName(mod), "no_monster_or_item", "line=%d", G32(RVA_MOD_LINE));
         return;
     }
-    if (on < 0) {
-        refuseC5mLine(word, spellModName(mod), "bad_value", "line=%d text=%.40s", G32(RVA_MOD_LINE), args);
+    if ((isMonster && !growMonsterRes()) || (isItem && !growItemRes())) {
+        refuseC5mLine(word, spellModName(mod), "out_of_memory", "line=%d", G32(RVA_MOD_LINE));
         return;
     }
-    if (monsterTags.resSize < records) {
-        unsigned char *grown = realloc(monsterTags.res, (size_t)records);
-        if (!grown) {
-            refuseC5mLine(word, spellModName(mod), "out_of_memory", "line=%d", G32(RVA_MOD_LINE));
-            return;
-        }
-        memset(grown + monsterTags.resSize, 0, (size_t)(records - monsterTags.resSize));
-        monsterTags.res = grown;
-        monsterTags.resSize = records;
-    }
-    if (monster < monsterTags.resSize)
+    if (isMonster && monster < monsterTags.resSize)
         monsterTags.res[monster] = (unsigned char)(on ? monsterTags.res[monster] | bit : monsterTags.res[monster] & ~bit);
+    if (isItem)
+        monsterTags.itemRes[item] = (unsigned char)(on ? monsterTags.itemRes[item] | bit : monsterTags.itemRes[item] & ~bit);
 }
 
 static void killresLine(const char *args, int mod, int level) {
@@ -158,7 +194,61 @@ static void feebleresLine(const char *args, int mod, int level) {
 }
 
 static unsigned long long woundBitsAfterImmunity(int unit, unsigned long long bits) {
-    return (monsterResBits(unitMonsterNumber(unit)) & MONSTER_RES_FEEBLE) ? bits & ~AFFLICTION_FEEBLEMINDED : bits;
+    return (unitResBits(unit) & MONSTER_RES_FEEBLE) ? bits & ~AFFLICTION_FEEBLEMINDED : bits;
+}
+
+static int copystatsCarrySource(const char *line, int level) {
+    if (level != 2 || !spellWordIs(line, strcspn(line, " \t\r\n"), "copystats")) return -1;
+    if (!featureOn(FEATURE_WEAPON_TRAITS) && !featureOn(FEATURE_CORPSE_KINDS) && !featureOn(FEATURE_FACTION_WORDS)) return -1;
+    int target = G32(RVA_MONSTER_CURRENT);
+    if (!monsterRecord(target)) return -1;
+    char text[OFFSET_NAME_TEXT_MAX] = "";
+    const char *quote = strchr(line, '"');
+    if (quote) readSpellQuoted(&quote, text, sizeof text);
+    int source = monsterByName(text);
+    return source == target || source > G32(RVA_MONSTER_COUNT) ? -1 : source;
+}
+
+static void carryCopiedMonsterWords(int source, int mod) {
+    int target = G32(RVA_MONSTER_CURRENT), bits = monsterResBits(source), ok = 1;
+    removeMonsterTagMarks(target, -1);
+    int marks = monsterTags.markCount;
+    for (int i = 0; i < marks && ok; i++)
+        if (monsterTags.marks[i].monster == source) ok = addMonsterTagMark(target, monsterTags.marks[i].tag);
+    if (bits && !growMonsterRes()) ok = 0;
+    if (target < monsterTags.resSize) monsterTags.res[target] = (unsigned char)bits;
+    if (!copyMonsterCorpseKind(source, target)) ok = 0;
+    if (!copyMonsterFactionRefs(source, target)) ok = 0;
+    if (!ok) refuseC5mLine("copystats", spellModName(mod), "out_of_memory", "line=%d", G32(RVA_MOD_LINE));
+}
+
+static int copystatsItemCarrySource(const char *line, int level) {
+    if (level != 2 || !spellWordIs(line, strcspn(line, " \t\r\n"), "copystats")) return -1;
+    int target = G32(RVA_ITEM_CURRENT), last = G32(RVA_ITEM_COUNT);
+    if (monsterRecord(G32(RVA_MONSTER_CURRENT)) || target < 0 || target >= tableRecords(TABLE_ITEM)) return -1;
+    char text[OFFSET_NAME_TEXT_MAX] = "";
+    const char *quote = strchr(line, '"');
+    if (quote) readSpellQuoted(&quote, text, sizeof text);
+    if (!text[0]) return -1;
+    for (int i = 0; i <= last && i < tableRecords(TABLE_ITEM); i++)
+        if (recordNameIs(tableAddress(TABLE_ITEM) + (size_t)i * ITEM_SIZE, ITEM_NAME_SIZE, text)) return i == target ? -1 : i;
+    return -1;
+}
+
+static void carryCopiedItemWords(int source, int mod) {
+    int target = G32(RVA_ITEM_CURRENT), bits = itemResBits(source);
+    if (bits && !growItemRes()) refuseC5mLine("copystats", spellModName(mod), "out_of_memory", "line=%d", G32(RVA_MOD_LINE));
+    if (target < monsterTags.itemResSize) monsterTags.itemRes[target] = (unsigned char)bits;
+}
+
+static void clearspecLineHook(const char *line, int level) {
+    if (level != 2 || !spellWordIs(line, strcspn(line, " \t\r\n"), "clearspec")) return;
+    if (!featureOn(FEATURE_WEAPON_TRAITS) && !featureOn(FEATURE_CORPSE_KINDS)) return;
+    int monster = G32(RVA_MONSTER_CURRENT);
+    if (!monsterRecord(monster)) return;
+    removeMonsterTagMarks(monster, -1);
+    if (monster < monsterTags.resSize) monsterTags.res[monster] = 0;
+    storeMonsterCorpseKind(monster, 0);
 }
 
 static void monsterTagsBeforePass(int level) {
@@ -166,6 +256,7 @@ static void monsterTagsBeforePass(int level) {
     monsterTags.nameCount = 0;
     monsterTags.markCount = 0;
     if (monsterTags.res) memset(monsterTags.res, 0, (size_t)monsterTags.resSize);
+    if (monsterTags.itemRes) memset(monsterTags.itemRes, 0, (size_t)monsterTags.itemResSize);
 }
 
 static int monsterTagsInit(void) {

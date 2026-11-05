@@ -5,10 +5,9 @@
 #include <mach/mach_vm.h>
 
 #define MAX_STUBS 127
-_Static_assert(SITE_COUNT <= MAX_STUBS, "one stub per site");
 
 typedef struct { void *head; uintptr_t sp; double d8, d9; } StubData;
-__attribute__((used)) StubData coe5seStubData[MAX_STUBS];
+__attribute__((used)) StubData coe5seStubData[SITE_COUNT];
 
 __asm__(
     ".text\n.p2align 2\n.globl _coe5seSiteStubs\n_coe5seSiteStubs:\n"
@@ -606,6 +605,10 @@ static int installSite(CallSite site) {
         }
     }
     if (site == SITE_CEREMONY_COSTS && !installCeremonyCostsMac()) return 0;
+    if (site >= MAX_STUBS) {
+        writeLog("site_skipped", "site=%s reason=no_stub", info->name);
+        return 0;
+    }
     *siteHead(site) = siteGameFunction(site);
     unsigned char *trampoline = newTrampoline((void *)(coe5seSiteStubs + site * STUB_CODE_SIZE));
     if (!trampoline) {

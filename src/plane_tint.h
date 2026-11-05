@@ -139,7 +139,7 @@ static int installPlaneTintHooks(void) {
 
 static int planeTintNamed(const char *name) {
     int plane = vanillaPlaneNamed(name);
-    if (plane < 0 && !strcmp(name, VANILLA_PLANE_NAMES[PLANE_ELYSIUM2])) plane = PLANE_ELYSIUM2;
+    if (plane < 0 && !strcasecmp(name, VANILLA_PLANE_NAMES[PLANE_ELYSIUM2])) plane = PLANE_ELYSIUM2;
     if (plane < 0) plane = customPlaneIndex(name);
     return plane;
 }

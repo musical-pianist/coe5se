@@ -18,7 +18,7 @@ static const unsigned char PLANE_HAS_RECIPE[PLANE_ELYSIUM2] = {0, 1, 1, 1, 1, 1,
 
 static int vanillaPlaneNamed(const char *name) {
     for (int k = 0; k < PLANE_ELYSIUM2; k++)
-        if (!strcmp(name, VANILLA_PLANE_SHORT_NAMES[k]) || !strcmp(name, VANILLA_PLANE_NAMES[k])) return k;
+        if (!strcasecmp(name, VANILLA_PLANE_SHORT_NAMES[k]) || !strcasecmp(name, VANILLA_PLANE_NAMES[k])) return k;
     return -1;
 }
 
@@ -1424,7 +1424,7 @@ static void applyPlaneSwap(const CustomPlane *p) {
     for (int x = x0; x < x0 + p->w; x++)
         for (int y = y0; y < y0 + p->h; y++) {
             short terrain = *(short *)(squareRecordAt(x, y) + SQUARE_TERRAIN_TYPE);
-            for (int i = 0; i < p->swapCount; i++) {
+            for (int i = p->swapCount - 1; i >= 0; i--) {
                 if (terrain != p->swapFrom[i] || p->swapTo[i] > last) continue;
                 GAME_FN(void (*)(int, int, int), RVA_CHANGE_SQUARE_TERRAIN)(x, y, p->swapTo[i]);
                 changed++;

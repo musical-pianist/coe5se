@@ -14,7 +14,6 @@
 #define BATTLE_SEED_SQUARES          1000
 #define BATTLE_SCATTER_OBJECTS_MAX   16
 #define BATTLE_SCATTER_CHANCE_MAX    1000
-#define BATTLE_ROWS                  20
 #define BATTLE_COLUMNS_MAX           0x600
 #define BATTLE_CELL_SIZE             24
 #define BATTLE_CELL_OBJECT           4

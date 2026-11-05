@@ -64,6 +64,7 @@ static void modCommandHook(const char *line, int mod, int level) {
     if (featureOn(FEATURE_MONSTER_FLAGS) && flagOffLineHook(line, len, mod, level)) return;
     if (featureOn(FEATURE_WEAPON_TRAITS)) weaponTraitLineHook(line, len, level);
     if (featureOn(FEATURE_NO_EXPLODE)) noExplodeLineHook(line, len, mod, level);
+    clearspecLineHook(line, level);
     recBonusLineHook(line, len, mod, level);
     if (featureOn(FEATURE_AI_CLASS)) aiClassLineHook(line, len, mod, level);
     for (int i = 0; i < modCommandCount; i++) {
@@ -86,7 +87,12 @@ static void modCommandHook(const char *line, int mod, int level) {
             return;
         }
     }
+    int copySource = copystatsCarrySource(line, level);
+    int copyItemSource = copystatsItemCarrySource(line, level), copyRitualSource = copyritualCarrySource(line, level);
     nextModCommand(line, mod, level);
+    if (copySource >= 0) carryCopiedMonsterWords(copySource, mod);
+    if (copyItemSource >= 0) carryCopiedItemWords(copyItemSource, mod);
+    if (copyRitualSource >= 0) carryCopiedRitualWords(copyRitualSource, mod);
     if (len == sizeof "newweapon" - 1 && !strncmp(line, "newweapon", len)) noteWeaponMade(mod);
 }
 

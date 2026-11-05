@@ -2,12 +2,12 @@
 
 #define ARMY_LIST_UNITS_MAC_SITE_COUNT 8
 static const TableMacSite ARMY_LIST_UNITS_MAC_SITES[ARMY_LIST_UNITS_MAC_SITE_COUNT] = {
-    {0x4826f8},
-    {0x482954},
-    {0x48342c},
-    {0x4834fc},
-    {0x483840},
-    {0x483904},
-    {0x483e08},
-    {0x483ed8},
+    {0x482800},
+    {0x482a5c},
+    {0x483534},
+    {0x483604},
+    {0x483948},
+    {0x483a0c},
+    {0x483f10},
+    {0x483fe0},
 };

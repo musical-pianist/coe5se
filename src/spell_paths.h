@@ -183,6 +183,7 @@ static int rawPathNumberTakes(const char *line, size_t len, const char *args, in
     const char *p = args;
     long long number = 0;
     if (!checked || !readSpellNumber(&p, &number) || (number >= 1 && number < spellPathCount())) return 1;
+    if (number == 0 && spellWordIs(line, len, "pathboost")) return 1;
     char word[32];
     snprintf(word, sizeof word, "%.*s", (int)(len < sizeof word ? len : sizeof word - 1), line);
     refuseC5mLine(word, spellModName(mod), "bad_path", "line=%d path=%lld", G32(RVA_MOD_LINE), number);

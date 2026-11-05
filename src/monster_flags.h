@@ -1,4 +1,5 @@
 #pragma once
+#include "record_words.h"
 
 #define MONSTER_FLAG_SMALL          (1ULL << 13)
 #define MONSTER_FLAG_COMBAT_CASTER  (1ULL << 19)
@@ -59,14 +60,7 @@ static void monsterFlagLine(const char *word, unsigned long long bit, int on, in
 
 static void ownFlagWordLine(const char *word, unsigned long long bit, const char *args, int mod, int level) {
     if (level != 2) return;
-    const char *p = args;
-    skipSpaces(&p);
-    int on = isLineEnd(p) || (p[0] == '1' && isLineEnd(p + 1));
-    if (!on && !isFlagOff(args)) {
-        refuseC5mLine(word, spellModName(mod), "bad_value", "line=%d text=%.40s", G32(RVA_MOD_LINE), args);
-        return;
-    }
-    monsterFlagLine(word, bit, on, mod);
+    monsterFlagLine(word, bit, !isFlagOff(args), mod);
 }
 
 static void smallLine(const char *args, int mod, int level) {
@@ -77,10 +71,38 @@ static void combatcasterLine(const char *args, int mod, int level) {
     ownFlagWordLine("combatcaster", MONSTER_FLAG_COMBAT_CASTER, args, mod, level);
 }
 
+static int clearRecordFlagWord(unsigned char *base, int record, const char *line, size_t len) {
+    if (!base || (len == sizeof "miscslots" - 1 && !strncmp(line, "miscslots", len))) return 0;
+    for (size_t i = 0; i < sizeof RECORD_WORDS / sizeof RECORD_WORDS[0]; i++) {
+        const RecordWord *row = &RECORD_WORDS[i];
+        if (row->record != record || strlen(row->word) != len || strncmp(row->word, line, len)) continue;
+        if (row->kind != WORD_FLAG) return 0;
+        unsigned long long flags = 0;
+        memcpy(&flags, base + row->offset, row->size);
+        flags &= ~row->value;
+        memcpy(base + row->offset, &flags, row->size);
+        return 1;
+    }
+    return 0;
+}
+
 static int flagOffLineHook(const char *line, size_t len, int mod, int level) {
     if (level != 2) return 0;
+    if (!isFlagOff(line + len)) return 0;
     const MonsterFlagWord *flag = gameFlagWord(line, len);
-    if (!flag || !isFlagOff(line + len)) return 0;
+    int monster = G32(RVA_MONSTER_CURRENT), item = G32(RVA_ITEM_CURRENT), weapon = G32(RVA_WEAPON_CURRENT), terrain = G32(RVA_TERRAIN_CURRENT), ritual = G32(RVA_RITUAL_CURRENT);
+    unsigned char *monsterAt = monsterRecord(monster);
+    unsigned char *itemAt = item >= 0 && item < tableRecords(TABLE_ITEM) ? tableAddress(TABLE_ITEM) + (size_t)item * ITEM_SIZE : NULL;
+    if (flag && (monsterAt || itemAt)) {
+        setMonsterFlag(flag->bit, 0);
+        return 1;
+    }
+    int taken = clearRecordFlagWord(monsterAt, RECORD_MONSTER, line, len) + clearRecordFlagWord(itemAt, RECORD_ITEM, line, len) +
+                clearRecordFlagWord(weapon >= 0 && weapon < tableRecords(TABLE_WEAPON) ? tableAddress(TABLE_WEAPON) + (size_t)weapon * WEAPON_SIZE : NULL, RECORD_WEAPON, line, len) +
+                clearRecordFlagWord(terrain >= 0 && terrain < TERRAIN_TABLE_MAX ? GAME_PTR(RVA_TERRAIN_TABLE) + (size_t)terrain * TERRAIN_SIZE : NULL, RECORD_TERRAIN, line, len) +
+                clearRecordFlagWord(ritual >= 0 && ritual < ritualSlotCount() ? gameBase + ritualTableRva() + (size_t)ritual * RITUAL_SIZE : NULL, RECORD_RITUAL, line, len);
+    if (taken) return 1;
+    if (!flag) return 0;
     monsterFlagLine(flag->word, flag->bit, 0, mod);
     return 1;
 }

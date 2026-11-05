@@ -96,7 +96,7 @@ static void refuseEventLogicLine(const char *line, const char *reason) {
 
 static int eventLogicLine(const char *line, int level) {
     int ours = isEventLogicWord(line);
-    if (level != 2 && level != 3) return ours;
+    if (level != 3) return ours;
     if (eventWordIs(line, "endevent")) {
         eventLogic.active = 0;
         return 0;
@@ -159,7 +159,7 @@ static int eventLogicLine(const char *line, int level) {
 }
 
 static void eventLogicAfterLine(const char *line, int level) {
-    if (level != 2 && level != 3) return;
+    if (level != 3) return;
     if (!eventWordIs(line, "playerevent") && !eventWordIs(line, "squareevent")) return;
     int state = G32(RVA_EVENT_STATE);
     memset(&eventLogic, 0, sizeof eventLogic);

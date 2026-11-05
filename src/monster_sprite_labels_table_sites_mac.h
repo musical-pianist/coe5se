@@ -2,6 +2,6 @@
 
 #define MONSTER_SPRITE_LABELS_MAC_SITE_COUNT 2
 static const TableMacSite MONSTER_SPRITE_LABELS_MAC_SITES[MONSTER_SPRITE_LABELS_MAC_SITE_COUNT] = {
-    {0x490dc0},
-    {0x519ae4},
+    {0x490ec8},
+    {0x519b9c},
 };

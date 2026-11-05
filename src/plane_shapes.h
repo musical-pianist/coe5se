@@ -23,7 +23,7 @@ static const char *addPlaneShape(const char *mod, const char *monster, int monst
     if ((monsterIndex < 0 && !monster[0]) || strlen(monster) >= PLANE_SHAPE_NAME_SIZE || strlen(shape) >= PLANE_SHAPE_NAME_SIZE) return "bad_name";
     if (!plane[0] || strlen(plane) >= PLANE_NAME_SIZE) return "bad_plane";
     for (int i = 0; i < PLANE_RECORDS_GAME; i++)
-        if (!strcmp(VANILLA_PLANE_NAMES[i], plane)) return "game_plane";
+        if (!strcasecmp(VANILLA_PLANE_NAMES[i], plane)) return "game_plane";
     if (vanillaPlaneNamed(plane) >= 0) return "game_plane";
     if (planeShapeDeclarationCount == planeShapeDeclarationRoom) {
         int room = planeShapeDeclarationRoom ? 2 * planeShapeDeclarationRoom : 64;

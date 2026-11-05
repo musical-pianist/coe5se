@@ -18,6 +18,7 @@ static struct {
     int stringCount, stringCapacity;
     int stringRitual;
     int rangeMod, rangeLine, rangeOldWeapon;
+    int rangeClearedWeapon;
     struct {
         char *copy;
         const char *line;
@@ -141,6 +142,7 @@ static void noexplodeRangeLine(int start, int mod) {
         noExplode.rangeMod = mod;
         noExplode.rangeLine = G32(RVA_MOD_LINE);
         noExplode.rangeOldWeapon = G32(RVA_WEAPON_CURRENT);
+        noExplode.rangeClearedWeapon = -1;
     } else if (noExplode.rangeMod < 0) {
         refuseC5mLine(NO_EXPLODE_WORD, spellModName(mod), "no_start", "line=%d", G32(RVA_MOD_LINE));
     } else {
@@ -152,6 +154,18 @@ static void endOpenNoExplodeRange(void) {
     if (noExplode.rangeMod < 0) return;
     refuseC5mLine(NO_EXPLODE_WORD, spellModName(noExplode.rangeMod), "no_end", "start=%d", noExplode.rangeLine);
     noExplode.rangeMod = -1;
+}
+
+static int copyNoExplodeStrings(int source, int target) {
+    int kept = 0;
+    for (int i = 0; i < noExplode.stringCount; i++)
+        if (noExplode.strings[i].ritual != target) noExplode.strings[kept++] = noExplode.strings[i];
+    noExplode.stringCount = kept;
+    if (noExplode.stringRitual == target) noExplode.stringRitual = -1;
+    int count = noExplode.stringCount;
+    for (int i = 0; i < count; i++)
+        if (noExplode.strings[i].ritual == source && !addNoExplodeString(target, noExplode.strings[i].line, noExplode.strings[i].parts)) return 0;
+    return 1;
 }
 
 static void noexplodeLine(const char *args, int mod, int level) {
@@ -181,9 +195,12 @@ static void noExplodeLineHook(const char *line, size_t len, int mod, int level) 
     if (level != 2) return;
     if (noExplode.rangeMod >= 0 && mod != noExplode.rangeMod) endOpenNoExplodeRange();
     int weapon = G32(RVA_WEAPON_CURRENT), ritual = G32(RVA_RITUAL_CURRENT), adding = len == sizeof "addstring" - 1 && !strncmp(line, "addstring", len);
+    if (startsC5mBlock(line, len) || spellWordIs(line, len, "copyritual")) noExplode.stringRitual = -1;
     if (noExplode.rangeMod >= 0) {
         if (weapon != noExplode.rangeOldWeapon) noExplode.rangeOldWeapon = -2;
-        if (weapon >= 0 && weapon < tableRecords(TABLE_WEAPON) && noExplode.rangeOldWeapon == -2 && !addNoExplodeWeapon(weapon))
+        if (weapon != noExplode.rangeClearedWeapon) noExplode.rangeClearedWeapon = -1;
+        if (weapon >= 0 && weapon < tableRecords(TABLE_WEAPON) && noExplode.rangeOldWeapon == -2 && weapon != noExplode.rangeClearedWeapon
+            && !addNoExplodeWeapon(weapon))
             refuseC5mLine(NO_EXPLODE_WORD, spellModName(mod), "out_of_memory", "line=%d", G32(RVA_MOD_LINE));
         int next = ritual >= 0 && ritual < ritualSlotCount() ? lastRitualString(ritual) + 1 : RITUAL_STRINGS_MAX;
         if (adding && next < RITUAL_STRINGS_MAX && !addNoExplodeString(ritual, next, NO_EXPLODE_ALL_PARTS))
@@ -195,6 +212,7 @@ static void noExplodeLineHook(const char *line, size_t len, int mod, int level) 
     }
     if (len != sizeof "clearwspec" - 1 || strncmp(line, "clearwspec", len)) return;
     if (weapon >= 0 && weapon < noExplode.weaponCount) noExplode.weapons[weapon] = 0;
+    if (noExplode.rangeMod >= 0) noExplode.rangeClearedWeapon = weapon;
 }
 
 static void noExplodeBeforePass(int level) {

@@ -34,12 +34,13 @@ static int recordNameIs(const unsigned char *record, size_t size, const char *na
 }
 
 static int monsterByName(const char *text) {
+    if (!text[0]) return -1;
     int nth = -1;
     const char *name = text;
-    if (isdigit((unsigned char)text[0]) && isdigit((unsigned char)text[1]) && text[2] == ':') {
+    if (text[1] && text[2] == ':') {
         nth = (text[0] - '0') * 10 + (text[1] - '0');
         name = text + 3;
-    } else if (isdigit((unsigned char)text[0]) && text[1] == ':') {
+    } else if (text[1] == ':') {
         nth = text[0] - '0';
         name = text + 2;
     }

@@ -53,7 +53,7 @@ static const char *const VANILLA_PLANE_NAMES[PLANE_RECORDS_GAME] = {
 
 static CustomPlane *findCustomPlane(const char *name) {
     for (int i = 0; i < customPlaneCount; i++)
-        if (!strcmp(customPlanes[i].name, name)) return &customPlanes[i];
+        if (!strcasecmp(customPlanes[i].name, name)) return &customPlanes[i];
     return NULL;
 }
 
@@ -77,7 +77,7 @@ static void dropEarlierPassPlane(void) {
 static const char *declareCustomPlane(const char *mod, const char *name, int w, int h, int fill, const char *icon) {
     if (!name[0] || strlen(name) >= PLANE_NAME_SIZE) return "bad_name";
     for (int i = 0; i < PLANE_RECORDS_GAME; i++)
-        if (!strcmp(VANILLA_PLANE_NAMES[i], name)) return "name_taken";
+        if (!strcasecmp(VANILLA_PLANE_NAMES[i], name)) return "name_taken";
     if (vanillaPlaneNamed(name) >= 0) return "name_taken";
     CustomPlane *again = findCustomPlane(name);
     if (again && (again->fromWords != PLANE_FROM_EARLIER_PASS || strcmp(again->mod, mod))) return "name_taken";

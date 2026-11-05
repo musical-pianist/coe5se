@@ -107,6 +107,17 @@ static void randomequipLine(const char *args, int mod, int level) {
     snprintf(e->mod, sizeof e->mod, "%s", spellModName(mod));
 }
 
+static int copyRandomEquipLines(int source, int target) {
+    int count = randomEquipLineCount;
+    for (int i = 0; i < count; i++) {
+        if (randomEquipLines[i].record != source) continue;
+        if (!growList((void **)&randomEquipLines, &randomEquipLineCapacity, randomEquipLineCount + 1, sizeof randomEquipLines[0])) return 0;
+        randomEquipLines[randomEquipLineCount] = randomEquipLines[i];
+        randomEquipLines[randomEquipLineCount++].record = target;
+    }
+    return 1;
+}
+
 static int readItemGroupName(const char **p, long long *out) {
     size_t len = strcspn(*p, " \t\r\n");
     for (size_t i = 0; i < sizeof ITEM_GROUP_NAMES / sizeof ITEM_GROUP_NAMES[0]; i++) {
