@@ -19,12 +19,37 @@ typedef struct {
     int recipe, populate;
     int swapCount;
     short swapFrom[PLANE_SWAP_MAX], swapTo[PLANE_SWAP_MAX];
+    int swapLine[PLANE_SWAP_MAX];
     void *script;
     int generateRef;
     int fromWords;
+    int scriptRestarting;
     char file[MAX_PATH];
+    int declLine, declLines;
     PlaneLayout layout;
 } CustomPlane;
+
+enum { PREVIEW_SOURCE_WORLD = -1, PREVIEW_SOURCE_MONTH = -2, PREVIEW_SOURCE_EVENT = -3, PREVIEW_SOURCE_SCRIPT = -4, PREVIEW_SOURCE_GATEWAY = -5, PREVIEW_SOURCE_POPULATION = -100, PREVIEW_SOURCE_SCRIPT_PLACE = -100000, PREVIEW_SOURCE_EVENT_ACTION = -1000000 };
+static int previewLinesReading(void);
+static void previewNoteLineRefused(const char *reason);
+static void previewNoteLayoutRefused(int line, const char *reason, int by);
+static void previewNoteBlockEnded(const char *reason);
+static void previewLinesStartTry(void);
+static void previewLinesPlanesPlaced(void);
+static void previewTerrainStepPlane(const CustomPlane *p, int source);
+static void previewTerrainStepWord(const CustomPlane *p, const char *word);
+static void previewTerrainAfterPass(int level);
+static void previewPieceAsked(const CustomPlane *p, const PlanePiece *piece, int order, int orderOf);
+static void previewZoneOverlapped(const CustomPlane *p, int z);
+static void previewPieceStamped(const CustomPlane *p, const PlanePiece *piece, int x, int y);
+static void previewPieceSkipped(const CustomPlane *p, const PlanePiece *piece, const char *why);
+static void previewSwapChanged(const CustomPlane *p, int line, int x, int y);
+static void previewLineFailed(const CustomPlane *p, int line, const char *reason);
+static void previewLineDid(const CustomPlane *p, int line, int did);
+static int previewLineRowOf(const CustomPlane *p, int line);
+static void previewUnitsStocked(int row, int rolls, int hits, int units);
+static void previewSetSource(int source);
+static void previewSourcePopulation(const CustomPlane *p);
 
 #define PLANE_FROM_WORDS        1
 #define PLANE_FROM_EARLIER_PASS 2
@@ -67,6 +92,7 @@ static void dropEarlierPassPlane(void) {
     for (int i = customPlaneCount - 1; i >= 0; i--) {
         if (customPlanes[i].fromWords != PLANE_FROM_EARLIER_PASS) continue;
         writeLog("plane_dropped", "mod=%s name=%s reason=room_for_new_plane", customPlanes[i].mod, customPlanes[i].name);
+        freePlaneLayout(&customPlanes[i].layout);
         memmove(&customPlanes[i], &customPlanes[i + 1], (size_t)(customPlaneCount - i - 1) * sizeof customPlanes[0]);
         customPlaneCount--;
         resetCustomPlaneImages();
@@ -80,7 +106,7 @@ static const char *declareCustomPlane(const char *mod, const char *name, int w, 
         if (!strcasecmp(VANILLA_PLANE_NAMES[i], name)) return "name_taken";
     if (vanillaPlaneNamed(name) >= 0) return "name_taken";
     CustomPlane *again = findCustomPlane(name);
-    if (again && (again->fromWords != PLANE_FROM_EARLIER_PASS || strcmp(again->mod, mod))) return "name_taken";
+    if (again && ((again->fromWords != PLANE_FROM_EARLIER_PASS && !again->scriptRestarting) || strcmp(again->mod, mod))) return "name_taken";
     if (w < 1 || w >= MAP_COLUMNS_MAX || h < 1 || h >= PLANE_ROWS_MAX) return "bad_size";
     if (fill < 0) return "bad_terrain";
     if (!again && declaredCustomPlaneCount() >= CUSTOM_PLANE_TARGET) return "too_many_planes";
@@ -90,6 +116,7 @@ static const char *declareCustomPlane(const char *mod, const char *name, int w, 
     int index = again ? again->index : -1, skipped = again ? again->skipped : 0;
     void *script = again ? again->script : NULL;
     CustomPlane *p = again ? again : &customPlanes[customPlaneCount++];
+    if (again) freePlaneLayout(&again->layout);
     memset(p, 0, sizeof *p);
     snprintf(p->name, sizeof p->name, "%s", name);
     snprintf(p->mod, sizeof p->mod, "%s", mod);
@@ -98,6 +125,16 @@ static const char *declareCustomPlane(const char *mod, const char *name, int w, 
     p->recipe = p->populate = -1;
     writeLog("plane_declared", "mod=%s name=%s w=%d h=%d fill=%d icon=%s", mod, name, w, h, fill, p->icon[0] ? p->icon : "-");
     return NULL;
+}
+
+static void markScriptPlanesRestarting(const char *mod) {
+    for (int i = 0; i < customPlaneCount; i++)
+        if (!customPlanes[i].fromWords && !strcmp(customPlanes[i].mod, mod)) customPlanes[i].scriptRestarting = 1;
+}
+
+static void dropScriptPlanes(const char *mod) {
+    for (int i = 0; i < customPlaneCount; i++)
+        if (!customPlanes[i].fromWords && !strcmp(customPlanes[i].mod, mod)) customPlanes[i].fromWords = PLANE_FROM_EARLIER_PASS;
 }
 
 static int customPlaneIndex(const char *name) {
@@ -201,6 +238,7 @@ static void sizeLikePlanes(void) {
 static void placeCustomPlanes(void) {
     for (int i = 0; i < customPlaneCount; i++) customPlanes[i].index = -1, customPlanes[i].skipped = 0;
     if (!customPlaneCount) return;
+    previewLinesPlanesPlaced();
     int last = G32(RVA_LAST_PLANE);
     if (last != PLANE_ELYSIUM2) {
         writeLog("planes_not_placed", "reason=elysium2_not_last last_plane=%d", last);
@@ -233,7 +271,9 @@ static void placeCustomPlanes(void) {
     for (int i = 0; i < customPlaneCount; i++) {
         if (customPlanes[i].skipped) continue;
         fillCustomPlane(&customPlanes[i], placeX[i], placeY[i]);
+        previewTerrainStepWord(&customPlanes[i], "planefill");
         if (customPlanes[i].file[0]) loadCustomPlaneFile(&customPlanes[i]);
+        previewTerrainStepWord(&customPlanes[i], "planefile");
         buildCustomPlane(&customPlanes[i]);
     }
     setCustomPlaneCameras();
@@ -256,7 +296,10 @@ static void specialTerrainHook(int noPlanes) {
 #ifndef __APPLE__
 #define POPULATE_AFTER_VOID_TARGET RVA_POPULATE_VOID
 static void populateAfterVoidHook(void) {
+    previewRestartDice("pop", 9, 0);
+    previewSetSource(PREVIEW_SOURCE_POPULATION - 9);
     GAME_FN(void (*)(void), RVA_POPULATE_VOID)();
+    previewSetSource(PREVIEW_SOURCE_WORLD);
     populateCustomPlanes();
     populateFactions();
 }
@@ -331,7 +374,7 @@ static int loadTurnsModOn(const char *mod) {
     for (int i = 0; i < savedMods.count && !entry; i++)
         if (!strcmp(savedMods.mods[i].name, mod)) entry = &savedMods.mods[i];
     ModFileScan scan;
-    return entry && !(entry->flags & MOD_ADDED_NO_CONTENT) && scanMod(m, &scan) && !scan.contentFree;
+    return entry && !(entry->flags & MOD_ADDED_NO_CONTENT) && scanMod(m, &scan) && !countsAsContentFree(scan.contentFree, scan.hasScript, scan.personal || scan.noMultiplayer);
 }
 
 static void addMissingPlaneName(char *list, size_t size, const char *name, const char *mod) {
@@ -410,7 +453,7 @@ static void readLoadedSavePlanes(const char *path) {
             setPlaneGroundLikes();
             resolvePlaneNames(1);
         }
-    } else
+    } else if (!missing || !endHostLoadOverNoMultiplayerDeclared(missingNames, "plane"))
         writeLogError("save_planes_refused", "reason=%s planes=%d missing=%s", !readBack ? "bad_chunk" : missing ? "plane_not_declared" : "table_not_moved",
                  count, missingNames[0] ? missingNames : "-");
     free(payload);
@@ -442,7 +485,7 @@ static void applyLoadedSavePlanes(int level) {
     writeLogError("save_planes_refused", "reason=plane_not_declared_after_pass planes=%d missing=%s", loadedSavePlanes.count, missingNames);
     static char text[POPUP_TEXT_SIZE];
     snprintf(text, sizeof text, "Planes missing from this save's mods:\n%s\n", missingNames);
-    okBox("CoE5SE: Not a proper save file", text);
+    okBoxOrLog("CoE5SE: Not a proper save file", text);
     GAME_FN(void (*)(const char *), RVA_EXIT_GAME)("");
 }
 

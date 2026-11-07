@@ -82,13 +82,13 @@ static int pushPortalHandlerCall(lua_State *L, void *ctx) {
 }
 
 static int portalCrossingAllowed(const PortalCrossing *c) {
-    if (!portalHandlerCount || portalHandlerRunning || isNetworkGame()) return 1;
+    if (!portalHandlerCount || portalHandlerRunning || netRoleNow() == NET_ROLE_OFFICIAL) return 1;
     int allowed = 1;
     portalHandlerRunning = 1;
     portalHandlerPlanning = c->planning;
     for (int i = 0; allowed && i < portalHandlerCount; i++) {
         LuaCallback cb = luaCallbacks[portalHandlers[i]];
-        if (!cb.s || cb.s->dead) continue;
+        if (!cb.s || cb.s->dead || !luaGameLogicOpenNow(cb.s)) continue;
         PortalHandlerCall call = {cb.ref, c};
         if (!callLuaProtected(cb.s, pushPortalHandlerCall, &call, 1)) continue;
         allowed = !(lua_type(cb.s->L, -1) == LUA_TBOOLEAN && !lua_toboolean(cb.s->L, -1));

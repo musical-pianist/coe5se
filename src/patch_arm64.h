@@ -4,7 +4,8 @@
 #include <mach/mach.h>
 #include <mach/mach_vm.h>
 
-#define MAX_STUBS 127
+#define MAX_STUBS 512
+_Static_assert(SITE_COUNT <= MAX_STUBS, "more sites than Mac stubs: raise MAX_STUBS and the .rept count");
 
 typedef struct { void *head; uintptr_t sp; double d8, d9; } StubData;
 __attribute__((used)) StubData coe5seStubData[SITE_COUNT];
@@ -12,10 +13,11 @@ __attribute__((used)) StubData coe5seStubData[SITE_COUNT];
 __asm__(
     ".text\n.p2align 2\n.globl _coe5seSiteStubs\n_coe5seSiteStubs:\n"
     ".set stubIndex, 0\n"
-    ".rept 127\n"
+    ".rept 512\n"
     "  adrp x16, _coe5seStubData@PAGE\n"
     "  add x16, x16, _coe5seStubData@PAGEOFF\n"
-    "  add x16, x16, #(stubIndex * 32)\n"
+    "  add x16, x16, #((stubIndex * 32) & 0xfff)\n"
+    "  add x16, x16, #((stubIndex * 32) >> 12), lsl #12\n"
     "  mov x17, sp\n"
     "  str x17, [x16, #8]\n"
     "  str d8, [x16, #16]\n"
@@ -25,7 +27,7 @@ __asm__(
     "  .set stubIndex, stubIndex + 1\n"
     ".endr\n");
 extern const unsigned char coe5seSiteStubs[];
-#define STUB_CODE_SIZE 36
+#define STUB_CODE_SIZE 40
 
 static void **siteHead(CallSite site) { return &coe5seStubData[site].head; }
 
@@ -632,10 +634,15 @@ static int installSite(CallSite site) {
 #define MAX_GATES 4096
 typedef struct { void *hook, *next; } GatePair;
 __attribute__((used)) GatePair coe5seGateData[MAX_GATES];
+static unsigned char gateKinds[MAX_GATES];
 __attribute__((used)) void *volatile coe5seGateEntered;
 static int gateCount;
 static int isNetworkGame(void);
-__attribute__((used)) int coe5seGateIsNetwork(void) { return isNetworkGame(); }
+static int isOfficialGame(void);
+static GateKind gateKindOfPair(const void *pair);
+__attribute__((used)) int coe5seGateIsShut(const void *pair) {
+    return gateKindOfPair(pair) == GATE_OFFICIAL_ONLY ? isOfficialGame() : isNetworkGame();
+}
 
 __asm__(
     ".text\n.p2align 2\n.globl _coe5seGates\n_coe5seGates:\n"
@@ -655,7 +662,8 @@ __asm__(
     "  stp x0, x1, [sp, #0x10]\n  stp x2, x3, [sp, #0x20]\n  stp x4, x5, [sp, #0x30]\n  stp x6, x7, [sp, #0x40]\n"
     "  stp d0, d1, [sp, #0x50]\n  stp d2, d3, [sp, #0x60]\n  stp d4, d5, [sp, #0x70]\n  stp d6, d7, [sp, #0x80]\n"
     "  stp x8, x16, [sp, #0x90]\n"
-    "  bl _coe5seGateIsNetwork\n"
+    "  mov x0, x16\n"
+    "  bl _coe5seGateIsShut\n"
     "  mov w17, w0\n"
     "  ldp x0, x1, [sp, #0x10]\n  ldp x2, x3, [sp, #0x20]\n  ldp x4, x5, [sp, #0x30]\n  ldp x6, x7, [sp, #0x40]\n"
     "  ldp d0, d1, [sp, #0x50]\n  ldp d2, d3, [sp, #0x60]\n  ldp d4, d5, [sp, #0x70]\n  ldp d6, d7, [sp, #0x80]\n"
@@ -676,7 +684,7 @@ extern const unsigned char coe5seGates[], coe5seGateEnter[];
 #define RUN_GATE_PAIR      16
 #define RUN_GATE_PAGE      (MAC_PAGE_MASK + 1)
 #define RUN_GATES_PER_PAGE (RUN_GATE_PAGE / RUN_GATE_SIZE)
-typedef struct { void *hook, *next, *gate; } RunGatePair;
+typedef struct { void *hook, *next, *gate; GateKind kind; } RunGatePair;
 static RunGatePair *runGatePairs;
 static int runGatesUsed = RUN_GATES_PER_PAGE;
 
@@ -711,16 +719,24 @@ static int isFixedGate(const void *gate) {
     return g >= first && g < first + GATE_CODE_SIZE * MAX_GATES;
 }
 
-static void *makeGate(void *hook, void *next) {
+static GateKind gateKindOfPair(const void *pair) {
+    uintptr_t p = (uintptr_t)pair, first = (uintptr_t)coe5seGateData;
+    if (p < first || p >= first + sizeof coe5seGateData) return ((const RunGatePair *)pair)->kind;
+    return (GateKind)gateKinds[(p - first) / sizeof coe5seGateData[0]];
+}
+
+static void *makeGate(void *hook, void *next, GateKind kind) {
     if (gateCount < MAX_GATES) {
         coe5seGateData[gateCount].hook = hook;
         coe5seGateData[gateCount].next = next;
+        gateKinds[gateCount] = (unsigned char)kind;
         return (void *)(coe5seGates + GATE_CODE_SIZE * gateCount++);
     }
     if (runGatesUsed == RUN_GATES_PER_PAGE && !newRunGatePage()) return NULL;
     RunGatePair *pair = &runGatePairs[runGatesUsed++];
     pair->hook = hook;
     pair->next = next;
+    pair->kind = kind;
     gateCount++;
     return pair->gate;
 }

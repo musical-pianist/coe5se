@@ -30,4 +30,6 @@ static int installModVersionHooks(int *wanted) {
 static void modVersionsInit(void) {
     int wanted = 0, ok = installModVersionHooks(&wanted);
     writeInstallLog("mod_version_hooks_installed", ok, wanted);
+    networkChecksInit();
+    personalModListsInit();
 }

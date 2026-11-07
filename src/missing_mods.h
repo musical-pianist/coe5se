@@ -1,18 +1,29 @@
 #define SAVE_MODC_VERSION      1
-#define SAVE_MODH_VERSION      2
+#define SAVE_MODH_VERSION      3
 #define MOD_ADDED_NO_CONTENT   1
 #define MOD_LINE_MAX           50000
 
 // ---- What each mod's files add ------------------------------------------------------------------
+#define PERSONALMOD_WORD "personalmod"
+#define NOMULTIPLAYER_WORD "nomultiplayer"
 static const char *const CONTENT_FREE_WORDS[] = {
     "icon", "description", "coeversion", "modversion", "modprio", "requires",
-    "needs_script_extender", "needs_coe5se", "needs_glu32.dll_and_CoE5SE_enabled_at_launch", "maxdata",
+    "needs_script_extender", "needs_coe5se", "needs_glu32.dll_and_CoE5SE_enabled_at_launch", "maxdata", PERSONALMOD_WORD, NOMULTIPLAYER_WORD,
 };
 
 static int isContentFreeWord(const char *word) {
     for (size_t i = 0; i < sizeof CONTENT_FREE_WORDS / sizeof CONTENT_FREE_WORDS[0]; i++)
         if (!strcmp(word, CONTENT_FREE_WORDS[i])) return 1;
     return 0;
+}
+
+static int modKindArgsAreEmpty(const char *args) {
+    skipSpaces(&args);
+    return *args == '#' || isLineEnd(args);
+}
+
+static int isModKindLine(const char *line, const char *word, const char *kind) {
+    return !strcmp(word, kind) && modKindArgsAreEmpty(strstr(line, word) + strlen(kind));
 }
 
 static int firstModWord(const char *line, char *word, size_t size) {
@@ -56,11 +67,13 @@ static int hashContentLine(const char *line, u64 *hash) {
     return 1;
 }
 
-typedef struct { int settingsOpen, contentFree, longLine; u64 hash; } ModFileScan;
+typedef struct { int settingsOpen, contentFree, longLine, personal, noMultiplayer, hasScript; u64 hash; } ModFileScan;
 
-static void scanModLine(const char *line, ModFileScan *scan) {
+static void scanModLine(const char *line, ModFileScan *scan, int mayDeclare) {
     char word[64];
     int crLed = firstModWord(line, word, sizeof word);
+    if (mayDeclare && isModKindLine(line, word, PERSONALMOD_WORD)) scan->personal = 1;
+    if (mayDeclare && isModKindLine(line, word, NOMULTIPLAYER_WORD)) scan->noMultiplayer = 1;
     if (!word[0]) {
         hashContentLine(line, &scan->hash);
         return;
@@ -107,12 +120,29 @@ static int scanModFile(int mod, const char *path, ModFileScan *scan, int kind) {
                 if (!findIncludedFile(mod, file, included, sizeof included)) scanModFile(mod, included, scan, SCAN_INCLUDED);
                 continue;
             }
-            scanModLine(text, scan);
+            scanModLine(text, scan, own || kind != SCAN_C5M);
         }
     }
     fclose(f);
     scan->longLine = 0;
     return 1;
+}
+
+static int modHasScriptFile(int mod) {
+    static const char *const ENDINGS[] = {".lua", LUA_COMMANDS_SUFFIX};
+    for (size_t i = 0; i < sizeof ENDINGS / sizeof ENDINGS[0]; i++) {
+        char path[MAX_PATH];
+        if (!buildPath(path, sizeof path, __func__, "%s" PATH_SEP "%s%s", modFolder(mod), modName(mod), ENDINGS[i])) continue;
+        FILE *f = fopen(path, "rb");
+        if (!f) continue;
+        fclose(f);
+        return 1;
+    }
+    return 0;
+}
+
+static int countsAsContentFree(int contentFree, int hasScript, int kindDeclared) {
+    return contentFree && (kindDeclared || !hasScript || !isNetworkGame());
 }
 
 static int scanMod(int mod, ModFileScan *scan) {
@@ -127,10 +157,101 @@ static int scanMod(int mod, ModFileScan *scan) {
         return 0;
     }
     scanModFile(mod, path, scan, SCAN_SIDECAR);
+    scan->hasScript = modHasScriptFile(mod);
     return 1;
 }
 
-typedef struct { char name[MOD_NAME_MAX]; int contentFree, hashed; u64 hash; } ModContentNote;
+// ---- Scripts in the compare -----------------------------------------------------------------------
+#define MOD_SCRIPT_DEPTH_MAX 16
+#define MOD_SCRIPT_READ_SIZE 65536
+typedef struct { char (*paths)[MAX_PATH]; int count, capacity, failed; } ModScriptList;
+
+static int compareModScriptPaths(const void *a, const void *b) { return strcmp((const char *)a, (const char *)b); }
+
+static void listModScripts(const char *root, const char *relative, ModScriptList *list, int depth) {
+    char pattern[MAX_PATH], below[MAX_PATH];
+    if (!buildPath(pattern, sizeof pattern, __func__, "%s%s%s" PATH_SEP "*", root, relative[0] ? PATH_SEP : "", relative)) {
+        list->failed = 1;
+        return;
+    }
+    WIN32_FIND_DATAA fd;
+    HANDLE h = FindFirstFileA(pattern, &fd);
+    if (h == INVALID_HANDLE_VALUE) return;
+    do {
+        if (fd.cFileName[0] == '.') continue;
+        size_t length = strlen(fd.cFileName);
+        int folder = (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        if (!folder && (length < 5 || _stricmp(fd.cFileName + length - 4, ".lua"))) continue;
+        if (!buildPath(below, sizeof below, __func__, "%s%s%s", relative, relative[0] ? "/" : "", fd.cFileName)) {
+            list->failed = 1;
+            continue;
+        }
+        if (folder) {
+            if (depth < MOD_SCRIPT_DEPTH_MAX) listModScripts(root, below, list, depth + 1);
+            continue;
+        }
+        if (!growList((void **)&list->paths, &list->capacity, list->count + 1, sizeof list->paths[0])) {
+            list->failed = 1;
+            continue;
+        }
+        snprintf(list->paths[list->count++], sizeof list->paths[0], "%s", below);
+    } while (FindNextFileA(h, &fd));
+    FindClose(h);
+}
+
+static int hashModScriptFile(const char *path, u64 *hash) {
+    static unsigned char bytes[MOD_SCRIPT_READ_SIZE];
+    FILE *f = fopen(path, "rb");
+    if (!f) return 0;
+    u64 h = *hash;
+    unsigned char lineEnd = 0;
+    for (size_t got; (got = fread(bytes, 1, sizeof bytes, f)) > 0;) {
+        for (size_t i = 0; i < got; i++) {
+            unsigned char ch = bytes[i];
+            if (ch != '\r' && ch != '\n') {
+                lineEnd = 0;
+                h = (h ^ ch) * CONTENT_HASH_PRIME;
+            } else if (lineEnd && lineEnd != ch) lineEnd = 0;
+            else {
+                lineEnd = ch;
+                h = (h ^ '\n') * CONTENT_HASH_PRIME;
+            }
+        }
+    }
+    int ok = !ferror(f);
+    fclose(f);
+    *hash = h;
+    return ok;
+}
+
+static u64 hashScriptsUnder(const char *root) {
+    ModScriptList list = {0};
+    u64 hash = CONTENT_HASH_START;
+    listModScripts(root, "", &list, 0);
+    if (list.count) qsort(list.paths, (size_t)list.count, sizeof list.paths[0], compareModScriptPaths);
+    int failed = list.failed;
+    for (int i = 0; i < list.count; i++) {
+        char path[MAX_PATH];
+        for (const char *c = list.paths[i]; *c; c++) hash = (hash ^ (unsigned char)*c) * CONTENT_HASH_PRIME;
+        hash = (hash ^ 0) * CONTENT_HASH_PRIME;
+        if (!buildPath(path, sizeof path, __func__, "%s" PATH_SEP "%s", root, list.paths[i]) || !hashModScriptFile(path, &hash)) {
+            writeLogWarning("mod_script_not_read", "reason=not_read root=%s file=%s", root, list.paths[i]);
+            failed = 1;
+        }
+    }
+    if (failed) {
+        writeLogWarning("mod_scripts_not_hashed", "reason=not_all_read root=%s files=%d", root, list.count);
+        hash = (hash ^ 0xff) * CONTENT_HASH_PRIME;
+    }
+    free(list.paths);
+    return hash;
+}
+
+static u64 hashModScripts(int mod) { return hashScriptsUnder(modFolder(mod)); }
+
+static u64 hashModScriptsIfRun(int mod, int noMultiplayer) { return noMultiplayer ? CONTENT_HASH_START : hashModScripts(mod); }
+
+typedef struct { char name[MOD_NAME_MAX]; int contentFree, hashed, personal, noMultiplayer, hasScript; u64 hash, scriptHash; } ModContentNote;
 static ModContentNote *modContentNotes;
 static int modContentNoteCount, modContentNoteCapacity;
 
@@ -154,25 +275,39 @@ static void noteModContent(int mod) {
     ModFileScan scan;
     note->hashed = scanMod(mod, &scan);
     note->contentFree = scan.contentFree;
+    note->personal = scan.personal;
+    note->noMultiplayer = scan.noMultiplayer;
+    note->hasScript = scan.hasScript;
     note->hash = scan.hash;
+    note->scriptHash = hashModScriptsIfRun(mod, scan.noMultiplayer);
+    if (scan.personal && scan.noMultiplayer) refuseC5mLine(PERSONALMOD_WORD, modName(mod), "personalmod_with_nomultiplayer", "counts_as=nomultiplayer");
+    else if (scan.personal && !scan.contentFree) refuseC5mLine(PERSONALMOD_WORD, modName(mod), "personalmod_with_content", "counts_as=content");
 }
 
 // ---- Writing ------------------------------------------------------------------------------------
+static int fileLeavesModOut(int m) {
+    if (!modEnabled(m)) return 1;
+    const ModContentNote *note = findModContentNote(modName(m));
+    return note && note->noMultiplayer && isNetworkGame();
+}
+
 static void addModHashChunk(SaveList *list) {
     SaveBuffer b = {0};
     int count = 0;
     for (int m = 0; m <= G32(RVA_MOD_LAST_INDEX); m++) {
-        const ModContentNote *note = modEnabled(m) ? findModContentNote(modName(m)) : NULL;
+        const ModContentNote *note = !fileLeavesModOut(m) ? findModContentNote(modName(m)) : NULL;
         count += note && note->hashed;
     }
     saveBufferInt(&b, SAVE_MODH_VERSION);
     saveBufferInt(&b, count);
     for (int m = 0; m <= G32(RVA_MOD_LAST_INDEX); m++) {
-        const ModContentNote *note = modEnabled(m) ? findModContentNote(modName(m)) : NULL;
+        const ModContentNote *note = !fileLeavesModOut(m) ? findModContentNote(modName(m)) : NULL;
         if (!note || !note->hashed) continue;
         saveBufferString(&b, modName(m));
         saveBufferInt(&b, (int)(note->hash & 0xffffffffu));
         saveBufferInt(&b, (int)(note->hash >> 32));
+        saveBufferInt(&b, (int)(note->scriptHash & 0xffffffffu));
+        saveBufferInt(&b, (int)(note->scriptHash >> 32));
     }
     saveBufferInt(&b, (int)b.size + 8);
     saveBufferInt(&b, SAVE_TAG_MODH);
@@ -183,14 +318,14 @@ static void addModContentChunk(SaveList *list) {
     addModHashChunk(list);
     SaveBuffer b = {0};
     int count = 0;
-    for (int m = 0; m <= G32(RVA_MOD_LAST_INDEX); m++) count += modEnabled(m);
+    for (int m = 0; m <= G32(RVA_MOD_LAST_INDEX); m++) count += !fileLeavesModOut(m);
     saveBufferInt(&b, SAVE_MODC_VERSION);
     saveBufferInt(&b, count);
     for (int m = 0; m <= G32(RVA_MOD_LAST_INDEX); m++) {
-        if (!modEnabled(m)) continue;
+        if (fileLeavesModOut(m)) continue;
         const ModContentNote *note = findModContentNote(modName(m));
         saveBufferString(&b, modName(m));
-        saveBufferInt(&b, note && note->contentFree ? MOD_ADDED_NO_CONTENT : 0);
+        saveBufferInt(&b, note && countsAsContentFree(note->contentFree, note->hasScript, note->personal || note->noMultiplayer) ? MOD_ADDED_NO_CONTENT : 0);
     }
     saveBufferInt(&b, (int)b.size + 8);
     saveBufferInt(&b, SAVE_TAG_MODC);
@@ -238,7 +373,7 @@ static int readFileInt(FILE *f, int *value) {
     return 1;
 }
 
-typedef struct { char name[SAVE_STRING_MAX + 1]; u64 hash; } SavedModHash;
+typedef struct { char name[SAVE_STRING_MAX + 1]; u64 hash, scriptHash; } SavedModHash;
 typedef struct {
     const char *result;
     SavedModHash *mods;
@@ -256,14 +391,17 @@ static const char *readModHashPayload(const unsigned char *payload, int size, Sa
     SaveCursor c = {payload, payload + size - 8, 0};
     int version = saveCursorInt(&c), count = saveCursorInt(&c);
     if (c.failed) return "bad";
-    if (version != SAVE_MODH_VERSION) return version > SAVE_MODH_VERSION ? "newer_version" : "bad";
+    if (version < 1) return "bad";
+    if (version != SAVE_MODH_VERSION) return version > SAVE_MODH_VERSION ? "newer_version" : "older_version";
     if (count < 0 || count > SAVE_MODS_MAX) return "bad";
     saved->mods = calloc((size_t)count + 1, sizeof *saved->mods);
     if (!saved->mods) return "bad";
     for (int i = 0; i < count; i++) {
         saveCursorString(&c, saved->mods[i].name, sizeof saved->mods[i].name);
         unsigned low = (unsigned)saveCursorInt(&c), high = (unsigned)saveCursorInt(&c);
+        unsigned scriptLow = (unsigned)saveCursorInt(&c), scriptHigh = (unsigned)saveCursorInt(&c);
         saved->mods[i].hash = (u64)high << 32 | low;
+        saved->mods[i].scriptHash = (u64)scriptHigh << 32 | scriptLow;
         if (c.failed) return "bad";
     }
     if (c.at != c.end) return "bad";
@@ -340,6 +478,14 @@ static void notePlayerModStates(void) {
     playerModStates.noted = 1;
 }
 
+static void showNoMultiplayerSaveAndExit(const char *mod) {
+    static char text[POPUP_TEXT_SIZE];
+    snprintf(text, sizeof text, "Save holds content of mod '%s', marked nomultiplayer.\n\nNot loadable in a network game.", mod);
+    okBoxOrLog("CoE5SE: Mod not for network games", text);
+    GAME_FN(void (*)(const char *), RVA_EXIT_GAME)("");
+}
+static void (*endLoadOverNoMultiplayerMod)(const char *mod) = showNoMultiplayerSaveAndExit;
+
 static int keepPlayerModStates(void) {
     if (!playerModStates.noted) {
         writeLogError("player_mod_states_not_kept", "reason=not_noted");
@@ -351,13 +497,24 @@ static int keepPlayerModStates(void) {
         int player = playerModStates.enabled[m], saved = modEnabled(m);
         if (player == saved) continue;
         ModFileScan scan;
-        int contentFree = scanMod(m, &scan) && scan.contentFree;
+        int read = scanMod(m, &scan);
+        int contentFree = read && countsAsContentFree(scan.contentFree, scan.hasScript, scan.personal || scan.noMultiplayer);
         writeLog("load_mod_state", "mod=%s player=%d save=%d used=%s", modName(m), player, saved, contentFree ? "player" : "save");
+        if (read && saved && scan.noMultiplayer && !scan.contentFree && netRoleNow() == NET_ROLE_HOST) {
+            writeLogWarning("save_mod_not_for_network", "mod=%s reason=nomultiplayer_with_content", modName(m));
+            endLoadOverNoMultiplayerMod(modName(m));
+            continue;
+        }
         if (!contentFree) continue;
         setModEnabled(m, player);
         kept++;
     }
     return kept;
+}
+
+static void keepPlayerModStatesAfterClientLoad(void) {
+    if (!playerModStates.noted || netRoleNow() != NET_ROLE_CLIENT) return;
+    keepPlayerModStates();
 }
 
 static int modListLeftOut;
@@ -382,7 +539,9 @@ static int chooseModListLeftOut(void) {
 }
 
 typedef void (*WriteModNameFn)(const char *name, void *file);
+static void addWaitingNetworkWarnings(void);
 static void writeSavedModName(const char *name, void *file, WriteModNameFn writeName) {
+    addWaitingNetworkWarnings();
     ptrdiff_t offset = name - (const char *)(gameBase + RVA_MOD_NAMES);
     if (offset < 0 || offset % MOD_RECORD_SIZE || offset / MOD_RECORD_SIZE > G32(RVA_MOD_LAST_INDEX)) {
         writeLog("save_mod_list", "list=full reason=not_a_mod_record offset=%lld", (long long)offset);
@@ -423,17 +582,23 @@ static int isSkippableMissingMod(const char *name) {
 static void readLoadedSavePlanes(const char *path);
 static void readLoadedSaveFactions(const char *path);
 static void checkLoadedSaveVersion(const char *path);
+static void noteClientLoadStart(const char *path);
+static void noteClientTurnFile(const char *path, void *file);
+static void checkLoadedSaveModFiles(void);
 
 static void *openLoadedSave(const char *path, void *file) {
     playerModStates.noted = 0;
     if (file) {
+        noteClientTurnFile(path, file);
         checkLoadedSaveVersion(path);
+        noteClientLoadStart(path);
         notePlayerModStates();
         readSavedModContent(path, &savedMods, &savedModHashes);
         writeResultLog(strcmp(savedMods.result, "bad"), "save_mod_record_read", "result=%s%s mods=%d", savedMods.result,
                        strcmp(savedMods.result, "bad") ? "" : " reason=bad_chunk", savedMods.count);
         writeResultLog(strcmp(savedModHashes.result, "bad"), "save_mod_hashes_read", "result=%s%s mods=%d", savedModHashes.result,
                        strcmp(savedModHashes.result, "bad") ? "" : " reason=bad_chunk", savedModHashes.count);
+        checkLoadedSaveModFiles();
         readLoadedSavePlanes(path);
         readLoadedSaveFactions(path);
     }

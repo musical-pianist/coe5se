@@ -926,6 +926,13 @@ static int lGet(lua_State *L) {
     case T_CAST_COUNT: lua_pushinteger(L, *(const short *)p); break;
     case T_UNIT_AP_LEFT: lua_pushinteger(L, unitApLeft((int)lua_tointeger(L, 2))); break;
     case T_UNIT_STATIONARY: lua_pushboolean(L, unitStationary((int)lua_tointeger(L, 2))); break;
+    case T_UNIT_BATTLE_X:
+    case T_UNIT_BATTLE_Y: {
+        int x, y;
+        if (!unitBattleCell((int)lua_tointeger(L, 2), &x, &y)) lua_pushnil(L);
+        else lua_pushinteger(L, v->type == T_UNIT_BATTLE_X ? x : y);
+        break;
+    }
     case T_COMMANDER_COST: {
         int have;
         if (commanderCostAvailable((int)lua_tointeger(L, 2), (int)lua_tointeger(L, 3), &have) < 0) lua_pushnil(L);
@@ -1038,6 +1045,10 @@ static int lGet(lua_State *L) {
     case T_SQUARE_WATERLIKE: lua_pushboolean(L, squareWaterlike((int)lua_tointeger(L, 2), (int)lua_tointeger(L, 3))); break;
     case T_SQUARE_OPEN_LAND: lua_pushboolean(L, squareOpenLand((int)lua_tointeger(L, 2), (int)lua_tointeger(L, 3))); break;
     case T_KEY_HELD: lua_pushboolean(L, keyCodeHeld((int)lua_tointeger(L, 2))); break;
+    case T_PREVIEW_WHEEL:
+        if (previewWorldOn()) lua_pushinteger(L, G32(RVA_WHEEL));
+        else lua_pushnil(L);
+        break;
     case T_SLOT_CITADELS: lua_pushinteger(L, GAME_FN(int (*)(int), RVA_AI_COUNT_CITADELS)((int)lua_tointeger(L, 2))); break;
     case T_RECORD_WORD: {
         const char *word = luaL_checkstring(L, arg);

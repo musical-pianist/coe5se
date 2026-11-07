@@ -69,6 +69,8 @@ static int markMapScreenFrame(int a, int b) {
     return id;
 }
 
+static void drawUiButtons(void);
+
 static void gateMapEditorDraw(void) {
     if (mapEditorWaiting <= 0) {
         void *game = siteGameTarget(SITE_MAP_EDITOR_DRAW);
@@ -80,8 +82,10 @@ static void gateMapEditorDraw(void) {
         }
         if (mapScreenWaiting <= 0 || !siteInstalled[SITE_MAP_DRAW]) {
             ((void (*)(void))game)();
+            drawUiButtons();
             return;
         }
+        previewBeforeMapDraw();
         mapDrawing++;
         ((void (*)(void))siteEntry(SITE_MAP_DRAW, game))();
         mapDrawing--;

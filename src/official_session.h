@@ -141,25 +141,6 @@ static __attribute__((unused)) int officialReadSession(const char *path, char *s
     return version == 1 && state[0];
 }
 
-static __attribute__((unused)) int officialC5mNeedsCoe5se(const char *path) {
-    FILE *f = fopen(path, "r");
-    if (!f) return 0;
-    char line[512];
-    int needs = 0;
-    while (!needs && fgets(line, sizeof line, f)) {
-        const char *c = line;
-        while (*c == ' ' || *c == '\t') c++;
-        needs = !strncmp(c, "needs_script_extender", 21) || !strncmp(c, "needs_coe5se", 12) || !strncmp(c, "needs_glu32.dll", 15);
-    }
-    fclose(f);
-    return needs;
-}
-
-static __attribute__((unused)) int officialFolderNeedsCoe5se(const char *dir, const char *mod) {
-    char path[MAX_PATH];
-    return buildPath(path, sizeof path, __func__, "%s" OFFICIAL_SEP "%s.c5m", dir, mod) && officialC5mNeedsCoe5se(path);
-}
-
 static __attribute__((unused)) const char *officialSessionStrip(const char *config, const char *backup, const char *session,
                                                                 const OfficialModList *enabled, const OfficialModList *drop) {
     static unsigned char data[CONFIG_MAX];
@@ -170,14 +151,6 @@ static __attribute__((unused)) const char *officialSessionStrip(const char *conf
     if (!officialWriteSession(session, "active", enabled, drop)) return "session_write_failed";
     if ((reason = officialSetConfigList(data, &len, sizeof data, enabled, drop))) return reason;
     return officialReplaceFile(config, data, len);
-}
-
-static __attribute__((unused)) const char *officialSessionApply(const char *config, const char *backup, const char *session, const char *done,
-                                                                const OfficialModList *enabled, const OfficialModList *drop) {
-    const char *reason = officialSessionStrip(config, backup, session, enabled, drop);
-    if (reason) return reason;
-    remove(done);
-    return NULL;
 }
 
 static __attribute__((unused)) const char *officialSessionRestore(const char *config, const char *session, const char *done,

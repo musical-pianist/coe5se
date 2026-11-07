@@ -8,12 +8,10 @@
 #define FACTION_MOD_SCRIPT   -2
 #define FACTION_ACTIVE_ALWAYS 0
 #define FACTION_ACTIVE_NEVER  -1
-#define FACTION_SPAWN_MAX     8
 #define FACTION_GROUP_SIZE    160
 #define FACTION_FUEL_SIZE     MONSTER_NAME_SIZE
 #define FACTION_NEWS_SIZE     400
 #define FACTION_AVOID_MAX     8
-#define FACTION_UNITS_MAX     16
 #define FACTION_TAKES_MAX     8
 #define FACTION_UNIT_COUNT_MAX 1000
 enum { FACTION_SITE_NONE, FACTION_SITE_OWN_CITADEL, FACTION_SITE_MONUMENT };
@@ -50,8 +48,8 @@ typedef struct {
     char spawnPlane[PLANE_NAME_SIZE];
     char fuel[FACTION_FUEL_SIZE];
     int hasFuel;
-    FactionSpawn spawns[FACTION_SPAWN_MAX];
-    int spawnCount, hasSpawns;
+    FactionSpawn *spawns;
+    int spawnCount, spawnRoom, hasSpawns;
     char monument[MONSTER_NAME_SIZE];
     int hasMonument, monumentRule, hasMonumentRule;
     int eventTurn, eventChance, eventTerrain, hasEvent;
@@ -66,14 +64,31 @@ typedef struct {
     int caravanTurn, caravanChance, caravanTerrain, hasCaravan;
     char caravanPlane[PLANE_NAME_SIZE], caravanGroup[FACTION_GROUP_SIZE], caravanNews[FACTION_NEWS_SIZE];
     char eventPlane[PLANE_NAME_SIZE], eventUnfinished[MONSTER_NAME_SIZE], eventNews[FACTION_NEWS_SIZE];
-    FactionUnits units[FACTION_UNITS_MAX];
-    int unitCount;
+    FactionUnits *units;
+    int unitCount, unitRoom;
     FactionTake takes[FACTION_TAKES_MAX];
     int takeCount;
     int fromPass;
+    int scriptRestarting;
 } Faction;
 
 static Faction factions[FACTION_SLOT_TARGET];
+
+static int growFactionList(void **list, int *room, int count, size_t size) {
+    if (count < *room) return 1;
+    int grown = *room ? *room * 2 : 8;
+    void *p = grown > *room ? realloc(*list, (size_t)grown * size) : NULL;
+    if (!p) return 0;
+    *list = p, *room = grown;
+    return 1;
+}
+
+static void freeFactionLists(Faction *f) {
+    free(f->spawns);
+    free(f->units);
+    f->spawns = NULL, f->units = NULL;
+    f->spawnCount = f->spawnRoom = f->unitCount = f->unitRoom = 0;
+}
 static int factionCount;
 
 static const char *const FACTION_PRESET_NAMES[] = {"Independents", "Special Monsters", "Horrors", "Hades", "Inferno", "Celestial", "Empire"};
@@ -131,8 +146,9 @@ static void factionPresetSpawns(Faction *f) {
     const FactionSpawn *list = f->like == 28 ? INFERNO_SPAWNS : f->like == 27 ? HADES_SPAWNS : NULL;
     int count = f->like == 28 ? (int)(sizeof INFERNO_SPAWNS / sizeof INFERNO_SPAWNS[0])
               : f->like == 27 ? (int)(sizeof HADES_SPAWNS / sizeof HADES_SPAWNS[0]) : 0;
-    for (int i = 0; i < count; i++) f->spawns[i] = list[i];
-    f->spawnCount = count;
+    f->spawnCount = 0;
+    for (int i = 0; i < count && growFactionList((void **)&f->spawns, &f->spawnRoom, f->spawnCount, sizeof *f->spawns); i++)
+        f->spawns[f->spawnCount++] = list[i];
 }
 
 static Faction *findFaction(const char *name) {
@@ -204,17 +220,30 @@ static int installFactionResetHook(void) {
     return factionResetHookState > 0;
 }
 
-static const char *declareFaction(const char *mod, const Faction *draft) {
+static void markScriptFactionsRestarting(const char *mod) {
+    for (int i = 0; i < factionCount; i++)
+        if (factions[i].fromPass == FACTION_FROM_SCRIPT && !strcmp(factions[i].mod, mod)) factions[i].scriptRestarting = 1;
+}
+
+static void dropScriptFactions(const char *mod) {
+    for (int i = 0; i < factionCount; i++)
+        if (factions[i].fromPass == FACTION_FROM_SCRIPT && !strcmp(factions[i].mod, mod)) factions[i].fromPass = FACTION_EARLIER_PASS;
+}
+
+static const char *declareFaction(const char *mod, Faction *draft) {
     const char *name = draft->name;
     if (!name[0] || strlen(name) >= FACTION_NAME_SIZE) return "bad_name";
     if (factionPresetNamed(name) >= 0) return "name_taken";
     Faction *again = findFaction(name);
-    if (again && (again->fromPass != FACTION_EARLIER_PASS || strcmp(again->mod, mod))) return "name_taken";
+    if (again && ((again->fromPass != FACTION_EARLIER_PASS && !again->scriptRestarting) || strcmp(again->mod, mod))) return "name_taken";
     if (!again && factionCount >= FACTION_SLOT_TARGET) return "too_many_factions";
     if (!ensureFactionSlots()) return "faction_slots_not_ready";
     if (!installFactionResetHook() || !installSaveMagicHooks()) return "hooks_not_installed";
     Faction *f = again ? again : &factions[factionCount++];
+    if (again) freeFactionLists(again);
     *f = *draft;
+    draft->spawns = NULL, draft->units = NULL;
+    draft->spawnCount = draft->spawnRoom = draft->unitCount = draft->unitRoom = 0;
     snprintf(f->mod, sizeof f->mod, "%s", mod);
     if (!f->hasHome) snprintf(f->home, sizeof f->home, "%s", factionPresetHome(f->like));
     if (!f->hasActive) f->active = factionPresetActive(f->like);
@@ -324,6 +353,7 @@ static void newfactionLine(const char *args, int mod, int level) {
     finishPlaneBlock();
     finishFactionBlock();
     clearParserCurrentRecords();
+    freeFactionLists(&factionBlock.draft);
     memset(&factionBlock, 0, sizeof factionBlock);
     factionBlock.open = 1, factionBlock.mod = mod, factionBlock.line = G32(RVA_MOD_LINE), factionBlock.fileId = modFileNow();
     factionBlock.draft.like = FACTION_LIKE_DEFAULT;
@@ -522,7 +552,7 @@ static void factionspawnLine(const char *args, int mod, int level) {
         if (terrain >= 0) spawn.terrain = terrain + FACTION_TERRAIN_MAGMA;
         else if (*p && *p != '\r' && *p != '\n' && *p != '#') reason = "bad_terrain";
     }
-    if (!reason && f->hasSpawns && f->spawnCount >= FACTION_SPAWN_MAX) reason = "too_many_spawns";
+    if (!reason && !growFactionList((void **)&f->spawns, &f->spawnRoom, f->hasSpawns ? f->spawnCount : 0, sizeof *f->spawns)) reason = "out_of_memory";
     if (reason) {
         refuseFactionLine("factionspawn", mod, reason, "faction=%s text=%.60s", f->name, args);
         return;
@@ -691,7 +721,7 @@ static void factionunitsLine(const char *args, int mod, int level) {
                        : !readSpellNumber(&p, &count) || count < 1 || count > FACTION_UNIT_COUNT_MAX ? "bad_count"
                        : !readSpellNumber(&p, &chance) || chance < 1 || chance > 100 ? "bad_chance"
                        : !readFactionTerrainPlane(p, &u.terrain, u.plane, sizeof u.plane) ? "bad_value"
-                       : f->unitCount >= FACTION_UNITS_MAX ? "too_many_units"
+                       : !growFactionList((void **)&f->units, &f->unitRoom, f->unitCount, sizeof *f->units) ? "out_of_memory"
                        : NULL;
     if (reason) {
         refuseFactionLine("factionunits", mod, reason, "faction=%s text=%.60s", f->name, args);
@@ -1001,6 +1031,7 @@ static int lAddFaction(lua_State *L) {
         return 1;
     }
     finishFactionBlock();
+    freeFactionLists(&factionBlock.draft);
     memset(&factionBlock, 0, sizeof factionBlock);
     factionBlock.open = 1, factionBlock.mod = FACTION_MOD_SCRIPT, factionBlock.draft.like = FACTION_LIKE_DEFAULT;
     snprintf(factionBlock.draft.name, sizeof factionBlock.draft.name, "%s", name);
@@ -1071,6 +1102,7 @@ static void factionWordsAfterPass(int level) {
     for (int i = 0; i < factionCount; i++) {
         if (factions[i].fromPass == FACTION_EARLIER_PASS) {
             writeLog("faction_dropped", "mod=%s name=%s reason=not_declared_this_pass", factions[i].mod, factions[i].name);
+            freeFactionLists(&factions[i]);
             continue;
         }
         if (kept != i) factions[kept] = factions[i];

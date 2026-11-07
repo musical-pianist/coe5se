@@ -39,6 +39,7 @@ static int humanPlayerCount(void) {
 
 static int apiRestartGame(void) {
     if (!menuLineClicking) return REFUSE_API(0, "restartGame", "not_in_game_menu", "phase=%d", restartPhase);
+    if (previewWorldOn()) return REFUSE_API(0, "restartGame", "preview_world", "phase=%d", restartPhase);
     if (isNetworkGame()) return REFUSE_API(0, "restartGame", "network_game", "phase=%d", restartPhase);
     int humans = humanPlayerCount();
     if (humans != 1) return REFUSE_API(0, "restartGame", "not_single_player", "humans=%d", humans);
@@ -75,6 +76,7 @@ static int pickSaveToLoad(char *path) {
 
 static int apiLoadGame(void) {
     if (!menuLineClicking) return REFUSE_API(0, "loadGame", "not_in_game_menu", "phase=%d", restartPhase);
+    if (previewWorldOn()) return REFUSE_API(0, "loadGame", "preview_world", "phase=%d", restartPhase);
     if (isNetworkGame()) return REFUSE_API(0, "loadGame", "network_game", "phase=%d", restartPhase);
     int humans = humanPlayerCount();
     if (humans != 1) return REFUSE_API(0, "loadGame", "not_single_player", "humans=%d", humans);
@@ -120,12 +122,15 @@ static u64 watchEliminatedWarn(const char *fmt, ...) {
 }
 
 static int answerWarnWait(int block, int mode) {
+    if (inEliminatedBox && previewWorldEnding()) return WARN_OK;
     if (!inEliminatedBox || !isEndingForLoad()) return nextWarnWait(block, mode);
     writeLog("load_game", "phase=ending answered=eliminated_box");
     return WARN_OK;
 }
 
 static int answerGameOverWait(int block, int mode) {
+    if (previewWorldEnding()) return GAME_OVER_EXIT;
+    netClientGameOverSeen = 1;
     if (!isEndingForLoad()) return nextGameOverWait(block, mode);
     writeLog("load_game", "phase=ending answered=game_over");
     return GAME_OVER_EXIT;
@@ -140,6 +145,7 @@ static u64 watchTurnMessages(int player) {
 
 static int answerMessagesWait(int block, int mode) {
     if (!inTurnMessages) return nextMessagesWait(block, mode);
+    if (previewWorldOn()) return MESSAGES_OK;
     if (isEndingForLoad()) {
         writeLog("load_game", "phase=ending answered=messages");
         return MESSAGES_OK;
@@ -201,7 +207,9 @@ static u64 playGameHook(int arg) {
     dropSpellsOfDisabledMods();
     if (!askAboutChangedSpells()) return 0;
     playGameEntries = 0;
+    beginPreviewWorld();
     u64 result = nextPlayGame(arg);
+    finishPreviewWorld();
     while (restartPhase == RESTART_ENDING) {
         if (loadPath[0]) {
             restartPhase = RESTART_NONE;
@@ -236,7 +244,9 @@ static u64 playGameInnermost(int arg) {
     return nextPlayGameInner(arg);
 }
 
+static const void *luaCallbackScript(int i);
 static int isMenuLineShown(int i) {
+    if (!previewShowsMenuLine(menuLines[i].lua >= 0 ? luaCallbackScript(menuLines[i].lua) : NULL)) return 0;
     if (menuLines[i].lua >= 0) return runLuaVisible(menuLines[i].lua);
     if (isNetworkGame() && !runsInNetworkGames((void *)menuLines[i].onClick)) return 0;
     return !menuLines[i].visible || menuLines[i].visible();
@@ -280,6 +290,7 @@ static void drawNamedSections(void) {
 }
 
 static int drawMenuLines(void) {
+    previewDropGameMenuRows();
     drawSectionLines(GAME_MENU_SECTION_SAVING);
     int result = nextMenuSectionEnd();
     drawNamedSections();
@@ -298,7 +309,9 @@ static int dispatchMenuLineClick(int a, int b) {
         loadPath[0] = 0;
         writeLog("restart_game", "phase=cancelled reason=game_continued");
     }
+    previewBeforeGameMenuWait();
     int id = nextGameMenuWait(a, b);
+    if (previewWorldOn() && previewMenuIdIsRefused(id)) return 0;
     int i = id - MENU_LINE_FIRST_ID;
     if (i < 0 || i >= menuLineCount || !isMenuLineShown(i)) return id;
     writeLog("game_menu_line_clicked", "label=%s", menuLines[i].label);
@@ -306,6 +319,7 @@ static int dispatchMenuLineClick(int a, int b) {
     menuLineClicking = 1;
     int result = menuLines[i].lua >= 0 ? runLuaCallback(menuLines[i].lua, 1, 0) : menuLines[i].onClick();
     menuLineClicking = 0;
+    if (previewWorldEnding()) return GAME_MENU_RESIGN;
     if (!restartAsked && !loadAsked) return result;
     if (!loadAsked) loadPath[0] = 0;
     if (loadAsked)

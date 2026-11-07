@@ -130,7 +130,7 @@ static int pushTraitVisible(lua_State *L, void *arg) {
 static int traitLineVisible(int lua, int unit, int monster) {
     if (lua < 0 || lua >= luaCallbackCount) return 0;
     LuaCallback c = luaCallbacks[lua];
-    if (!c.s || c.s->dead || isNetworkGame()) return 0;
+    if (!c.s || c.s->dead || !luaCallbackOpenNow(c.s)) return 0;
     TraitVisibleCall call = {c.ref, unit, monster};
     if (!callLuaProtected(c.s, pushTraitVisible, &call, 1)) return 0;
     int r = lua_toboolean(c.s->L, -1);

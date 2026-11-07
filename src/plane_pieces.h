@@ -41,6 +41,7 @@ static PlaneProblem *planeProblems[2];
 static int planeProblemCount[2], planeProblemCapacity[2];
 
 static PRINTF_FORMAT(5, 6) void addPlaneProblem(int script, const char *mod, const char *file, int line, const char *fmt, ...) {
+    if (previewLinesReading()) return;
     PlaneProblem one;
     memset(&one, 0, sizeof one);
     va_list ap;
@@ -84,8 +85,8 @@ static const char *findPieceFile(const char *folder, const char *spec, char *pat
 static int pieceFileMissing(const char *reason) { return !strcmp(reason, "file_not_found") || !strcmp(reason, "file_wrong_case"); }
 
 static const char *addPlanePiece(PlaneLayout *layout, const char *folder, const char *spec, int placement, long long count, long long x, long long y, int line) {
-    if (layout->pieceCount >= PLANE_PIECE_LINES_MAX) return "too_many_pieces";
-    if (placement == PIECE_RANDOM && (count < 1 || count > PLANE_PIECE_COUNT_MAX)) return "bad_count";
+    if (placement == PIECE_RANDOM && (count < 1 || count > INT_MAX)) return "bad_count";
+    if (!growLayoutList((void **)&layout->pieces, &layout->pieceRoom, layout->pieceCount, sizeof *layout->pieces)) return "out_of_memory";
     if (placement == PIECE_AT && (x < 0 || y < 0 || x >= MAP_COLUMNS_MAX || y >= PLANE_ROWS_MAX)) return "bad_square";
     PlanePiece *piece = &layout->pieces[layout->pieceCount];
     memset(piece, 0, sizeof *piece);
@@ -123,6 +124,7 @@ static const char *addPlaneZone(PlaneLayout *layout, const char *folder, const c
 static const char *addZoneSwap(PlaneZone *z, int from, int to) {
     if (z->swapCount >= PLANE_ZONE_SWAP_MAX) return "too_many_swaps";
     z->swapFrom[z->swapCount] = (short)from, z->swapTo[z->swapCount] = (short)to;
+    z->swapLine[z->swapCount] = G32(RVA_MOD_LINE);
     z->swapCount++;
     return NULL;
 }
@@ -132,7 +134,7 @@ static const char *addPlaneUnits(PlaneUnitList *list, const char *monster, long 
     if (strlen(monster) >= PLANE_UNIT_NAME_SIZE) return "bad_name";
     if (count < 1 || count > PLANE_UNIT_COUNT_MAX) return "bad_count";
     if (chance < 1 || chance > 100) return "bad_chance";
-    if (list->count >= PLANE_UNIT_LINES_MAX) return "too_many_units";
+    if (!growLayoutList((void **)&list->units, &list->room, list->count, sizeof *list->units)) return "out_of_memory";
     PlaneUnits *u = &list->units[list->count++];
     snprintf(u->monster, sizeof u->monster, "%s", monster);
     u->count = (int)count, u->chance = (int)chance, u->line = line;
@@ -150,13 +152,23 @@ static PRINTF_FORMAT(5, 6) void refuseLayoutLine(const PlaneLayout *layout, cons
 }
 
 static void finishPlaneLayout(PlaneLayout *layout, int w, int h, const char *mod) {
-    int map[PLANE_PIECE_LINES_MAX], kept = 0;
+    int *map = malloc((size_t)(layout->pieceCount ? layout->pieceCount : 1) * 2 * sizeof *map), kept = 0;
+    if (!map) {
+        writeLogError("plane_layout_unchecked", "reason=out_of_memory pieces=%d", layout->pieceCount);
+        return;
+    }
+    int *pieceLines = map + (layout->pieceCount ? layout->pieceCount : 1);
     for (int i = 0; i < layout->pieceCount; i++) {
         const PlanePiece *piece = &layout->pieces[i];
+        pieceLines[i] = piece->line;
         const char *reason = piece->w > w || piece->h > h                                                        ? "piece_too_large"
                            : piece->placement == PIECE_AT && (piece->x + piece->w > w || piece->y + piece->h > h) ? "off_plane"
                            : NULL;
         map[i] = reason ? -1 : kept;
+        if (reason && previewLinesReading()) {
+            previewNoteLayoutRefused(piece->line, reason, 0);
+            continue;
+        }
         if (reason) {
             refuseLayoutLine(layout, "planepiece", mod, reason, "line=%d piece_w=%d piece_h=%d plane_w=%d plane_h=%d x=%d y=%d", piece->line, piece->w,
                              piece->h, w, h, piece->x, piece->y);
@@ -170,7 +182,10 @@ static void finishPlaneLayout(PlaneLayout *layout, int w, int h, const char *mod
     for (int z = 0; z < layout->zoneCount; z++) {
         PlaneZone *zone = &layout->zones[z];
         if (map[zone->piece] < 0) {
-            refuseLayoutLine(layout, "planezone", mod, "no_such_piece", "line=%d zone=%s", zone->line, zone->name);
+            if (previewLinesReading()) previewNoteLayoutRefused(zone->line, "no_such_piece", pieceLines[zone->piece]);
+            else refuseLayoutLine(layout, "planezone", mod, "no_such_piece", "line=%d zone=%s", zone->line, zone->name);
+            free(zone->units.units);
+            zone->units = (PlaneUnitList){0};
             continue;
         }
         zone->piece = map[zone->piece];
@@ -178,6 +193,7 @@ static void finishPlaneLayout(PlaneLayout *layout, int w, int h, const char *mod
         kept++;
     }
     layout->zoneCount = kept;
+    free(map);
 }
 
 static void notePlaneLayoutProblems(const PlaneLayout *layout, const char *mod) {
@@ -323,6 +339,7 @@ static void readLuaUnitList(lua_State *L, int at, PlaneUnitList *list, const Pla
 
 static void readLuaPlaneLayout(lua_State *L, int piecesAt, int zonesAt, int unitsAt, PlaneLayout *layout, const char *mod, const char *folder,
                                const char *script, int line) {
+    freePlaneLayout(layout);
     memset(layout, 0, sizeof *layout);
     layout->script = 1;
     snprintf(layout->source, sizeof layout->source, "%s", script);
@@ -546,7 +563,7 @@ static void stampMapFileAt(const CustomPlane *p, const char *path, int x, int y,
 }
 
 static int notePlacedPiece(PlaneLayout *layout, int piece, int x, int y, int w, int h) {
-    if (layout->placedCount >= PLANE_PIECES_PLACED_MAX) return 0;
+    if (!growLayoutList((void **)&layout->placed, &layout->placedRoom, layout->placedCount, sizeof *layout->placed)) return 0;
     layout->placed[layout->placedCount++] = (PlacedPiece){piece, x, y, w, h};
     return 1;
 }
@@ -564,7 +581,11 @@ static void stampPlanePieces(CustomPlane *p) {
     PlaneLayout *layout = &p->layout;
     if (!layout->pieceCount) return;
     PieceTools t = pieceTools();
-    int order[PLANE_PIECE_LINES_MAX];
+    int *order = malloc((size_t)layout->pieceCount * sizeof *order);
+    if (!order) {
+        writeLogError("plane_pieces_skipped", "mod=%s name=%s reason=out_of_memory pieces=%d", p->mod, p->name, layout->pieceCount);
+        return;
+    }
     for (int i = 0; i < layout->pieceCount; i++) order[i] = i;
     for (int i = 1; i < layout->pieceCount; i++)
         for (int j = i; j > 0; j--) {
@@ -577,20 +598,25 @@ static void stampPlanePieces(CustomPlane *p) {
     int stamped = 0, skipped = 0;
     for (int i = 0; i < layout->pieceCount; i++) {
         const PlanePiece *piece = &layout->pieces[order[i]];
+        previewPieceAsked(p, piece, i + 1, layout->pieceCount);
         for (int c = 0; c < piece->count; c++) {
             int x, y;
             const char *why;
-            if (!placePiece(p, piece, &t, &x, &y, &why) || !notePlacedPiece(layout, order[i], x, y, piece->w, piece->h)) {
-                if (layout->placedCount >= PLANE_PIECES_PLACED_MAX) why = "too_many_pieces";
+            int placed = placePiece(p, piece, &t, &x, &y, &why);
+            if (!placed || !notePlacedPiece(layout, order[i], x, y, piece->w, piece->h)) {
+                if (placed) why = "out_of_memory";
                 writeLog("plane_piece_skipped", "mod=%s name=%s line=%d copy=%d reason=%s w=%d h=%d file=%s", p->mod, p->name, piece->line, c + 1, why, piece->w,
                          piece->h, piece->file);
+                previewPieceSkipped(p, piece, why);
                 skipped++;
                 continue;
             }
             stampMapFileAt(p, piece->file, x, y, piece->w, piece->h, &t);
+            previewPieceStamped(p, piece, x, y);
             stamped++;
         }
     }
+    free(order);
     writeLog("plane_pieces", "mod=%s name=%s stamped=%d skipped=%d way_in_x=%d way_in_y=%d", p->mod, p->name, stamped, skipped, layout->wayInX, layout->wayInY);
 }
 
@@ -608,7 +634,7 @@ static int lGenStampPiece(lua_State *L) {
     if (!reason && !planeFileMapsize(path, &w, &h)) reason = "no_mapsize";
     if (!reason && !installPlaneFileHook()) reason = "hook_not_installed";
     if (!reason && (x + w > planeBuild.area.x + planeBuild.area.w || y + h > planeBuild.area.y + planeBuild.area.h)) reason = "outside_plane";
-    if (!reason && !notePlacedPiece(&p->layout, -1, x, y, w, h)) reason = "too_many_pieces";
+    if (!reason && !notePlacedPiece(&p->layout, -1, x, y, w, h)) reason = "out_of_memory";
     if (reason) {
         refuseLuaCall(genMod(L), call, reason, "file=%.60s x=%d y=%d w=%d h=%d", spec, x, y, w, h);
         return 0;
@@ -666,15 +692,20 @@ static void applyZoneSwaps(const CustomPlane *p) {
             for (int i = zone->swapCount - 1; i >= 0; i--) {
                 if (terrain != zone->swapFrom[i] || zone->swapTo[i] > last) continue;
                 t.changeTerrain(x, y, zone->swapTo[i]);
+                previewSwapChanged(p, zone->swapLine[i], x, y);
                 changed[z]++;
                 break;
             }
         }
     for (int z = 0; z < layout->zoneCount; z++) {
         for (int i = 0; i < layout->zones[z].swapCount; i++)
-            if (layout->zones[z].swapTo[i] > last)
+            if (layout->zones[z].swapTo[i] > last) {
                 writeLogWarning("plane_swap_refused", "mod=%s name=%s zone=%s from=%d to=%d reason=no_such_terrain last_terrain=%d", p->mod, p->name, layout->zones[z].name,
                          layout->zones[z].swapFrom[i], layout->zones[z].swapTo[i], last);
+                previewLineFailed(p, layout->zones[z].swapLine[i], "no_such_terrain");
+            }
+        previewLineDid(p, layout->zones[z].line, squares[z]);
+        if (!squares[z]) previewZoneOverlapped(p, z);
         writeLog("plane_zone", "mod=%s name=%s zone=%s squares=%d swapped=%d", p->mod, p->name, layout->zones[z].name, squares[z], changed[z]);
     }
 }
@@ -700,16 +731,27 @@ static int monsterFitsSquare(unsigned long long moves, int water) {
 
 static void stockPlaneArea(const CustomPlane *p, int area, const PlaneUnitList *list, const PieceTools *t) {
     const PlaneLayout *layout = &p->layout;
-    int valid[PLANE_UNIT_LINES_MAX], wilder = G32(RVA_WILDER) > 0 ? G32(RVA_WILDER) : 1;
-    unsigned long long moves[PLANE_UNIT_LINES_MAX];
+    int wilder = G32(RVA_WILDER) > 0 ? G32(RVA_WILDER) : 1, lines = list->count ? list->count : 1;
+    int *valid = calloc((size_t)lines * 4, sizeof *valid);
+    unsigned long long *moves = calloc((size_t)lines, sizeof *moves);
+    if (!valid || !moves) {
+        free(valid);
+        free(moves);
+        writeLogError("plane_units_skipped", "mod=%s name=%s reason=out_of_memory lines=%d", p->mod, p->name, list->count);
+        return;
+    }
+    int *rows = valid + lines, *rolls = rows + lines, *hits = rolls + lines;
     for (int i = 0; i < list->count; i++) {
         int monster = monsterByName(list->units[i].monster);
+        rows[i] = previewLineRowOf(p, list->units[i].line);
         valid[i] = monster >= 0;
         moves[i] = 0;
         if (valid[i]) memcpy(&moves[i], monsterRecord(monster) + MONSTER_MOVE_FLAGS, sizeof moves[i]);
-        if (!valid[i])
+        if (!valid[i]) {
             writeLog("plane_units_skipped", "mod=%s name=%s area=%s monster=%s line=%d reason=no_such_monster", p->mod, p->name,
                      area >= 0 ? layout->zones[area].name : "-", list->units[i].monster, list->units[i].line);
+            previewLineFailed(p, list->units[i].line, "no_such_monster");
+        }
     }
     int x0 = planeField(p->index, PLANE_X), y0 = planeField(p->index, PLANE_Y), squares = 0, groups = 0, units = 0;
     for (int x = x0; x < x0 + p->w; x++)
@@ -723,14 +765,22 @@ static void stockPlaneArea(const CustomPlane *p, int area, const PlaneUnitList *
             int water = squareIsWater(x, y), here = 0;
             for (int i = 0; i < list->count; i++) {
                 if (!valid[i] || !monsterFitsSquare(moves[i], water)) continue;
+                previewRestartDiceSquare(list->units[i].monster, area, x - x0, y - y0);
+                rolls[i]++;
                 if (t->random(100) >= list->units[i].chance) continue;
+                previewSetSource(rows[i]);
                 t->populate(x, y, list->units[i].monster, list->units[i].count * wilder, PLANE_UNITS_PLAYER, -1);
+                hits[i]++;
                 groups++, here++, units += list->units[i].count * wilder;
             }
             if (here && area >= 0) t->holdit(x, y, 1);
         }
+    previewSetSource(PREVIEW_SOURCE_WORLD);
+    for (int i = 0; i < list->count; i++) previewUnitsStocked(rows[i], rolls[i], hits[i], hits[i] * list->units[i].count * wilder);
     writeLog("plane_units_stocked", "mod=%s name=%s area=%s squares=%d groups=%d units=%d wilder=%d", p->mod, p->name, area >= 0 ? layout->zones[area].name : "-",
              squares, groups, units, wilder);
+    free(valid);
+    free(moves);
 }
 
 static int hideZoneSquares(const CustomPlane *p, int **hidden) {
@@ -772,13 +822,16 @@ static void showZoneSquares(const CustomPlane *p, int *hidden, int n, const Piec
 static void populatePlaneWithZones(const CustomPlane *p) {
     const PlaneLayout *layout = &p->layout;
     PieceTools t = pieceTools();
+    previewRestartDiceNamed("pop", p->name, 0);
     if (layout->units.count) {
         if (p->populate >= 0)
             writeLog("plane_population_replaced", "mod=%s name=%s populate=%s reason=plane_units", p->mod, p->name, VANILLA_PLANE_SHORT_NAMES[p->populate]);
     } else if (p->populate >= 0) {
         int *hidden;
         int n = hideZoneSquares(p, &hidden);
+        previewSourcePopulation(p);
         t.populatePlane(p);
+        previewSetSource(PREVIEW_SOURCE_WORLD);
         if (n) showZoneSquares(p, hidden, n, &t);
     }
     for (int z = 0; z < layout->zoneCount; z++)

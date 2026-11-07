@@ -7,6 +7,15 @@
 #endif
 
 static const luaL_Reg LUA_COE5[] = {
+#ifndef __APPLE__
+    {"startPreviewWorld", lStartPreviewWorld}, {"endPreviewWorld", lEndPreviewWorld},
+    {"previewWorldActive", lPreviewWorldActive}, {"declaredPlanes", lDeclaredPlanes},
+    {"setPreviewDocks", lSetPreviewDocks}, {"setPreviewHoverText", lSetPreviewHoverText},
+    {"setPreviewKeyField", lSetPreviewKeyField}, {"takePreviewFieldKeys", lTakePreviewFieldKeys},
+    {"previewLineResults", lPreviewLineResults}, {"previewArmySource", lPreviewArmySource}, {"previewSquareSource", lPreviewSquareSource},
+    {"previewEventResults", lPreviewEventResults}, {"previewScriptResults", lPreviewScriptResults},
+    {"setPreviewLineEdits", lSetPreviewLineEdits}, {"previewLineIndex", lPreviewLineIndex},
+#endif
     {"log", lLog}, {"addMainMenuButton", lAddMainMenuButton}, {"addGameMenuLine", lAddGameMenuLine},
     {"turn", lTurn}, {"sendMessage", lSendMessage}, {"showMessageBox", lShowMessageBox}, {"get", lGet}, {"set", lSet}, {"wrap", lWrap},
     {"observe", lObserve}, {"setSetupAutomated", lSetSetupAutomated}, {"setupAutomated", lSetupAutomated},
@@ -14,7 +23,7 @@ static const luaL_Reg LUA_COE5[] = {
     {"hideMainMenuButton", lHideMainMenuButton}, {"addScreen", lAddScreen}, {"rebindKey", lRebindKey},
     {"addActionKey", lAddActionKey}, {"actionKey", lActionKey}, {"findMonster", lFindMonster},
     {"dataFolder", lDataFolder}, {"readIni", lReadIni}, {"writeIni", lWriteIni}, {"listIni", lListIni},
-    {"deleteIni", lDeleteIni}, {"copyText", lCopyText}, {"testBattle", lTestBattle}, {"openTestField", lOpenTestField}, {"drawTestField", lDrawTestField}, {"fireTestField", lFireTestField}, {"fightTestField", lFightTestField}, {"closeTestField", lCloseTestField}, {"stopTestFight", lStopTestFight}, {"spellInfo", lSpellInfo}, {"lookName", lLookName}, {"saveNewMod", lSaveNewMod}, {"spawnUnit", lSpawnUnit}, {"spawnCommander", lSpawnCommander}, {"newUnits", lNewUnits},
+    {"deleteIni", lDeleteIni}, {"copyText", lCopyText}, {"testBattle", lTestBattle}, {"openTestField", lOpenTestField}, {"drawTestField", lDrawTestField}, {"fireTestField", lFireTestField}, {"fightTestField", lFightTestField}, {"closeTestField", lCloseTestField}, {"addTestFieldUnits", lAddTestFieldUnits}, {"moveTestFieldUnit", lMoveTestFieldUnit}, {"stopTestFight", lStopTestFight}, {"spellInfo", lSpellInfo}, {"lookName", lLookName}, {"saveNewMod", lSaveNewMod}, {"spawnUnit", lSpawnUnit}, {"spawnCommander", lSpawnCommander}, {"newUnits", lNewUnits},
     {"monsterVariant", lMonsterVariant}, {"portalExits", lPortalExits}, {"onPortalCrossing", lOnPortalCrossing}, {"squareUnits", lSquareUnits}, {"revealMap", lRevealMap}, {"centerMap", lCenterMap}, {"viewArmy", lViewArmy}, {"armies", lArmies}, {"route", lRoute},
     {"scrapRitualPlan", lScrapRitualPlan}, {"planRitual", lPlanRitual}, {"aiRitualBad", lAiRitualBad}, {"aiRitualBadTime", lAiRitualBadTime}, {"aiItemValue", lAiItemValue}, {"aiItemUseRating", lAiItemUseRating}, {"aiRandomEnemy", lAiRandomEnemy}, {"terrainMatch", lTerrainMatch},
     {"releaseFollower", lReleaseFollower}, {"transferFollower", lTransferFollower},
@@ -26,7 +35,7 @@ static const luaL_Reg LUA_COE5[] = {
     {"keepTraceLines", lKeepTraceLines}, {"addPlane", lAddPlane}, {"setPlaneShape", lSetPlaneShape}, {"planeIndex", lPlaneIndex}, {"factionSlot", lFactionSlot}, {"addFaction", lAddFaction},
     {"setPlaneTint", lSetPlaneTint}, {"clearPlaneTint", lClearPlaneTint}, {"setTerrainLooks", lSetTerrainLooks},
     {"addBattleMap", lAddBattleMap}, {"setBattleScatter", lSetBattleScatter},
-    {"addModCommand", lAddModCommand}, {"chooseLocation", lChooseLocation}, LUA_GAME_CALLS(GAME_CALL_REG) COE5SE_EXTRA_LUA_FUNCTIONS {NULL, NULL},
+    {"addModCommand", lAddModCommand}, {"chooseLocation", lChooseLocation}, {"netRole", lNetRole}, {"localPlayer", lLocalPlayer}, LUA_GAME_CALLS(GAME_CALL_REG) COE5SE_EXTRA_LUA_FUNCTIONS {NULL, NULL},
 };
 static const luaL_Reg LUA_UI[] = {
     {"screenBegin", lScreenBegin}, {"sectionBegin", lSectionBegin}, {"sectionEnd", lSectionEnd}, {"text", lText},
@@ -34,7 +43,10 @@ static const luaL_Reg LUA_UI[] = {
     {"listBegin", lListBegin}, {"listRow", lListRow}, {"listEnd", lListEnd}, {"bindEscape", lBindEscape},
     {"bindKey", lBindKey}, {"wait", lWait}, {"sectionHeader", lSectionHeader}, {"screenWidth", lScreenWidth},
     {"setupScreenWidth", lSetupScreenWidth}, {"screenMusic", lScreenMusic}, {"columnX", lColumnX},
-    {"nameBox", lNameBox}, {"monsterRow", lMonsterRow}, {"drawLine", lDrawLine}, {"drawText", lDrawText}, {"drawRect", lDrawRect}, {"rowBegin", lRowBegin}, {"rowEnd", lRowEnd},
+#ifndef __APPLE__
+    {"textWidth", lTextWidth},
+#endif
+    {"nameBox", lNameBox}, {"monsterRow", lMonsterRow}, {"drawLine", lDrawLine}, {"drawText", lDrawText}, {"drawRect", lDrawRect}, {"rowBegin", lRowBegin}, {"rowEnd", lRowEnd}, {"button", lButton},
     {"resourceIcon", lResourceIcon}, {"drawResourceIcon", lDrawResourceIcon}, {NULL, NULL},
 };
 
@@ -43,7 +55,8 @@ static const struct { const char *table, *name; int value; } GAME_NUMBERS[] = {
     {"mainMenu", "preferences", MAIN_MENU_PREFERENCES}, {"mainMenu", "network", MAIN_MENU_NETWORK},
     {"mainMenu", "credits", MAIN_MENU_CREDITS}, {"mainMenu", "quit", MAIN_MENU_QUIT},
     {"mainMenu", "mods", MAIN_MENU_MODS}, {"mainMenu", "readTip", MAIN_MENU_READ_TIP},
-    {"gameMenu", "stay", GAME_MENU_STAY}, {"gameMenu", "close", GAME_MENU_CLOSE}, {"gameMenu", "resign", GAME_MENU_RESIGN},
+    {"gameMenu", "stay", GAME_MENU_STAY}, {"gameMenu", "close", GAME_MENU_CLOSE}, {"gameMenu", "save", GAME_MENU_SAVE}, {"gameMenu", "saveAndQuit", GAME_MENU_SAVE_AND_QUIT},
+    {"gameMenu", "resign", GAME_MENU_RESIGN},
     {"gameMenuSection", "saving", GAME_MENU_SECTION_SAVING}, {"gameMenuSection", "settings", GAME_MENU_SECTION_SETTINGS},
     {"mapAction", "specialPower", MAP_ACTION_SPECIAL_POWER}, {"mapAction", "gameMenu", MAP_ACTION_GAME_MENU},
     {"mapAction", "squareInfo", MAP_ACTION_SQUARE_INFO}, {"mapAction", "endTurn", MAP_ACTION_END_TURN},
@@ -59,6 +72,7 @@ static const struct { const char *table, *name; int value; } GAME_NUMBERS[] = {
     {"key", "home", KEY_HOME}, {"key", "up", KEY_UP}, {"key", "down", KEY_DOWN}, {"key", "left", KEY_LEFT},
     {"key", "right", KEY_RIGHT}, {"key", "ctrl", KEY_CTRL}, {"key", "alt", KEY_ALT}, {"key", "ctrlShift", KEY_CTRL_SHIFT},
     {"message", "everyHuman", MESSAGE_EVERY_HUMAN}, {"message", "notAdded", MESSAGE_NOT_ADDED},
+    {"net", "single", NET_ROLE_SINGLE}, {"net", "host", NET_ROLE_HOST}, {"net", "client", NET_ROLE_CLIENT},
     {"controller", "removed", CONTROLLER_REMOVED}, {"controller", "human", CONTROLLER_HUMAN},
     {"controller", "ai", CONTROLLER_AI}, {"controller", "independent", CONTROLLER_INDEPENDENT},
     {"classAbility", "aiClass", CLASS_ABILITY_ID_AI_CLASS}, {"classAbility", "randomSkip", CLASS_ABILITY_ID_RANDOM_SKIP},
@@ -74,7 +88,11 @@ static const struct { const char *table, *name; int value; } GAME_NUMBERS[] = {
     {"newGame", "normal", NEW_WORLD_NORMAL}, {"newGame", "network", NEW_WORLD_NETWORK},
     {"newGame", "skipParticipants", NEW_WORLD_SKIP_PARTICIPANTS}, {"newGame", "mapScreenOk", MAP_SCREEN_OK},
     {"newGame", "mapSettingsOk", MAP_SETTINGS_OK},
-    {"newGame", "mapSizeFirst", MAP_SETTINGS_SIZE_FIRST}, {"newGame", "participantsOk", PARTICIPANTS_OK},
+    {"newGame", "mapSizeFirst", MAP_SETTINGS_SIZE_FIRST}, {"newGame", "societyFirst", MAP_SETTINGS_SOCIETY_FIRST}, {"newGame", "participantsOk", PARTICIPANTS_OK},
+    {"mapSize", "small", MAP_SIZE_SMALL}, {"mapSize", "medium", MAP_SIZE_MEDIUM}, {"mapSize", "large", MAP_SIZE_LARGE},
+    {"mapSize", "huge", MAP_SIZE_HUGE}, {"mapSize", "enormous", MAP_SIZE_ENORMOUS},
+    {"startPositions", "random", START_POSITIONS_RANDOM}, {"startPositions", "clustered", START_POSITIONS_CLUSTERED},
+    {"startPositions", "westEast", START_POSITIONS_WEST_EAST},
     {"ritual", "reasonMirror", RITUAL_REASON_MIRROR}, {"ritual", "reasonMaxcast", RITUAL_REASON_MAXCAST},
     {"ritual", "reasonImmortal", RITUAL_REASON_IMMORTAL}, {"ritual", "reasonMastery", RITUAL_REASON_MASTERY},
     {"ritual", "reasonPlane", RITUAL_REASON_PLANE}, {"ritual", "rowCastable", RITUAL_ROW_CASTABLE},
@@ -161,6 +179,87 @@ static int luaCommandsFileCall(const luaL_Reg *fn) {
     return fn->func == lAddModCommand || fn->func == lLog || fn->func == lRequire;
 }
 
+static const char *const PREVIEW_WORLD_CALLS[] = {
+    "spawnUnit", "spawnCommander", "newUnits", "teleportUnit", "teleportCommander", "killUnit", "killSquare", "damageUnitPlain", "giveItem", "takeItem", "giveRandomItem", "unitRemoveItem",
+    "unitAddXp", "addAffliction", "unitRandomAffliction", "planeShiftUnit", "randomTeleport", "popHorrors", "releaseFollower", "transferFollower", "removeBadFollowers", "heroArrival",
+    "aiMakeGuardsAt", "aiMakeDefenders", "conscription", "priestFreespawn", "inquisitionSpawn", "trollForestSpawn", "stormSpawn", "wildSpawn", "revelsSpawn", "forestShepherdSpawn",
+    "alterTerrain", "ruinSquare", "digTunnelSquare", "illusionTerrain", "destroyGateway", "putRareSquare", "groveReversion", "swapSquares", "teleportSquare", "swapLocations", "moveEnchants",
+    "moveGems", "removeEnchant", "destroyEnchantsAt", "setSquareOwner", "cleanSquare", "initSquareGems", "initSquareCorpses", "runHatreds", "sandstormCloudUpdate", "useSpecialSite",
+    "orderBurnForest", "orderChopForest", "orderSlaveHunt", "orderEatVillage", "newPortalPair", "fixPortals", "planeRiseToElysium",
+    "gen.setTerrain", "gen.setGround", "gen.marksToTerrain", "gen.marksToTerrainChance", "gen.spreadTerrain", "gen.specBlob", "gen.terrainBlob", "gen.drawRiver", "gen.decorateSquare",
+    "gen.addGroundItems", "gen.setPortalPair", "gen.linkNewPortal", "gen.stampPiece", "gen.setFixedTemperature", "gen.setTemperatures", "gen.heatBlob", "gen.floodPlane", "gen.updateMoistWalls", "gen.fixDiagonals",
+};
+static const char *const PREVIEW_WORLD_VALUES[] = {
+    "squareTerrain", "squarePortal", "squareGround", "squareTemperature", "squareName", "squareCorpses", "slotResource", "slotClass", "slotController", "slotTeam", "eventVar", "unitApUsed",
+    "society", "wilder", "mapW", "mapH", "startFlags", "northPart", "southPart",
+};
+
+static void previewGateCallLabel(lua_State *L, const luaL_Reg *fn, const char *name, char label[64]) {
+    label[0] = 0;
+    if (fn->func == lGet || strncmp(name, "coe5.", 5) || !strncmp(name, "coe5.ui.", 8)) return;
+    if (fn->func == lSet) {
+        const char *value = lua_type(L, 1) == LUA_TSTRING ? lua_tostring(L, 1) : "";
+        for (size_t i = 0; i < sizeof PREVIEW_WORLD_VALUES / sizeof PREVIEW_WORLD_VALUES[0]; i++)
+            if (!strcmp(value, PREVIEW_WORLD_VALUES[i])) snprintf(label, 64, "coe5.set %.40s", value);
+    } else {
+        for (size_t i = 0; i < sizeof PREVIEW_WORLD_CALLS / sizeof PREVIEW_WORLD_CALLS[0]; i++)
+            if (!strcmp(name + 5, PREVIEW_WORLD_CALLS[i])) snprintf(label, 64, "%.60s", name);
+    }
+}
+
+static int runPreviewGateCall(lua_State *L, const luaL_Reg *fn, const char *name) {
+    char label[64], file[64];
+    int line, refusals = previewRefusalCount;
+    previewGateCallLabel(L, fn, name, label);
+    previewScriptPlaceNow = -1;
+    if (!label[0]) return fn->func(L);
+    luaCallerPlace(L, file, sizeof file, &line);
+    previewScriptPlaceEnter(luaScriptOf(L) ? luaScriptOf(L)->mod : "?", file, line, label);
+    int results = fn->func(L);
+    previewScriptPlaceNow = -1;
+    if (previewRefusalCount == refusals) previewScriptNote(luaScriptOf(L) ? luaScriptOf(L)->mod : "?", file, line, label, "", PREVIEW_SCRIPT_CALL, "");
+    return results;
+}
+
+static int clientWriteOwnerNow(lua_State *L, const ClientWrite *w) {
+    if (lua_type(L, w->arg) == LUA_TSTRING && w->owner == WRITE_OWNER_PLAYER && !lua_isnumber(L, w->arg))
+        return playerOfFactionName(lua_tostring(L, w->arg));
+    if (!lua_isinteger(L, w->arg)) return -1;
+    lua_Integer at = lua_tointeger(L, w->arg);
+    if (at < INT_MIN || at > INT_MAX) return -1;
+    return w->owner == WRITE_OWNER_PLAYER ? (int)at : w->owner == WRITE_OWNER_UNIT ? garrisonUnitOwner((int)at) : commanderOwnerOf((int)at);
+}
+
+static const char *clientWriteRefusalNow(lua_State *L, const char *name, int inTurn) {
+    int isSet = !strcmp(name, "coe5.set");
+    const char *value = isSet && lua_type(L, 1) == LUA_TSTRING ? lua_tostring(L, 1) : "";
+    if (isSet) {
+        const GameVar *v = findGameVar(value);
+        if (!v || !v->writable) return NULL;
+    }
+    ClientWrite w = clientWriteOf(name, value);
+    int own = -1;
+    if (w.kind == CLIENT_WRITE_TRAVELS && w.owner != WRITE_OWNER_NONE) own = clientWriteOwnerNow(L, &w) == G32(RVA_ACTIVE_PLAYER);
+    if (w.kind == CLIENT_WRITE_TRAVELS && !strcmp(name, "coe5.damageUnitPlain") && lua_isinteger(L, 1) && lua_isinteger(L, 2) &&
+        lua_tointeger(L, 2) >= garrisonUnitHp((int)lua_tointeger(L, 1)))
+        w.kind = CLIENT_WRITE_LOST;
+    return clientWriteRefusalFor(w.kind, inTurn, own);
+}
+
+static int lanRehearsalInTurn;
+
+static const char *luaCallNetRefusal(lua_State *L, const LuaScript *s, const luaL_Reg *fn, const char *name) {
+    NetRole role = netRoleNow();
+    if (role == NET_ROLE_SINGLE)
+        return lanRehearsalInTurn && modClassNow(s->mod) == LUA_CLASS_CONTENT ? clientWriteRefusalNow(L, name, 1) : NULL;
+    LuaClass cls = modClassNow(s->mod);
+    const char *reason = luaCallRefusalFor(role, cls, name, netClientInTurn);
+    if (!reason && cls == LUA_CLASS_PERSONAL && fn->func == lSet && !(lua_type(L, 1) == LUA_TSTRING && isPersonalSetValue(lua_tostring(L, 1))))
+        reason = "personal_mod";
+    if (!reason && cls == LUA_CLASS_CONTENT && role == NET_ROLE_CLIENT) reason = clientWriteRefusalNow(L, name, netClientInTurn);
+    return reason;
+}
+
 static int luaGate(lua_State *L) {
     const luaL_Reg *fn = lua_touserdata(L, lua_upvalueindex(1));
     LuaScript *s = luaScriptOf(L);
@@ -168,12 +267,18 @@ static int luaGate(lua_State *L) {
                        : !s || s != luaRunning ? "not_running"
                        : luaCommandsLoading && !luaCommandsFileCall(fn) ? "commands_file"
                        : luaFunctionOffForBuild(lua_tostring(L, lua_upvalueindex(2))) ? "off_for_game_build"
-                       : NULL;
+                       : luaCallNetRefusal(L, s, fn, lua_tostring(L, lua_upvalueindex(2)));
     if (!reason) {
         if (fn->func != lGet) unitsChangeEpoch++;
+        if (previewResultsOn) return runPreviewGateCall(L, fn, lua_tostring(L, lua_upvalueindex(2)));
+        if (runningLuaIsPersonalInLan()) return runFilteredRead(L, fn, lua_tostring(L, lua_upvalueindex(2)));
         return fn->func(L);
     }
     refuseLuaCall(s ? s->mod : "?", lua_tostring(L, lua_upvalueindex(2)), reason, "running=%s", luaRunning ? luaRunning->mod : "none");
+    if (luaBlockingCallOf(lua_tostring(L, lua_upvalueindex(2))) == LUA_BLOCKING_FALSE) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
     return 0;
 }
 static void addGatedFunctions(lua_State *L, const luaL_Reg *fns, const char *prefix) {
@@ -217,6 +322,7 @@ static lua_State *newLuaSandbox(LuaScript *s) {
 static int openLuaSandbox(lua_State *L);
 static int lRequire(lua_State *L);
 static char luaRequiredKey;
+static char luaCoe5Key;
 static int setUpLuaSandbox(lua_State *L) {
     *(LuaScript **)lua_getextraspace(L) = NULL;
     lua_sethook(L, luaStepHook, LUA_MASKCOUNT, LUA_HOOK_STEPS);
@@ -264,6 +370,16 @@ static int openLuaSandbox(lua_State *L) {
     addGatedFunctions(L, LUA_GEN, "coe5.gen.");
     lua_setfield(L, -2, "gen");
     addGameNumbers(L);
+    lua_newtable(L);
+    lua_setfield(L, -2, "gameData");
+    lua_createtable(L, PLAYER_SLOTS_MOVED, 0);
+    for (int slot = 0; slot < PLAYER_SLOTS_MOVED; slot++) {
+        lua_newtable(L);
+        lua_rawseti(L, -2, slot);
+    }
+    lua_setfield(L, -2, "playerData");
+    lua_pushvalue(L, -1);
+    lua_rawsetp(L, LUA_REGISTRYINDEX, &luaCoe5Key);
     lua_setglobal(L, "coe5");
     return 0;
 }
@@ -295,6 +411,7 @@ static void readLuaFileStart(LuaFileReader *r) {
 
 #define LUA_CHUNK_NAME_MAX (MOD_NAME_MAX + 16)
 static void pushLuaTextFile(lua_State *L, const char *path, const char *chunk) {
+    noteLoadedScriptFile(luaScriptOf(L) ? luaScriptOf(L)->mod : "", path);
     LuaFileReader *r = lua_newuserdatauv(L, sizeof *r, 0);
     r->pending = 0;
     if (!(r->f = fopen(path, "r"))) luaL_error(L, "can't open %s", chunk);
@@ -442,6 +559,9 @@ static LuaScript *findLuaScript(const char *mod, const char *folder) {
     return NULL;
 }
 
+static void fillNewScriptGameData(LuaScript *s);
+static unsigned long long hashBothGameDataOf(LuaScript *s, int *known);
+static void keepGameDataThroughLoad(LuaScript *s, unsigned long long before, int known, const char *file);
 static LuaScript *newLuaScript(const char *mod, const char *folder, const char *path) {
     LuaScript *s = calloc(1, sizeof *s);
     if (s) snprintf(s->mod, sizeof s->mod, "%s", mod);
@@ -455,6 +575,7 @@ static LuaScript *newLuaScript(const char *mod, const char *folder, const char *
     if (!buildPath(s->path, sizeof s->path, __func__, "%s" PATH_SEP "%s.lua", folder, mod)) s->path[0] = '\0';
     *(LuaScript **)lua_getextraspace(s->L) = s;
     luaScripts[luaScriptCount++] = s;
+    fillNewScriptGameData(s);
     return s;
 }
 
@@ -467,7 +588,10 @@ static void loadLuaScript(const char *mod, const char *folder) {
     if (s && (s->dead || !s->L)) return;
     if (!s && !(s = newLuaScript(mod, folder, path))) return;
     s->mainTried = 1;
+    int known = 0;
+    unsigned long long before = hashBothGameDataOf(s, &known);
     if (callLuaProtected(s, pushLuaScriptFile, s, 0)) writeLog("lua_script_loaded", "mod=%s version=%s path=%s", mod, modVersionText(mod), path);
+    keepGameDataThroughLoad(s, before, known, "main");
 }
 
 // ---- Commands files: <ModName>_commands.lua, loaded first ---------------------------------------
@@ -505,12 +629,24 @@ static int loadLuaCommandsFile(const char *mod, const char *folder) {
     if (s->dead || !s->L) return -1;
     snprintf(chunk, sizeof chunk, "%s" LUA_COMMANDS_SUFFIX, mod);
     LuaCommandsFile file = {path, chunk, s->commandsName};
+    int known = 0;
+    unsigned long long before = hashBothGameDataOf(s, &known);
     luaCommandsLoading = 1;
     int ran = callLuaProtected(s, pushLuaCommandsFile, &file, 0);
     luaCommandsLoading = 0;
+    keepGameDataThroughLoad(s, before, known, "commands");
     if (!ran) return -1;
     writeLog("lua_commands_loaded", "mod=%s version=%s path=%s", mod, modVersionText(mod), path);
     return 1;
+}
+
+static int luaCommandsStartAtStartup(int mod) {
+    NetRole role = netRoleNow();
+    if (role == NET_ROLE_SINGLE) return 1;
+    ModFileScan scan;
+    LuaClass cls = !scanMod(mod, &scan) ? LUA_CLASS_CONTENT : scan.noMultiplayer ? LUA_CLASS_OFF
+                 : scan.personal && scan.contentFree ? LUA_CLASS_PERSONAL : LUA_CLASS_CONTENT;
+    return luaStartsFor(role, cls);
 }
 
 static void loadLuaCommandsFiles(void) {
@@ -521,6 +657,7 @@ static void loadLuaCommandsFiles(void) {
     int count = 0, failed = 0;
     for (int k = 0; k < orderedModCount; k++) {
         const ModInfo *m = &orderedMods[loadOrder[k]];
+        if (!luaCommandsStartAtStartup(m->tag)) continue;
         int ran = loadLuaCommandsFile(m->name, modFolder(m->tag));
         count += ran > 0, failed += ran < 0;
     }
@@ -542,7 +679,7 @@ static void loadLuaScripts(void) {
     luaScriptsLoading = 1;
     for (int k = 0; k < orderedModCount; k++) {
         const ModInfo *m = &orderedMods[loadOrder[k]];
-        loadLuaScript(m->name, modFolder(m->tag));
+        if (luaStartsFor(netRoleNow(), modClassNow(m->name))) loadLuaScript(m->name, modFolder(m->tag));
     }
     luaScriptsLoading = 0;
     moveOldDataFolders();
@@ -557,7 +694,7 @@ static int luaModEnabledNow(const char *mod, const char *folder) {
     return 0;
 }
 
-static void retireLuaScript(LuaScript *s) {
+static void retireLuaScript(LuaScript *s, const char *reason) {
     s->retired = 1;
     if (!s->stopping) {
         s->stopping = LUA_STOP_CLOSED;
@@ -572,35 +709,89 @@ static void retireLuaScript(LuaScript *s) {
         modCommands[kept++] = modCommands[i];
     }
     modCommandCount = kept;
-    writeLog("lua_script_turned_off", "mod=%s reason=mod_disabled", s->mod);
+    writeLog("lua_script_turned_off", "mod=%s reason=%s", s->mod, reason);
     closeDeadLuaScript(s);
+}
+
+// ---- A LAN game's start: content scripts get a new state ------------------------------------------
+static NetRole lanStartedFor = NET_ROLE_SINGLE;
+static void markScriptPlanesRestarting(const char *mod);
+static void markScriptFactionsRestarting(const char *mod);
+static void markScriptLooksRestarting(const char *mod);
+static void markScriptBattleMapsRestarting(const char *mod);
+static void dropScriptPlanes(const char *mod);
+static void dropScriptFactions(const char *mod);
+
+static void dropScriptMenuRows(const LuaScript *s) {
+    int kept = 0;
+    for (int i = 0; i < mainButtonCount; i++)
+        if (mainButtons[i].lua < 0 || luaCallbackScript(mainButtons[i].lua) != s) mainButtons[kept++] = mainButtons[i];
+    mainButtonCount = kept;
+    kept = 0;
+    for (int i = 0; i < entryCount; i++) {
+        if (entries[i]->type == ENTRY_SCREEN && entries[i]->lua >= 0 && luaCallbackScript(entries[i]->lua) == s) free(entries[i]);
+        else entries[kept++] = entries[i];
+    }
+    entryCount = kept;
+}
+
+static void forgetHeldGameData(void);
+static void retireContentScripts(const char *reason) {
+    forgetHeldGameData();
+    for (int i = 0; i < luaScriptCount; i++) {
+        LuaScript *s = luaScripts[i];
+        if (s->retired || modClassNow(s->mod) != LUA_CLASS_CONTENT) continue;
+        markScriptPlanesRestarting(s->mod);
+        markScriptFactionsRestarting(s->mod);
+        markScriptLooksRestarting(s->mod);
+        markScriptBattleMapsRestarting(s->mod);
+        dropScriptMenuRows(s);
+        retireLuaScript(s, reason);
+    }
+}
+
+static void retireNoMultiplayerScript(LuaScript *s) {
+    dropScriptPlanes(s->mod);
+    dropScriptFactions(s->mod);
+    markScriptLooksRestarting(s->mod);
+    markScriptBattleMapsRestarting(s->mod);
+    dropScriptMenuRows(s);
+    retireLuaScript(s, "nomultiplayer");
 }
 
 static void syncLuaScriptsBeforePass(int level) {
     if (!startupFinished || level != 2) return;
     int stopped = 0, started = 0;
+    NetRole role = netRoleNow();
     for (int i = 0; i < luaScriptCount; i++) {
         LuaScript *s = luaScripts[i];
         if (s->retired || luaModEnabledNow(s->mod, s->folder)) continue;
-        retireLuaScript(s);
+        if (role != NET_ROLE_SINGLE && modClassNow(s->mod) == LUA_CLASS_OFF) retireNoMultiplayerScript(s);
+        else retireLuaScript(s, "mod_disabled");
         stopped++;
     }
-    if (!isNetworkGame()) {
+    if (role != NET_ROLE_OFFICIAL) {
+        if (role != lanStartedFor) {
+            lanStartedFor = role;
+            if (role != NET_ROLE_SINGLE) retireContentScripts("lan_game_started");
+        }
         readLoadOrder(0);
         for (int k = 0; k < orderedModCount; k++) {
             const ModInfo *m = &orderedMods[loadOrder[k]];
-            started += loadLuaCommandsFile(m->name, modFolder(m->tag)) > 0;
+            if (luaStartsFor(role, modClassNow(m->name))) started += loadLuaCommandsFile(m->name, modFolder(m->tag)) > 0;
         }
     }
     if (stopped || started) writeLog("lua_scripts_synced", "when=before_pass stopped=%d commands_files=%d network=%d", stopped, started, isNetworkGame());
 }
 
 static void syncLuaScriptsAfterPass(int level) {
-    if (!startupFinished || level != 2 || isNetworkGame()) return;
+    NetRole role = netRoleNow();
+    if (!startupFinished || level != 2 || role == NET_ROLE_OFFICIAL) return;
     int started = 0;
     luaScriptsLoading = 1;
     for (int k = 0; k < orderedModCount; k++) {
         const ModInfo *m = &orderedMods[loadOrder[k]];
+        if (!luaStartsFor(role, modClassNow(m->name))) continue;
         const LuaScript *s = findLuaScript(m->name, modFolder(m->tag));
         if (s && s->mainTried) continue;
         loadLuaScript(m->name, modFolder(m->tag));
@@ -609,6 +800,224 @@ static void syncLuaScriptsAfterPass(int level) {
     }
     luaScriptsLoading = 0;
     if (started) writeLog("lua_scripts_synced", "when=after_pass started=%d", started);
+}
+
+static void finishLooksBlock(void);
+static void finishBattleBlock(void);
+static void finishScatterBlock(void);
+static void syncLuaScriptsBeforeSaveApplied(int level) {
+    NetRole role = netRoleNow();
+    if (level != 2 || role == NET_ROLE_SINGLE || role == NET_ROLE_OFFICIAL) return;
+    finishPlaneBlock();
+    finishLooksBlock();
+    finishBattleBlock();
+    finishScatterBlock();
+    syncLuaScriptsAfterPass(level);
+}
+
+static void finishStartupWithoutMenu(int level) {
+    NetRole role = netRoleNow();
+    if (startupFinished || level != 2 || role == NET_ROLE_SINGLE || role == NET_ROLE_OFFICIAL) return;
+    writeLog("startup_without_menu", "role=%d", role);
+    lanStartedFor = role;
+    finishStartup();
+}
+
+static void rereadEnabledModsAsGame(void) {
+    GAME_FN(void (*)(void), RVA_RESET_MODS)();
+    ((void (*)(int))siteEntry(SITE_MODS_RUN, GAME_PTR(RVA_RUN_ENABLED_MODS)))(2);
+}
+static void (*rereadEnabledMods)(void) = rereadEnabledModsAsGame;
+
+// ---- A content script that stops in a LAN game: the game plays on ---------------------------------
+#define SCRIPT_STOP_MODS_MAX 128
+typedef struct { char mod[MOD_NAME_MAX]; const char *reason; int onClient, lastTurn, due; } ScriptStopRecord;
+static ScriptStopRecord scriptStopRecords[SCRIPT_STOP_MODS_MAX];
+static int scriptStopRecordCount;
+static void luaNoticeName(const char *in, char *out, size_t size);
+
+static void addScriptStopMessageToGame(const char *title, const char *text) {
+    int index = (int)((AddMessageFn)(gameBase + RVA_ADD_MESSAGE))(-1, MESSAGE_EVERY_HUMAN, -1, -1, 0, 0, title, "%s", text);
+    writeLog("script_stop_message_added", "index=%d", index);
+}
+static void (*addScriptStopMessage)(const char *title, const char *text) = addScriptStopMessageToGame;
+
+static int scriptStopTells(int lastTurn, int turn) { return lastTurn < 0 || turn - lastTurn > 1; }
+
+static const char *knownScriptStopReason(const char *word, size_t length) {
+    for (int why = LUA_STOP_STEPS; why <= LUA_STOP_MEMORY_TOTAL; why++)
+        if (strlen(LUA_STOPS[why].reason) == length && !strncmp(LUA_STOPS[why].reason, word, length)) return LUA_STOPS[why].reason;
+    return LUA_STOP_REASON_ERROR;
+}
+
+static void scriptStopMessageText(const char *mod, const char *reason, int onClient, char *title, size_t titleSize, char *text, size_t textSize) {
+    char name[MOD_NAME_MAX];
+    luaNoticeName(mod, name, sizeof name);
+    const char *why = !strcmp(reason, LUA_STOPS[LUA_STOP_STEPS].reason) ? "Ran too long"
+                    : !strcmp(reason, LUA_STOPS[LUA_STOP_MEMORY].reason) ? "Too much memory"
+                    : !strcmp(reason, LUA_STOPS[LUA_STOP_MEMORY_TOTAL].reason) ? "Most memory of all scripts"
+                    : "Script error";
+    snprintf(title, titleSize, "CoE5SE: %.60s's script was stopped", name);
+    snprintf(text, textSize, "%s on %s. Restarted this turn.", why, onClient ? "client" : "host");
+}
+
+static void noteScriptStopOnHost(const char *mod, const char *reason, int onClient) {
+    int turn = G32(RVA_TURN), at = 0;
+    while (at < scriptStopRecordCount && strcmp(scriptStopRecords[at].mod, mod)) at++;
+    if (at == SCRIPT_STOP_MODS_MAX) {
+        writeLogWarning("script_stop_dropped", "reason=too_many_mods mod=%.80s", mod);
+        return;
+    }
+    ScriptStopRecord *record = &scriptStopRecords[at];
+    if (at == scriptStopRecordCount) {
+        scriptStopRecordCount++;
+        snprintf(record->mod, sizeof record->mod, "%s", mod);
+        record->lastTurn = -1;
+        record->due = 0;
+    }
+    if (scriptStopTells(record->lastTurn, turn)) {
+        record->due = 1;
+        record->reason = reason;
+        record->onClient = onClient;
+    }
+    writeLog("script_stop_noted", "mod=%s reason=%s on_client=%d turn=%d last_turn=%d due=%d", mod, reason, onClient, turn, record->lastTurn, record->due);
+    record->lastTurn = turn;
+}
+
+static void takeClientScriptStop(const char *report) {
+    const char *mod = strchr(report, ' ');
+    if (!mod || !mod[1]) {
+        writeLogWarning("script_stop_dropped", "reason=bad_report");
+        return;
+    }
+    noteScriptStopOnHost(mod + 1, knownScriptStopReason(report, (size_t)(mod - report)), 1);
+}
+
+static void reportStoppedScriptsToHost(void) {
+    for (int i = 0; i < luaScriptCount; i++) {
+        LuaScript *s = luaScripts[i];
+        if (!s->lanStopReason || s->lanStopTold || s->retired) continue;
+        s->lanStopTold = 1;
+        char report[NET_LOBBY_MESSAGE_MAX];
+        snprintf(report, sizeof report, "%.40s %.400s", s->lanStopReason, s->mod);
+        sendNetworkCheck(NETWORK_SCRIPT_STOP, report);
+        writeLog("script_stop_reported", "mod=%s reason=%s", s->mod, s->lanStopReason);
+    }
+}
+
+static void restartLuaScript(LuaScript *s, const char *reason) {
+    char mod[MOD_NAME_MAX], folder[MAX_PATH];
+    snprintf(mod, sizeof mod, "%s", s->mod);
+    snprintf(folder, sizeof folder, "%s", s->folder);
+    markScriptPlanesRestarting(mod);
+    markScriptFactionsRestarting(mod);
+    markScriptLooksRestarting(mod);
+    markScriptBattleMapsRestarting(mod);
+    dropScriptMenuRows(s);
+    dropLuaScriptWraps(s);
+    retireLuaScript(s, reason);
+    if (!luaModEnabledNow(mod, folder)) return;
+    loadLuaCommandsFile(mod, folder);
+    luaScriptsLoading = 1;
+    loadLuaScript(mod, folder);
+    luaScriptsLoading = 0;
+}
+static void restartStoppedLuaScript(LuaScript *s) { restartLuaScript(s, "lan_script_stopped"); }
+
+static int stoppedScriptCanRestart(const LuaScript *s, int onClient) {
+    return s->lanStopReason && !s->retired && !s->depth && (!onClient || s->lanStopLoad != netClientLoads);
+}
+
+static void serviceStoppedScriptsOnClient(void) {
+    if (netRoleNow() != NET_ROLE_CLIENT) return;
+    reportStoppedScriptsToHost();
+    for (int i = 0, count = luaScriptCount; i < count; i++)
+        if (stoppedScriptCanRestart(luaScripts[i], 1)) restartStoppedLuaScript(luaScripts[i]);
+    reportStoppedScriptsToHost();
+}
+
+static void serviceStoppedScriptsOnHost(void) {
+    if (netRoleNow() != NET_ROLE_HOST) return;
+    int count = luaScriptCount;
+    for (int i = 0; i < count; i++) {
+        LuaScript *s = luaScripts[i];
+        if (!s->lanStopReason || s->lanStopTold) continue;
+        s->lanStopTold = 1;
+        noteScriptStopOnHost(s->mod, s->lanStopReason, 0);
+    }
+    for (int i = 0; i < scriptStopRecordCount; i++) {
+        ScriptStopRecord *record = &scriptStopRecords[i];
+        if (!record->due) continue;
+        record->due = 0;
+        char title[128], text[256];
+        scriptStopMessageText(record->mod, record->reason, record->onClient, title, sizeof title, text, sizeof text);
+        addScriptStopMessage(title, text);
+        writeLog("script_stop_told", "mod=%s reason=%s on_client=%d", record->mod, record->reason, record->onClient);
+    }
+    for (int i = 0; i < count; i++)
+        if (stoppedScriptCanRestart(luaScripts[i], 0)) restartStoppedLuaScript(luaScripts[i]);
+}
+
+static u64 (*nextMonthStart)(u64, u64);
+static u64 monthStartHook(u64 mode, u64 text) {
+    serviceStoppedScriptsOnHost();
+    return nextMonthStart(mode, text);
+}
+
+static void installMonthStartHook(void) {
+    static int tried;
+    if (tried) return;
+    tried = 1;
+    char owner[64];
+    moduleFileName((void *)monthStartHook, owner, sizeof owner);
+    int ok = insertWrap(SITE_MONTH_START, (void *)monthStartHook, (void **)&nextMonthStart, (WrapPlace){.layer = WRAP_LAYER_OUTERMOST}, owner, NULL);
+    writeResultLog(ok, "lan_month_hook_installed", "ok=%d", ok);
+}
+
+static u64 (*nextSetupServer)(void);
+static u64 setupServerHook(void) {
+    installMonthStartHook();
+    scriptStopRecordCount = 0;
+    int off = netRoleNow() == NET_ROLE_HOST ? turnOffNoMultiplayerMods() : 0;
+    if (off) {
+        lanStartedFor = NET_ROLE_SINGLE;
+        rereadEnabledMods();
+    } else {
+        syncLuaScriptsBeforePass(2);
+        syncLuaScriptsAfterPass(2);
+    }
+    u64 result = nextSetupServer();
+    clearNetServerFlag();
+    retireContentScripts("lan_game_left");
+    if (off) {
+        turnNoMultiplayerModsBackOn();
+        rereadEnabledMods();
+    } else {
+        syncLuaScriptsBeforePass(2);
+        syncLuaScriptsAfterPass(2);
+    }
+    lanStartedFor = NET_ROLE_SINGLE;
+    return result;
+}
+
+static u64 (*nextClientTurn)(u64);
+static u64 clientTurnHook(u64 player) {
+    netClientLoading = 0;
+    keepPlayerModStatesAfterClientLoad();
+    serviceStoppedScriptsOnClient();
+    netClientInTurn = 1;
+    netClientGameOverSeen = 0;
+    u64 result = nextClientTurn(player);
+    netClientInTurn = 0;
+    return result;
+}
+
+static void lanScriptsInit(void) {
+    char owner[64];
+    moduleFileName((void *)setupServerHook, owner, sizeof owner);
+    int ok = insertWrap(SITE_SETUP_SERVER, (void *)setupServerHook, (void **)&nextSetupServer, (WrapPlace){.priority = WRAP_PRIORITY_DEFAULT}, owner, NULL) +
+             insertWrap(SITE_CLIENT_TURN, (void *)clientTurnHook, (void **)&nextClientTurn, (WrapPlace){.layer = WRAP_LAYER_OUTERMOST}, owner, NULL);
+    writeResultLog(ok == 2, "lan_scripts_installed", "ok=%d of 2", ok);
 }
 
 // ---- Boxes for the player ---------------------------------------------------------------------

@@ -49,6 +49,7 @@ static PRINTF_FORMAT(4, 5) void appendText(char *text, size_t size, size_t *n, c
 static int okBox(const char *title, const char *text) {
     return messageBox(title, text, "Ok", "", 0, UI_KEY_ENTER, 0);
 }
+static void okBoxOrLog(const char *title, const char *text);
 
 // ---- Refusals ----------------------------------------------------------------------------------
 #define MAX_REFUSALS_SEEN 128
@@ -59,6 +60,7 @@ static HMODULE callingPlugin(void *returnAddress);
 static HMODULE moduleOf(const void *address);
 static int isCoe5seCode(const void *address);
 static int runsInNetworkGames(const void *address);
+typedef enum { GATE_NONE, GATE_ANY_NETWORK, GATE_OFFICIAL_ONLY, GATE_KINDS } GateKind;
 static void noteSpellPathsNetworkGame(const char *from);
 static const char *runningLuaMod(void);
 static PRINTF_FORMAT(4, 5) void refuseLuaCall(const char *mod, const char *call, const char *reason, const char *fmt, ...);
@@ -139,6 +141,10 @@ static int refusedTableLine(const char *line, size_t len, int mod, int level);
 static void popupTablesLeftOut(void);
 static void drawTablesLeftOut(void);
 static int spellLineHook(const char *line, size_t len, int mod, int level);
+static int healArmyLineHook(const char *line, size_t len, const char *args, int mod, int level);
+static void healArmyReset(void);
+static void healArmyBlockStored(int slot);
+static void healArmyDropPending(void);
 static const char *spellPathLineHook(const char *line, size_t len, int mod, int level);
 static const char *offsetNameLineHook(const char *line, size_t len, int mod, int level);
 static int declinedOffsetNameLine(const char *line, size_t len, int level);
@@ -169,6 +175,8 @@ static const char *battleMapLineHook(const char *line, size_t len, int mod, int 
 static int declinedBattleMapLine(const char *line, size_t len, int mod, int level);
 static void battleMapsBeforePass(int level);
 static void battleMapsAfterPass(int level);
+static int unitBattleCell(int unit, int *x, int *y);
+static unsigned char *battleCell(int x, int y);
 static void popupMissingPlanes(void);
 static int settingLineHook(const char *line, size_t len, int mod, int level);
 static int eventLogicLine(const char *line, int level);
@@ -200,6 +208,8 @@ static void aiClassInit(void);
 static const char *classNameLineHook(const char *line, size_t len, int mod, int level);
 static void noExplodeAfterPass(int level);
 static void noExplodeBeforePass(int level);
+static void beamWidthBeforePass(int level);
+static void beamWidthTextLine(int weapon);
 static void recBonusLineHook(const char *line, size_t len, int mod, int level);
 static void recBonusBeforePass(int level);
 static int recBonusOfferCopy(int player, const unsigned char *record, unsigned char *copy);
@@ -223,6 +233,18 @@ static void offerStubUpdate(void);
 static int listModsMissingPlugins(int logIt);
 static void drawModsMissingPlugins(int count);
 static int (*nextMainMenuWait)(int, int);
+static int mainMenuWaiting;
+static int previewWorldAsked(void);
+static void dropUnusedPreviewAsk(void);
+static int previewFieldTakesEvent(const void *event);
+#define PREVIEW_EDIT_ADDS_MAX 16
+static int previewEditsArmed(int level);
+static const char *previewEditAtPass(const char *line, int mod, int *off, int *adds, int *addCount);
+static void previewRunAddedLine(int edit, int mod, int level);
+static int previewSkipsUnknownWords(void);
+static void previewNoteSkippedWord(const char *word, int mod, int level);
+static void previewEditsAfterPass(void);
+static PRINTF_FORMAT(4, 5) void refuseC5mLine(const char *word, const char *mod, const char *reason, const char *fmt, ...);
 static int runLuaCallback(int i, int wantResult, int fallback);
 static int runLuaVisible(int i);
 static int luaHidesReadTip(void);
@@ -314,6 +336,17 @@ static int isVanillaMenuId(int id) {
 }
 
 static int guiId(int slot) { return *(int *)(gameBase + RVA_GUI_TABLE + (size_t)slot * GUI_STRIDE); }
+
+static void hideGuiSlot(int slot) {
+    unsigned char *e = gameBase + RVA_GUI_TABLE + (size_t)slot * GUI_STRIDE;
+    *(int *)e = 0;
+    *(float *)(e + GUI_ELEMENT_Y) = HIDDEN_Y;
+}
+static void hideGuiId(int id) {
+    int last = G32(RVA_GUI_LAST_SLOT);
+    for (int slot = 0; slot <= last; slot++)
+        if (guiId(slot) == id) hideGuiSlot(slot);
+}
 
 static int findQuitSlot(int before) {
     for (int q = before - 1; q >= 2 * (VANILLA_BUTTONS - 1); q--) {
@@ -512,15 +545,21 @@ static int menuWaitHook(int a, int b) {
     drawMenuColumn(&col);
     if (menuFrames == 0) onFirstMenuFrame(&col);
     menuFrames++;
+    dropUnusedPreviewAsk();
+    previewEditsAfterPass();
+    mainMenuWaiting++;
     int clicked = nextMainMenuWait(a, b);
+    int button = 0;
     if (clicked == MORE_BUTTON_ID && col.more) {
         moreButtonsScreen(col.shown);
-        return 0;
-    }
-    if (clicked >= MAIN_BUTTON_FIRST_ID && clicked < MAIN_BUTTON_FIRST_ID + mainButtonCount) {
+        button = 1;
+    } else if (clicked >= MAIN_BUTTON_FIRST_ID && clicked < MAIN_BUTTON_FIRST_ID + mainButtonCount) {
         runMainButton(clicked - MAIN_BUTTON_FIRST_ID);
-        return 0;
+        button = 1;
     }
+    mainMenuWaiting--;
+    if (previewWorldAsked()) return MAIN_MENU_START_NEW_GAME;
+    if (button) return 0;
     int quiet = menuNoticesDue(clicked);
     if (quiet) showLaunchNotices();
     if (quiet) popupSettingErrors();
@@ -691,8 +730,8 @@ static int setupIsAutomated;
 #define GATE_DATA_BYTES 0x4000
 typedef struct { void *hook, *next; } GateData;
 _Static_assert(GATES_PER_PAGE * sizeof(GateData) <= GATE_DATA_BYTES, "every gate's data must fit its block");
-static unsigned char *gatePage;
-static size_t gatePageUsed = GATE_PAGE_SIZE;
+static unsigned char *gatePage[GATE_KINDS];
+static size_t gatePageUsed[GATE_KINDS] = {GATE_PAGE_SIZE, GATE_PAGE_SIZE, GATE_PAGE_SIZE};
 static void *volatile enteredGateAddress;
 static void *enteredGate(void) { return enteredGateAddress; }
 static GateData *gateData(void *gate) {
@@ -739,24 +778,25 @@ static HMODULE callingPlugin(void *returnAddress) {
 #endif
 
 #ifndef __aarch64__
-static void writeGateCode(unsigned char *gate) {
+static void writeGateCode(unsigned char *gate, GateKind kind) {
     const void *flags[3] = {GAME_PTR(RVA_NET_CLIENT), GAME_PTR(RVA_NET_SERVER), GAME_PTR(RVA_NET_LOBBY)};
+    if (kind == GATE_OFFICIAL_ONLY) flags[0] = flags[1] = flags[2];
     GateData *data = gateData(gate);
     buildGateCode(gate, gate, flags, (const void *)&enteredGateAddress, &data->hook, &data->next);
 }
 
-static void *makeGate(void *hook, void *next) {
-    if (gatePageUsed + GATE_SIZE > GATE_PAGE_SIZE) {
+static void *makeGate(void *hook, void *next, GateKind kind) {
+    if (gatePageUsed[kind] + GATE_SIZE > GATE_PAGE_SIZE) {
         unsigned char *page = VirtualAlloc(NULL, GATE_PAGE_SIZE + GATE_DATA_BYTES, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
         if (!page) return NULL;
-        for (int i = 0; i < GATES_PER_PAGE; i++) writeGateCode(page + i * GATE_SIZE);
+        for (int i = 0; i < GATES_PER_PAGE; i++) writeGateCode(page + i * GATE_SIZE, kind);
         makePagesReadExecute(page, GATE_PAGE_SIZE);
         makePagesReadWrite(page + GATE_PAGE_SIZE, GATE_DATA_BYTES);
-        gatePage = page;
-        gatePageUsed = 0;
+        gatePage[kind] = page;
+        gatePageUsed[kind] = 0;
     }
-    unsigned char *gate = gatePage + gatePageUsed;
-    gatePageUsed += GATE_SIZE;
+    unsigned char *gate = gatePage[kind] + gatePageUsed[kind];
+    gatePageUsed[kind] += GATE_SIZE;
     GateData *data = gateData(gate);
     data->hook = hook;
     data->next = next;
@@ -782,7 +822,7 @@ static void *makeGate(void *hook, void *next) {
     X(SITE_CREATE_RANDOM_MAP) X(SITE_WORLD_PART_TERRAIN) X(SITE_MAPGEN_REMOVE_SMALL_ISLANDS) X(SITE_MAPGEN_RIVER_CROSSINGS) X(SITE_MAPGEN_ANCIENT_FOREST) X(SITE_MAPGEN_CLEAR_AREA) X(SITE_MAPGEN_ADJUST_TEMPERATURE) X(SITE_MARK_RIVER) X(SITE_GEN_DIAGONAL_FIX) X(SITE_GEN_UPDATE_MOIST_WALLS) X(SITE_GEN_TERRAIN_BLOB) X(SITE_CREATE_CELESTIAL_PLANE) X(SITE_CREATE_SKY_PLANE) X(SITE_CREATE_AGARTHA_PLANE) X(SITE_CREATE_INFERNO_PLANE) X(SITE_CREATE_HADES_PLANE) X(SITE_CREATE_ELEMENTAL_PLANE) X(SITE_LOAD_AZTLAN_PLANE) X(SITE_LOAD_PRIMAL_PLANE) X(SITE_AUTO_RECRUIT) X(SITE_USE_LIBRARY) X(SITE_ADD_GROUND_ITEMS) X(SITE_VOID_INSANITY) X(SITE_WANDERER_PICK_TARGET) X(SITE_WANDERER_PICK_UP) X(SITE_SET_HOLDIT) \
     X(SITE_LIBRARY_SCREEN) X(SITE_CHOP_BURN_SCREEN) X(SITE_SLAVE_HUNT_SCREEN) X(SITE_UNIT_STATS_SCREEN) X(SITE_ITEM_INFO_SCREEN) X(SITE_WEAPON_INFO_WINDOW) X(SITE_PLANE_INFO_SCREEN) X(SITE_BATTLE_INTRO_SCREEN) X(SITE_COMMANDER_SET_DONE) X(SITE_SELECT_NEXT_COMMANDER) X(SITE_SELECT_PREV_COMMANDER) \
     X(SITE_RUN_HATREDS) X(SITE_SANDSTORM_CLOUD_UPDATE) X(SITE_TAINTED_MAGIC_PASS) X(SITE_HERO_ARRIVAL) X(SITE_CLEAN_SQUARE) X(SITE_ADJUST_FOR_SNOW) X(SITE_START_TUNE) X(SITE_SQUARE_SET_OWNER) X(SITE_TEAMLESS_OWN_TEAM) X(SITE_ADD_BENEFIT) X(SITE_SOCIETY_PRESETS) X(SITE_MOVE_STEP_AFTER) X(SITE_NUMBER_BOX) \
-    X(SITE_ENCHANTS_DESTROYED_AT) X(SITE_STORM_SPAWN) X(SITE_WILD_SPAWN) X(SITE_REVELS_SPAWN) X(SITE_HORROR_LORD_PICK)
+    X(SITE_ENCHANTS_DESTROYED_AT) X(SITE_STORM_SPAWN) X(SITE_WILD_SPAWN) X(SITE_REVELS_SPAWN) X(SITE_HORROR_LORD_PICK) X(SITE_CLIENT_TURN)
 
 static int isInternalSite(CallSite site) {
     return site == SITE_MODS_RUN || site == SITE_MOD_COMMAND || site == SITE_TEXT_FORMAT || site == SITE_TEXT_BUILD ||
@@ -792,7 +832,7 @@ static int isInternalSite(CallSite site) {
            site == SITE_RUN_ONE_MOD_PATH || site == SITE_GAME_MENU_SETTINGS_SECTION_END || site == SITE_ELIMINATED_WARN ||
            site == SITE_TURN_MESSAGES ||
            site == SITE_MAP_EDITOR_TOOLBOX_LINE || site == SITE_RUN_ONE_MOD_LINE_READ || site == SITE_TOP_BAR ||
-           site == SITE_TOP_BAR_INCOME_DRAW;
+           site == SITE_TOP_BAR_INCOME_DRAW || site == SITE_SETUP_SERVER;
 }
 
 static int isObserveOnlySite(CallSite site) {
@@ -890,6 +930,19 @@ static void linkWrapAt(CallSite site, int at) {
     else pointWrapAt(siteWraps[site].list[at - 1], w->entry);
 }
 
+static void unlinkWrap(CallSite site, void **next) {
+    for (int at = 0; at < siteWraps[site].count; at++) {
+        if (siteWraps[site].list[at]->next != next) continue;
+        void *after = at + 1 < siteWraps[site].count ? siteWraps[site].list[at + 1]->entry : siteGameTarget(site);
+        if (at == 0) *siteHeadSlot(site) = after;
+        else pointWrapAt(siteWraps[site].list[at - 1], after);
+        if (lastWrapAdded == siteWraps[site].list[at]) lastWrapAdded = NULL;
+        memmove(&siteWraps[site].list[at], &siteWraps[site].list[at + 1], sizeof siteWraps[site].list[0] * (size_t)(siteWraps[site].count - at - 1));
+        siteWraps[site].count--;
+        return;
+    }
+}
+
 static void logWrapOrder(CallSite site) {
     char chain[2048];
     size_t n = 0;
@@ -912,7 +965,7 @@ static void logAllWrapOrders(void) {
 typedef struct {
     int priority;
     WrapLayer layer;
-    int gated;
+    GateKind gated;
 } WrapPlace;
 
 static int insertWrap(CallSite site, void *hook, void **next, WrapPlace place, const char *owner, const char **reason) {
@@ -923,7 +976,7 @@ static int insertWrap(CallSite site, void *hook, void **next, WrapPlace place, c
     else if (!(w = calloc(1, sizeof *w)) ||
              !growList((void **)&siteWraps[site].list, &siteWraps[site].capacity, siteWraps[site].count + 1, sizeof w))
         why = "out_of_memory";
-    else if (!(w->entry = place.gated ? makeGate(hook, *siteHeadSlot(site)) : hook))
+    else if (!(w->entry = place.gated ? makeGate(hook, *siteHeadSlot(site), place.gated) : hook))
         why = "out_of_memory";
     if (why) {
         free(w);
@@ -969,7 +1022,7 @@ static int wrapSite(CallSite site, void *hook, void **next) {
     if ((unsigned)site >= SITE_COUNT || !hook || !next) return 0;
     char owner[64];
     moduleFileName(hook, owner, sizeof owner);
-    return insertWrap(site, hook, next, (WrapPlace){.priority = WRAP_PRIORITY_DEFAULT, .gated = !runsInNetworkGames(hook)}, owner, NULL);
+    return insertWrap(site, hook, next, (WrapPlace){.priority = WRAP_PRIORITY_DEFAULT, .gated = runsInNetworkGames(hook) ? GATE_NONE : GATE_ANY_NETWORK}, owner, NULL);
 }
 
 static int wrapFor(void *caller, const char *call, CallSite site, void *hook, void **next, int priority) {
@@ -990,7 +1043,7 @@ static int wrapFor(void *caller, const char *call, CallSite site, void *hook, vo
         if (luaMod) snprintf(owner, sizeof owner, "%.59s.lua", luaMod);
         else moduleFileName(m ? (const void *)m : caller, owner, sizeof owner);
         WrapPlace place = {.priority = priority, .layer = luaMod ? WRAP_LAYER_INNER : WRAP_LAYER_PLUGIN,
-                           .gated = luaMod || !runsInNetworkGames(hook)};
+                           .gated = luaMod ? GATE_OFFICIAL_ONLY : runsInNetworkGames(hook) ? GATE_NONE : GATE_ANY_NETWORK};
 #ifdef __APPLE__
         // @platform-split ai_steps_mac: Mac's copied AI steps take only script wraps (Windows calls them)
         if (!luaMod && isSplitSite(site)) reason = "lua_only_site";
@@ -1045,6 +1098,25 @@ static int isNetworkClient(void) {
     return G32(RVA_NET_CLIENT) > 0;
 #endif
 }
+
+static int isTextOnly(void) {
+#ifdef __APPLE__
+    return G8(RVA_TEXT_ONLY) != 0;
+#else
+    return G32(RVA_TEXT_ONLY) != 0;
+#endif
+}
+
+#define NET_ROLE_OFFICIAL 3
+typedef int NetRole;
+
+static NetRole netRoleNow(void) {
+    if (isOfficialGame()) return NET_ROLE_OFFICIAL;
+    if (isNetworkClient()) return NET_ROLE_CLIENT;
+    return isNetworkGame() ? NET_ROLE_HOST : NET_ROLE_SINGLE;
+}
+
+#include "net_gate.h"
 
 #include "restart_prompt.h"
 
@@ -1109,6 +1181,19 @@ static int apiObserve(CallSite site, ObserverFn before, ObserverFn after) {
     return 1;
 }
 
+static int previewWorldOn(void);
+static int previewWorldEnding(void);
+static int previewMenuIdIsRefused(int id);
+static void beginPreviewWorld(void);
+static void finishPreviewWorld(void);
+static void previewDropGameMenuRows(void);
+static void previewBeforeGameMenuWait(void);
+static void previewBeforeMapDraw(void);
+static int previewShowsMenuLine(const void *script);
+static void previewRestartDice(const char *what, int a, int b);
+static void previewRestartDiceNamed(const char *what, const char *name, int b);
+static void previewRestartDiceSquare(const char *monster, int area, int x, int y);
+static void previewRestartDiceEvent(const char *line, int level);
 #include "game_menu.h"
 
 // ---- Mod names ----------------------------------------------------------------------------------
@@ -1152,7 +1237,7 @@ static int apiSendMessage(int player, const char *title, const char *text) {
     if (!text) return REFUSE_API(MESSAGE_NOT_ADDED, "sendMessage", "no_text", "player=%d title=%s", player, title);
     if (!(player == MESSAGE_EVERY_HUMAN || (player >= 0 && player < PLAYER_SLOTS)))
         return REFUSE_API(MESSAGE_NOT_ADDED, "sendMessage", "bad_player", "player=%d title=%s", player, title);
-    if (isNetworkGame()) return REFUSE_API(MESSAGE_NOT_ADDED, "sendMessage", "network_game", "player=%d title=%s", player, title);
+    if (netShutsGameCalls()) return REFUSE_API(MESSAGE_NOT_ADDED, "sendMessage", "network_game", "player=%d title=%s", player, title);
     char shortTitle[100];
     snprintf(shortTitle, sizeof shortTitle, "%s", title);
     char cut[ADD_MESSAGE_TEXT_SIZE];
@@ -1300,7 +1385,6 @@ static int askLoadOnUnknownGame(int blockFound) {
 #include "official_mode.h"
 #include "coe5config.h"
 #include "official_session.h"
-#include "mod_terrain_fix.h"
 #include "lobby_call_shape.h"
 #include "official_dialog.h"
 #include "official_games.h"
@@ -1472,6 +1556,7 @@ static int apiSettingsPluginClick(int id) {
 #include "mod_settings_ini_sidecar.h"
 #include "mod_settings_reading.h"
 #include "mod_settings_screen.h"
+#include "preview_results.h"
 #include "mod_settings_events.h"
 #include "event_logic.h"
 
@@ -1630,7 +1715,10 @@ static u64 modErrorDialogWrapper(u64 title, u64 text, u64 a3, u64 a4, u64 a5, u6
 #include "save_tail.h"
 #include "save_names.h"
 #include "missing_mods.h"
+#include "personal_mods.h"
+#include "host_settings.h"
 #include "network_versions.h"
+#include "personal_mod_lists.h"
 #include "plane_layout.h"
 #include "custom_planes.h"
 #include "faction_sight.h"
@@ -1643,6 +1731,8 @@ static u64 modErrorDialogWrapper(u64 title, u64 text, u64 a3, u64 a4, u64 a5, u6
 #include "code_check.h"
 #include "corpse_kinds.h"
 #include "weapon_traits.h"
+#include "heal_army.h"
+#include "beam_width.h"
 #include "no_explode.h"
 #include "trace_filter.h"
 #include "trace_log_file.h"
@@ -1672,11 +1762,15 @@ static u64 modErrorDialogWrapper(u64 title, u64 text, u64 a3, u64 a4, u64 a5, u6
 #include "lua_ui.h"
 #include "lua_mod_export.h"
 #include "lua_game_calls.h"
+#include "read_filter.h"
+#include "preview_world.h"
 #include "lua_loading.h"
+#include "game_data.h"
 #include "plane_words.h"
 #include "class_names.h"
 #include "ai_class.h"
 #include "plane_pieces.h"
+#include "preview_lines.h"
 #include "terrain_looks.h"
 #include "battle_maps.h"
 #include "event_finders.h"
@@ -1785,7 +1879,7 @@ static void startCoe5se(const char *via) {
     if (featureOn(FEATURE_TABLE_MOVES)) tableMovesInit();
     if (featureOn(FEATURE_SPELL_PATH_EXPANSION)) spellPathExpansionInit();
     if (featureOn(FEATURE_FANPATCH)) fanpatchInstall();
-    installOfficialGamesBox();
+    installOfficialBlock();
     saveTailInit();
     if (featureOn(FEATURE_MISSING_MODS)) missingModsInit();
     if (featureOn(FEATURE_SAVE_COUNT)) installSaveCountHook();
@@ -1801,11 +1895,16 @@ static void startCoe5se(const char *via) {
     if (featureOn(FEATURE_RITUAL_WORDS)) ritualWordsInit();
     if (featureOn(FEATURE_CORPSE_KINDS)) corpseKindsInit();
     if (featureOn(FEATURE_WEAPON_TRAITS)) weaponTraitsInit();
+    if (featureOn(FEATURE_SPELL_WORDS)) healArmyInit();
+    if (featureOn(FEATURE_WEAPON_TRAITS)) beamWidthInit();
     if (featureOn(FEATURE_WEAPON_TRAITS)) traitLinesInit();
     if (featureOn(FEATURE_NO_EXPLODE)) noExplodeInit();
     if (featureOn(FEATURE_NAME_LISTS)) nameListsInit();
     if (featureOn(FEATURE_AI_CLASS)) aiClassInit();
     if (featureOn(FEATURE_MAXDATA)) maxdataWordInit();
+    if (featureOn(FEATURE_PERSONALMOD)) modKindWordsInit();
+    if (featureOn(FEATURE_LAN_SCRIPTS)) lanScriptsInit();
+    if (featureOn(FEATURE_LAN_SCRIPTS)) gameDataInit();
     if (featureOn(FEATURE_SIDECAR)) sidecarInit();
     if (featureOn(FEATURE_PLUGIN_CHECKS)) pluginStartInit();
     if (featureOn(FEATURE_MOD_SETTINGS)) modSettingsInit();

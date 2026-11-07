@@ -689,6 +689,10 @@ static void runPlaneStep(const CustomPlane *p, int step) {
         writeLog("plane_step_skipped", "mod=%s name=%s step=%d reason=script_stopped", p->mod, p->name, step);
         return;
     }
+    if (!luaGameLogicOpenNow(s)) {
+        writeLog("plane_step_skipped", "mod=%s name=%s step=%d reason=personal_mod", p->mod, p->name, step);
+        return;
+    }
     SquareRect area = {planeField(p->index, PLANE_X), planeField(p->index, PLANE_Y), p->w, p->h};
     if (!beginPlaneBuild(p->index, area, p->mod, p->name)) return;
     PlaneStepCall call = {p, step};
@@ -703,10 +707,13 @@ static LuaScript *wordPlaneScript(const CustomPlane *p);
 static void clearPlacedPieces(CustomPlane *p);
 static void stampPlanePieces(CustomPlane *p);
 static void buildCustomPlane(CustomPlane *p) {
+    previewRestartDiceNamed("build", p->name, 0);
     clearPlacedPieces(p);
     if (!p->script && p->fromWords && p->recipe >= 0) p->script = wordPlaneScript(p);
     if (p->recipe >= 0) runPlaneStep(p, PLANE_STEP_BUILD);
+    previewTerrainStepWord(p, "planelike");
     if (p->generateRef) runPlaneStep(p, PLANE_STEP_GENERATE);
+    previewTerrainStepPlane(p, PREVIEW_SOURCE_SCRIPT);
     stampPlanePieces(p);
 }
 
@@ -847,8 +854,10 @@ static void addCustomPlanesSpecialSquares(void) {
             if (kept) refreshChangedSquares(p, kept);
             free(kept);
         }
+        previewTerrainStepWord(p, "planelike");
         applyZoneSwaps(p);
         addDefaultPortal(p);
+        previewTerrainStepPlane(p, PREVIEW_SOURCE_GATEWAY);
     }
 }
 
@@ -1418,15 +1427,18 @@ static void applyPlaneSwap(const CustomPlane *p) {
     if (!p->swapCount) return;
     int last = G32(RVA_LAST_TERRAIN), changed = 0, x0 = planeField(p->index, PLANE_X), y0 = planeField(p->index, PLANE_Y);
     for (int i = 0; i < p->swapCount; i++)
-        if (p->swapTo[i] > last)
+        if (p->swapTo[i] > last) {
             writeLogWarning("plane_swap_refused", "mod=%s name=%s from=%d to=%d reason=no_such_terrain last_terrain=%d", p->mod, p->name, p->swapFrom[i],
                      p->swapTo[i], last);
+            previewLineFailed(p, p->swapLine[i], "no_such_terrain");
+        }
     for (int x = x0; x < x0 + p->w; x++)
         for (int y = y0; y < y0 + p->h; y++) {
             short terrain = *(short *)(squareRecordAt(x, y) + SQUARE_TERRAIN_TYPE);
             for (int i = p->swapCount - 1; i >= 0; i--) {
                 if (terrain != p->swapFrom[i] || p->swapTo[i] > last) continue;
                 GAME_FN(void (*)(int, int, int), RVA_CHANGE_SQUARE_TERRAIN)(x, y, p->swapTo[i]);
+                previewSwapChanged(p, p->swapLine[i], x, y);
                 changed++;
                 break;
             }

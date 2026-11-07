@@ -26,6 +26,7 @@ static const struct { const char *reason, *error; } LUA_STOPS[LUA_STOP_KINDS] = 
     [LUA_STOP_MEMORY_TOTAL] = {"memory_total", "scripts used more than 6 GB of memory together, and this one the most"},
     [LUA_STOP_CLOSED] = {"script_closed", "script was turned off"},
 };
+#define LUA_STOP_REASON_ERROR "script_error"
 enum { LUA_NOTICE_STOPPED = 1, LUA_NOTICE_STORAGE = 2 };
 static int luaCodeRunning;
 static unsigned unitsChangeEpoch = 1;
@@ -49,19 +50,84 @@ typedef struct {
     int stopping;
     size_t memory;
     int noticesDue, noticesShown;
+    const char *lanStopReason;
+    unsigned lanStopLoad;
+    int lanStopTold;
+    unsigned long long gameDataHash;
+    int gameDataHashKnown;
     int warnOff, warnContinued, warningLength, warningCapacity;
     char *warning;
 } LuaScript;
+static int netReplayRunning(void) {
+    return *(const unsigned char *)GAME_PTR(RVA_IN_BATTLE) && *(const unsigned char *)GAME_PTR(RVA_BATTLE_IS_REPLAY);
+}
+static int luaSiteOpenNow(const LuaScript *s, CallSite site) {
+    NetRole role = netRoleNow();
+    return role == NET_ROLE_SINGLE || luaSiteOpenFor(role, modClassNow(s->mod), site, netClientLoading, role == NET_ROLE_CLIENT && netReplayRunning());
+}
+static int luaCallbackOpenNow(const LuaScript *s) {
+    NetRole role = netRoleNow();
+    return role == NET_ROLE_SINGLE || luaCallbackOpenFor(role, modClassNow(s->mod), netClientLoading, role == NET_ROLE_CLIENT && netReplayRunning());
+}
+static int luaGameLogicOpenNow(const LuaScript *s) {
+    NetRole role = netRoleNow();
+    return role == NET_ROLE_SINGLE || luaGameLogicOpenFor(role, modClassNow(s->mod), netClientLoading, netClientInTurn);
+}
+
 static LuaScript **luaScripts;
 static int luaScriptCount, luaScriptCapacity;
+
+typedef struct { char mod[MOD_NAME_MAX], path[MAX_PATH]; unsigned hash; } LoadedScriptFile;
+static LoadedScriptFile *loadedScriptFiles;
+static int loadedScriptFileCount, loadedScriptFileCapacity;
+
+static unsigned hashLoadedScriptFile(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return 0;
+    unsigned h = 2166136261u;
+    for (int c; (c = fgetc(f)) != EOF;) h = (h ^ (unsigned)c) * 16777619u;
+    fclose(f);
+    return h ? h : 1;
+}
+
+static void noteLoadedScriptFile(const char *mod, const char *path) {
+    for (int i = 0; i < loadedScriptFileCount; i++)
+        if (!strcmp(loadedScriptFiles[i].path, path)) return;
+    if (!growList((void **)&loadedScriptFiles, &loadedScriptFileCapacity, loadedScriptFileCount + 1, sizeof loadedScriptFiles[0])) return;
+    LoadedScriptFile *f = &loadedScriptFiles[loadedScriptFileCount++];
+    snprintf(f->mod, sizeof f->mod, "%s", mod);
+    snprintf(f->path, sizeof f->path, "%s", path);
+    f->hash = hashLoadedScriptFile(path);
+}
 
 // ---- Protected calls --------------------------------------------------------------------------
 static LuaScript *luaScriptOf(lua_State *L) { return L ? *(LuaScript **)lua_getextraspace(L) : NULL; }
 
 static LuaScript *luaRunning;
 static const char *runningLuaMod(void) { return luaRunning ? luaRunning->mod : NULL; }
+static UNUSED int runningLuaIsPersonalInLan(void) {
+    NetRole role = netRoleNow();
+    return luaRunning && role != NET_ROLE_SINGLE && modClassNow(luaRunning->mod) == LUA_CLASS_PERSONAL;
+}
+
+static void luaCallerPlace(lua_State *L, char *file, size_t size, int *line) {
+    lua_Debug ar;
+    file[0] = 0, *line = 0;
+    if (!L || !lua_getstack(L, 1, &ar) || !lua_getinfo(L, "Sl", &ar)) return;
+    const char *slash = strrchr(ar.short_src, '/'), *back = strrchr(ar.short_src, '\\');
+    if (back > slash) slash = back;
+    snprintf(file, size, "%s", slash ? slash + 1 : ar.short_src);
+    *line = ar.currentline > 0 ? ar.currentline : 0;
+}
 
 static PRINTF_FORMAT(4, 5) void refuseLuaCall(const char *mod, const char *call, const char *reason, const char *fmt, ...) {
+    if (previewResultsOn) {
+        char file[64];
+        int line;
+        luaCallerPlace(luaRunning ? luaRunning->L : NULL, file, sizeof file, &line);
+        previewScriptNote(mod ? mod : "?", file, line, call, reason, PREVIEW_SCRIPT_REFUSED, "");
+        previewRefusalCount++;
+    }
     va_list ap;
     va_start(ap, fmt);
     logRefusal("lua_refused", call, "mod", mod ? mod : "?", reason, fmt, ap);
@@ -83,12 +149,22 @@ static lua_Integer luaCheckPlayer(lua_State *L, int arg) {
 
 static char luaStopKeys[LUA_STOP_KINDS];
 
+static int noteLanScriptStop(LuaScript *s, const char *reason) {
+    NetRole role = netRoleNow();
+    if ((role != NET_ROLE_HOST && role != NET_ROLE_CLIENT) || s->retired || modClassNow(s->mod) != LUA_CLASS_CONTENT) return 0;
+    if (!s->lanStopReason) {
+        s->lanStopReason = reason;
+        s->lanStopLoad = netClientLoads;
+    }
+    return 1;
+}
+
 static void luaStepHook(lua_State *L, lua_Debug *ar);
 static void stopLuaScript(LuaScript *s, int why, const char *detail) {
     if (s->stopping) return;
     s->stopping = why;
     s->dead = 1;
-    if (why != LUA_STOP_CLOSED) s->noticesDue |= LUA_NOTICE_STOPPED;
+    if (why != LUA_STOP_CLOSED && !noteLanScriptStop(s, LUA_STOPS[why].reason)) s->noticesDue |= LUA_NOTICE_STOPPED;
     refuseLuaCall(s->mod, "script", LUA_STOPS[why].reason, "%s", detail);
     if (why != LUA_STOP_CLOSED && !s->stopLogged) writeLogError("lua_script_stopped", "mod=%s reason=%s", s->mod, LUA_STOPS[why].reason);
     if (why != LUA_STOP_CLOSED) s->stopLogged = 1;
@@ -257,8 +333,10 @@ static int callLuaProtected(LuaScript *s, LuaPushFn push, void *ctx, int nresult
     else if (type == LUA_TNUMBER) snprintf(line, sizeof line, "%.14g", (double)lua_tonumber(s->L, -1));
     else snprintf(line, sizeof line, "(error object is a %s value)", lua_typename(s->L, type));
     writeLogError("lua_error", "mod=%s error=%s", s->mod, line);
+    previewScriptNote(s->mod, "", 0, "", "", PREVIEW_SCRIPT_ERROR, line);
     lua_pop(s->L, 1);
     s->dead = 1;
+    noteLanScriptStop(s, LUA_STOP_REASON_ERROR);
     if (!s->stopLogged) writeLogError("lua_script_stopped", "mod=%s reason=script_error", s->mod);
     s->stopLogged = 1;
     closeDeadLuaScript(s);
@@ -278,17 +356,19 @@ static int pushLuaRef(lua_State *L, void *ref) {
 static int runLuaCallback(int i, int wantResult, int fallback) {
     if (i < 0 || i >= luaCallbackCount) return fallback;
     LuaCallback c = luaCallbacks[i];
-    if (!c.s || c.s->dead || isNetworkGame()) return fallback;
+    if (!c.s || c.s->dead || !luaCallbackOpenNow(c.s)) return fallback;
     if (!callLuaProtected(c.s, pushLuaRef, &c.ref, 1)) return fallback;
     int r = wantResult ? (lua_isnumber(c.s->L, -1) ? (int)lua_tointeger(c.s->L, -1) : lua_toboolean(c.s->L, -1)) : fallback;
     lua_pop(c.s->L, 1);
     closeDeadLuaScript(c.s);
     return r;
 }
+static const void *luaCallbackScript(int i) { return i >= 0 && i < luaCallbackCount ? luaCallbacks[i].s : NULL; }
+
 static int runLuaVisible(int i) {
     if (i < 0 || i >= luaCallbackCount) return 0;
     LuaCallback c = luaCallbacks[i];
-    if (!c.s || c.s->dead || isNetworkGame()) return 0;
+    if (!c.s || c.s->dead || !luaCallbackOpenNow(c.s)) return 0;
     if (c.refVisible == LUA_NOREF) return 1;
     if (!callLuaProtected(c.s, pushLuaRef, &c.refVisible, 1)) return 0;
     int r = lua_toboolean(c.s->L, -1);

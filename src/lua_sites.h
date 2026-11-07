@@ -70,14 +70,23 @@ typedef struct { CallSite site; const char *mod; int priority, answer, arguments
 static LuaChange luaChanges[LUA_CHANGES_MAX];
 static int luaChangeCount, luaChangesDropped;
 
+static void previewNoteWrapChange(const LuaWrap *w);
+
 static void noteLuaChange(CallSite site, const LuaWrap *w, int answer, int arguments) {
     if (!answer && !arguments) return;
+    if (previewResultsOn) previewNoteWrapChange(w);
     if (luaChangeCount >= LUA_CHANGES_MAX) {
         luaChangesDropped++;
         return;
     }
     luaChanges[luaChangeCount++] = (LuaChange){site, w->s ? w->s->mod : "?", w->priority, answer, arguments};
 }
+
+#ifdef __APPLE__
+#define SITE_SIGNATURE(win, mac) mac
+#else
+#define SITE_SIGNATURE(win, mac) win
+#endif
 
 static const LuaSite luaSites[] = {
     {"MAIN_MENU_WAIT",                SITE_MAIN_MENU_WAIT,                K_CALL,    "i:ii"},
@@ -146,6 +155,7 @@ static const LuaSite luaSites[] = {
     {"MONTH_START",                   SITE_MONTH_START,                   K_OBSERVE, "x:is"},
     {"PLAYER_TURN_START",             SITE_PLAYER_TURN_START,             K_OBSERVE, "v:ii"},
     {"HUMAN_TURN",                    SITE_HUMAN_TURN,                    K_OBSERVE, "x:i"},
+    {"CLIENT_TURN",                   SITE_CLIENT_TURN,                   K_OBSERVE, "x:i"},
     {"AI_TURN",                       SITE_AI_TURN,                       K_OBSERVE, "v:i"},
     {"PLAYER_TURN_END",               SITE_PLAYER_TURN_END,               K_OBSERVE, "i:i"},
     {"GAME_OVER",                     SITE_GAME_OVER,                     K_OBSERVE, "v:i"},
@@ -254,18 +264,18 @@ static const LuaSite luaSites[] = {
     {"VOID_FLUCTUATIONS",             SITE_VOID_FLUCTUATIONS,             K_OBSERVE, "v:"},
     {"PLANESHIFT_COMMANDER",          SITE_PLANESHIFT_COMMANDER,          K_OBSERVE, "x:ii"},
     {"MIST_SPREAD",                   SITE_MIST_SPREAD,                   K_OBSERVE, "i:"},
-    {"TEMPERATURE_CHANGE",            SITE_TEMPERATURE_CHANGE,            K_OBSERVE, "i:"},
+    {"TEMPERATURE_CHANGE",            SITE_TEMPERATURE_CHANGE,            K_OBSERVE, SITE_SIGNATURE("i:", "x:")},
     {"SPECIAL_SITE_POPULATE",                 SITE_SPECIAL_SITE_POPULATE,                 K_OBSERVE, "v:"},
     {"UNIT_SWALLOW",                  SITE_UNIT_SWALLOW,                  K_OBSERVE, "v:ii"},
     {"UNIT_UNSWALLOW",                SITE_UNIT_UNSWALLOW,                K_OBSERVE, "x:i"},
     {"LIFEFORCE_DRAIN_UNIT",          SITE_LIFEFORCE_DRAIN_UNIT,          K_OBSERVE, "i:iii"},
     {"UNIT_CATCH_FIRE",               SITE_UNIT_CATCH_FIRE,               K_OBSERVE, "i:ii"},
-    {"UNIT_CRUSH",                    SITE_UNIT_CRUSH,                    K_OBSERVE, "x:ii"},
+    {"UNIT_CRUSH",                    SITE_UNIT_CRUSH,                    K_OBSERVE, "x:i"},
     {"REMOVE_BAD_FOLLOWERS",          SITE_REMOVE_BAD_FOLLOWERS,          K_OBSERVE, "v:"},
     {"OVERPOP_CULL",                  SITE_OVERPOP_CULL,                  K_OBSERVE, "i:"},
     {"MONKEY_CLOAK",                  SITE_MONKEY_CLOAK,                  K_OBSERVE, "v:i"},
     {"RECYCLE_UNITS",                 SITE_RECYCLE_UNITS,                 K_OBSERVE, "i:"},
-    {"RANDOM_TELEPORT",               SITE_RANDOM_TELEPORT,               K_OBSERVE, "i:iii"},
+    {"RANDOM_TELEPORT",               SITE_RANDOM_TELEPORT,               K_OBSERVE, SITE_SIGNATURE("i:iii", "x:iii")},
     {"POP_HORRORS",                   SITE_POP_HORRORS,                   K_OBSERVE, "v:i"},
     {"KILL_TERRAIN_UNITS",            SITE_KILL_TERRAIN_UNITS,            K_OBSERVE, "v:"},
     {"KILL_SUNKEN_SHIPS",             SITE_KILL_SUNKEN_SHIPS,             K_OBSERVE, "v:ii"},
@@ -288,8 +298,8 @@ static const LuaSite luaSites[] = {
     {"MOVE_ENCHANTS",                 SITE_MOVE_ENCHANTS,                 K_OBSERVE, "i:iiii"},
     {"MOVE_GEMS",                     SITE_MOVE_GEMS,                     K_OBSERVE, "v:iiii"},
     {"TAINTED_RITUAL_EFFECT",         SITE_TAINTED_RITUAL_EFFECT,         K_OBSERVE, "v:ii"},
-    {"LOCATION_SWAP",                 SITE_LOCATION_SWAP,                 K_OBSERVE, "i:iiii"},
-    {"APE_POSSESSION",                SITE_APE_POSSESSION,                K_OBSERVE, "i:ii"},
+    {"LOCATION_SWAP",                 SITE_LOCATION_SWAP,                 K_OBSERVE, SITE_SIGNATURE("i:iiii", "x:iiii")},
+    {"APE_POSSESSION",                SITE_APE_POSSESSION,                K_OBSERVE, SITE_SIGNATURE("i:ii", "x:ii")},
     {"RITUAL_ASK_HEMISPHERE",         SITE_RITUAL_ASK_HEMISPHERE,         K_OBSERVE, "i:"},
     {"GET_TITHES",                    SITE_GET_TITHES,                    K_OBSERVE, "v:"},
     {"ELIMINATE_PLAYER",              SITE_ELIMINATE_PLAYER,              K_OBSERVE, "v:i"},
@@ -307,7 +317,7 @@ static const LuaSite luaSites[] = {
     {"ORDER_CHOP_FOREST",             SITE_ORDER_CHOP_FOREST,             K_OBSERVE, "x:ii"},
     {"LIFEFORCE_DRAIN_SQUARE",        SITE_LIFEFORCE_DRAIN_SQUARE,        K_OBSERVE, "x:iiii"},
     {"SPEND_ALL_AP_AT",               SITE_SPEND_ALL_AP_AT,               K_OBSERVE, "v:iii"},
-    {"SWAP_SQUARES",                  SITE_SWAP_SQUARES,                  K_OBSERVE, "i:iiii"},
+    {"SWAP_SQUARES",                  SITE_SWAP_SQUARES,                  K_OBSERVE, SITE_SIGNATURE("i:iiii", "x:iiii")},
     {"TELEPORT_UNIT",                 SITE_TELEPORT_UNIT,                 K_OBSERVE, "v:iii"},
     {"UNIT_CLEAR_BENEFITS",           SITE_UNIT_CLEAR_BENEFITS,           K_OBSERVE, "x:i"},
     {"GAME_MENU",                     SITE_GAME_MENU,                     K_OBSERVE, "v:"},
@@ -401,6 +411,23 @@ static const LuaSite luaSites[] = {
     {"REVELS_SPAWN",                  SITE_REVELS_SPAWN,                  K_OBSERVE, "v:ii"},
     {"HORROR_LORD_PICK",              SITE_HORROR_LORD_PICK,              K_OBSERVE, "x:ii"},
 };
+
+static void previewNoteWrapChange(const LuaWrap *w) {
+    char file[64] = "";
+    int line = 0;
+    lua_State *L = w->s ? w->s->L : NULL;
+    if (L && lua_checkstack(L, 2)) {
+        lua_Debug ar;
+        lua_rawgeti(L, LUA_REGISTRYINDEX, w->ref);
+        if (lua_getinfo(L, ">S", &ar)) {
+            const char *slash = strrchr(ar.short_src, '/'), *back = strrchr(ar.short_src, '\\');
+            if (back > slash) slash = back;
+            snprintf(file, sizeof file, "%s", slash ? slash + 1 : ar.short_src);
+            line = ar.linedefined;
+        }
+    }
+    previewScriptNote(w->s ? w->s->mod : "?", file, line, luaSites[w->site].name, "", PREVIEW_SCRIPT_WRAP, "");
+}
 #define LUA_SITE_COUNT ((int)(sizeof luaSites / sizeof luaSites[0]))
 static LuaSiteState luaSiteState[LUA_SITE_COUNT];
 
@@ -831,7 +858,7 @@ static int pushLuaWrapCall(lua_State *L, void *frame) {
 static u64 runLuaWrap(LuaWrap *w, const LuaArgs *a) {
     const LuaSite *ls = &luaSites[w->site];
     LuaScript *s = w->s;
-    if (!s || s->dead) return callLuaNext(ls, w->next, a);
+    if (!s || s->dead || !luaSiteOpenNow(s, ls->site)) return callLuaNext(ls, w->next, a);
     LuaFrame f = {luaFrames, w, a, 0, 0, ++luaFrameSerial, 0, 0, 0, luaChangeCount};
     luaFrames = &f;
     int results = ls->kind == K_TARGET_SQUARE ? 3 : 1;
@@ -1158,6 +1185,22 @@ static int lWrap(lua_State *L) {
     return 1;
 }
 
+static void dropLuaScriptWraps(const LuaScript *s) {
+    for (int i = 0; i < LUA_SITE_COUNT; i++) {
+        LuaSiteState *st = &luaSiteState[i];
+        int kept = 0;
+        for (int j = 0; j < st->count; j++) {
+            if (st->wraps[j]->s == s) unlinkWrap(luaSites[i].site, &st->wraps[j]->next);
+            else st->wraps[kept++] = st->wraps[j];
+        }
+        st->count = kept;
+        kept = 0;
+        for (int j = 0; j < st->observerCount; j++)
+            if (st->observers[j].s != s) st->observers[kept++] = st->observers[j];
+        st->observerCount = kept;
+    }
+}
+
 // ---- Observers: coe5.observe(siteName, before, after) -----------------------------------------
 typedef struct { int ref; const LuaSite *ls; const CallInfo *call; int after; } LuaObserverCall;
 static int pushLuaObserverCall(lua_State *L, void *ctx) {
@@ -1176,7 +1219,8 @@ static int pushLuaObserverCall(lua_State *L, void *ctx) {
 static const CallInfo *luaObserving[SITE_COUNT];
 static int luaObservingAfter[SITE_COUNT];
 static void runLuaObservers(CallSite site, const CallInfo *call, int after) {
-    if (isNetworkGame()) return;
+    NetRole role = netRoleNow();
+    if (role == NET_ROLE_OFFICIAL) return;
     const LuaSite *ls = NULL;
     for (int i = 0; i < LUA_SITE_COUNT && !ls; i++)
         if (luaSites[i].site == site && luaSites[i].kind == K_OBSERVE) ls = &luaSites[i];
@@ -1189,6 +1233,7 @@ static void runLuaObservers(CallSite site, const CallInfo *call, int after) {
         LuaObserver o = st->observers[i];
         LuaObserverCall c = {after ? o.refAfter : o.refBefore, ls, call, after};
         if (!o.s || o.s->dead || c.ref == LUA_NOREF) continue;
+        if (role != NET_ROLE_SINGLE && !luaCallbackOpenNow(o.s)) continue;
         callLuaProtected(o.s, pushLuaObserverCall, &c, 0);
     }
     luaObserving[site] = outerCall, luaObservingAfter[site] = outerAfter;

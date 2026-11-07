@@ -5,8 +5,15 @@ static int isSettingLine(const char *line) {
     return (line[0] == '+' || line[0] == '-') && !strncmp(line + 1, "setting", 7) && (line[8] == ' ' || line[8] == '\t');
 }
 
+static int hostSettingPickOr(const char *mod, const char *name, int fallback);
+
 static int settingValueNow(const ModSetting *s) {
-    return isNetworkGame() || s->rejected ? s->defaultValue : s->value;
+    if (s->rejected) return s->defaultValue;
+    NetRole role = netRoleNow();
+    if (role == NET_ROLE_SINGLE || role == NET_ROLE_HOST) return s->value;
+    if (role == NET_ROLE_OFFICIAL) return s->defaultValue;
+    if (!strcmp(s->mod, COE5SE_MOD) || modClassNow(s->mod) == LUA_CLASS_PERSONAL) return s->value;
+    return hostSettingPickOr(s->mod, s->name, s->defaultValue);
 }
 
 static void eventLineHook(const char *line, int level) {
@@ -25,10 +32,14 @@ static void eventLineHook(const char *line, int level) {
     if (!line) return;
     if (eventLogicLine(line, level)) return;
     if (corpseEventLine(line, level)) return;
+    previewRestartDiceEvent(line, level);
     if (!isSettingLine(line)) {
+        previewEventLineBefore(level);
+        int stateBefore = G32(RVA_EVENT_STATE);
         eventFindersLineBegin();
         nextEventLine(line, level);
         eventFindersLineEnd();
+        if (level == 3) previewNoteEventLine(mod, base, line, stateBefore);
         eventLogicAfterLine(line, level);
         return;
     }
@@ -52,7 +63,7 @@ static void eventLineHook(const char *line, int level) {
         return;
     }
     if (G32(RVA_EVENT_STATE) < 1 || level == 4) return;
-    if (isNetworkGame()) {
+    if (netRoleNow() == NET_ROLE_OFFICIAL) {
         G32(RVA_EVENT_STATE) = -1;
         return;
     }

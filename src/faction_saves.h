@@ -134,7 +134,8 @@ static void readLoadedSaveFactions(const char *path) {
     loadedSaveFactions.accepted = !strcmp(word, "accepted");
     loadedSaveFactions.pending = loadedSaveFactions.accepted;
     if (loadedSaveFactions.accepted) writeLog("save_factions_read", "result=accepted factions=%d", loadedSaveFactions.count);
-    else writeLogError("save_factions_refused", "reason=%s factions=%d missing=%s", word, loadedSaveFactions.count, missing[0] ? missing : "-");
+    else if (!missing[0] || !endHostLoadOverNoMultiplayerDeclared(missing, "faction"))
+        writeLogError("save_factions_refused", "reason=%s factions=%d missing=%s", word, loadedSaveFactions.count, missing[0] ? missing : "-");
 }
 
 static void placeSavedFactions(void) {
@@ -151,8 +152,9 @@ static void placeSavedFactions(void) {
         }
         snprintf(placed[n++].mod, sizeof placed[0].mod, "%s", loadedSaveFactions.mods[k]);
     }
-    for (int i = 0; i < factionCount && n < FACTION_SLOT_TARGET; i++)
-        if (!used[i]) placed[n++] = factions[i];
+    for (int i = 0; i < factionCount; i++)
+        if (!used[i] && n < FACTION_SLOT_TARGET) placed[n++] = factions[i];
+        else if (!used[i]) freeFactionLists(&factions[i]);
     memcpy(factions, placed, (size_t)n * sizeof factions[0]);
     factionCount = n;
 }
@@ -193,7 +195,7 @@ static void applyLoadedSaveFactions(int level) {
     writeLogError("save_factions_refused", "reason=faction_not_declared_after_pass factions=%d missing=%s", loadedSaveFactions.count, missing);
     static char text[POPUP_TEXT_SIZE];
     snprintf(text, sizeof text, "Factions missing from this save's mods:\n%s\n", missing);
-    okBox("CoE5SE: Not a proper save file", text);
+    okBoxOrLog("CoE5SE: Not a proper save file", text);
     GAME_FN(void (*)(const char *), RVA_EXIT_GAME)("");
 }
 

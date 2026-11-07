@@ -1,5 +1,4 @@
 // ---- The shop's built-in offers, and mods' offer rows ------------------------------------------
-#define SHOP_ROWS_MAX           50
 #define SHOP_ROW_LIMITER_SIZE   SHOP_OFFER_TEXT_SIZE
 #define SHOP_TEAM_SQUARES       -997
 #define SHOP_OWN_SQUARES        -998
@@ -253,14 +252,14 @@ typedef struct {
     int price;
     char limiter[SHOP_ROW_LIMITER_SIZE];
 } ShopRow;
-static ShopRow shopRows[SHOP_ROWS_MAX];
-static int shopRowCount;
+static ShopRow **shopRows;
+static int shopRowCount, shopRowRoom;
 static int shopHooksInstalled;
 
-static int shopRowLive(const ShopRow *r) { return r->owner && !r->owner->dead; }
+static int shopRowLive(const ShopRow *r) { return r->owner && !r->owner->dead && luaGameLogicOpenNow(r->owner); }
 static int builtinOfferReplaced(int line) {
     for (int i = 0; i < shopRowCount; i++)
-        if (shopRows[i].replaces == line && shopRowLive(&shopRows[i])) return 1;
+        if (shopRows[i]->replaces == line && shopRowLive(shopRows[i])) return 1;
     return 0;
 }
 
@@ -468,8 +467,8 @@ static void shopProcessOfferHook(int player, void *record, int temples, int libr
 
 static void shopBuildHook(int player) {
     int any = 0;
-    for (int i = 0; i < shopRowCount && !any; i++) any = shopRowLive(&shopRows[i]);
-    if (!any || isNetworkGame() || player < 0 || player >= PLAYER_SLOTS) {
+    for (int i = 0; i < shopRowCount && !any; i++) any = shopRowLive(shopRows[i]);
+    if (!any || netShutsGameCalls() || player < 0 || player >= PLAYER_SLOTS) {
         GAME_FN(void (*)(int), RVA_SHOP_BUILD)(player);
         return;
     }
@@ -479,7 +478,7 @@ static void shopBuildHook(int player) {
     shopBuild.active = 0;
     emptyReplacedOffers(player);
     for (int i = 0; i < shopRowCount; i++)
-        if (shopRowLive(&shopRows[i])) rollShopRow(&shopRows[i], player);
+        if (shopRowLive(shopRows[i])) rollShopRow(shopRows[i], player);
     mergeShopMessages(player);
 }
 
@@ -658,16 +657,27 @@ static int readShopRowFields(lua_State *L, const char *call, ShopRow *r) {
 }
 
 static int addShopRow(lua_State *L, const char *call, ShopRow *r) {
-    if (shopRowCount >= SHOP_ROWS_MAX) {
-        refuseLuaCall(runningLuaMod(), call, "too_many_rows", "rows=%d max=%d", shopRowCount, SHOP_ROWS_MAX);
-        return -1;
+    if (shopRowCount == shopRowRoom) {
+        int room = shopRowRoom ? shopRowRoom * 2 : 64;
+        ShopRow **grown = room > shopRowRoom ? realloc(shopRows, (size_t)room * sizeof *shopRows) : NULL;
+        if (!grown) {
+            refuseLuaCall(runningLuaMod(), call, "out_of_memory", "rows=%d", shopRowCount);
+            return -1;
+        }
+        shopRows = grown, shopRowRoom = room;
     }
     if (!installShopOfferHooks()) {
         refuseLuaCall(runningLuaMod(), call, "site_unavailable", "name=%s", r->name);
         return -1;
     }
+    ShopRow *row = malloc(sizeof *row);
+    if (!row) {
+        refuseLuaCall(runningLuaMod(), call, "out_of_memory", "rows=%d", shopRowCount);
+        return -1;
+    }
     r->owner = luaScriptOf(L);
-    shopRows[shopRowCount] = *r;
+    *row = *r;
+    shopRows[shopRowCount] = row;
     writeLog("shop_row_added", "mod=%s row=%d name=%s replaces=%d", r->owner->mod, shopRowCount + 1, r->name, r->replaces + 1);
     return ++shopRowCount;
 }

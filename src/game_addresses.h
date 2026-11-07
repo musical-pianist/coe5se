@@ -249,6 +249,7 @@
 #define RVA_TTF_RENDER_UTF8_BLENDED            ADDR_DIFFERS(0x33a690,          0x1000cf340)
 #define RVA_DRAW_TEXT                          ADDR(        0x02f380,          MAC_INLINED)
 #define RVA_RENDER_TEXT                        ADDR(        0x0544e0,          0x10034d6a8)
+#define RVA_TEXT_MEASURE                       ADDR(        0x0521d0,          0x10034d3b0)
 #define RVA_TEXT_COLOUR                        ADDR(        0x430480,          0x100857660)
 #define RVA_TEXT_CELL_COLOUR                   ADDR(        WIN_INLINED,       MAC_INLINED)
 #define RITUAL_GREYED_ALPHA                    0.5f
@@ -328,9 +329,9 @@
 #define AI_MOVE_MAC_COMSTR_AT                  0x70
 #define RVA_AI_EXPLORE_STEP_CALL               ADDR(        0x070c72,          MAC_INLINED)
 #define RVA_AI_FAR_EXPLORE_STEP                ADDR(        0x073d50,          0x1004d3990)
-#define RVA_AI_RALLY_STEP                      ADDR(        0x076640,          MAC_NOT_LOOKED_UP)
+#define RVA_AI_RALLY_STEP                      ADDR(        0x076640,          MAC_INLINED)
 #define RVA_AI_RALLY_STEP_CALL                 ADDR(        0x070b92,          MAC_NOT_LOOKED_UP)
-#define RVA_AI_FRIENDLY_MOVE_STEP              ADDR(        0x076230,          MAC_NOT_LOOKED_UP)
+#define RVA_AI_FRIENDLY_MOVE_STEP              ADDR(        0x076230,          MAC_INLINED)
 #define RVA_AI_FRIENDLY_MOVE_STEP_CALL         ADDR(        0x070bdb,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_CONQUER_STEP_CALL               ADDR(        0x070c24,          MAC_INLINED)
 #define RVA_AI_FAR_EXPLORE_STEP_CALL           ADDR(        0x070cc0,          MAC_NOT_LOOKED_UP)
@@ -380,9 +381,9 @@
 #define RVA_AI_CONQUER_THREAT_CALL             ADDR(        0x075f60,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_THREAT_STRENGTH_CALL            ADDR(        0x077032,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_CONQUER_ROUTE_CALL              ADDR(        0x0760d2,          MAC_NOT_LOOKED_UP)
-#define RVA_ROUTE_BOUND_OTHER                  ADDR(        0x5be324c,         MAC_NOT_LOOKED_UP)
-#define RVA_ROUTE_BOUND_AI                     ADDR(        0x5be3e08,         MAC_NOT_LOOKED_UP)
-#define RVA_ROUTE_BOUND_HUMAN                  ADDR(        0x5be3e0c,         MAC_NOT_LOOKED_UP)
+#define RVA_ROUTE_BOUND_OTHER                  ADDR(        0x5be324c,         0x1121ae8fc)
+#define RVA_ROUTE_BOUND_AI                     ADDR(        0x5be3e08,         0x1121ae900)
+#define RVA_ROUTE_BOUND_HUMAN                  ADDR(        0x5be3e0c,         0x1121ae904)
 #define RVA_ROUTE_STRENGTH_CALL                ADDR(        0x1dc002,          0x10059bd48)
 #define RVA_ROUTE_EXEMPT_X                     ADDR(        0x1aa7ffc,         0x105a0aea4)
 #define RVA_ROUTE_EXEMPT_Y                     ADDR(        0x1aa7c44,         0x105a0aea8)
@@ -503,13 +504,13 @@
 #define RVA_AI_SPLIT_COPY_END                  ADDR(        WIN_NO_EQUIVALENT, 0x1004d2678)
 #define AI_SPLIT_MIN_UNITS_MAC                 240
 #define RVA_AI_MAKE_GUARDS_AT                  ADDR(        0x06ebd0,          0x1004e01a0)
-#define RVA_AI_MAKE_DEFENDERS                  ADDR(        0x06fe90,          MAC_NOT_LOOKED_UP)
+#define RVA_AI_MAKE_DEFENDERS                  ADDR(        0x06fe90,          MAC_INLINED)
 #define RVA_AI_RANDOM_ENEMY                    ADDR(        0x07b480,          0x1004d17cc)
 #define RVA_AI_VIEW_MOVE_START                 ADDR(        0x06de10,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_VIEW_MOVE_END                   ADDR(        0x06da50,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_PLAN_TEXT                       ADDR(        0x06ad70,          MAC_NOT_LOOKED_UP)
-#define RVA_AI_COUNT_TROOPS                    ADDR(        0x0794b0,          MAC_NOT_LOOKED_UP)
-#define RVA_AI_UNIT_STAYS                      ADDR(        0x07d970,          MAC_NOT_LOOKED_UP)
+#define RVA_AI_COUNT_TROOPS                    ADDR(        0x0794b0,          0x1004d3024)
+#define RVA_AI_UNIT_STAYS                      ADDR(        0x07d970,          MAC_INLINED)
 #define RVA_AI_REFORMS_HERE                    ADDR(        0x07ce80,          0x1004d10f4)
 #define RVA_AI_UNIT_JOIN_KIND                  ADDR(        0x07c750,          0x1004d1260)
 #define RVA_AI_PICK_UP_LONERS                  ADDR(        0x07bcf0,          0x1004d1404)
@@ -542,7 +543,7 @@
 #define RVA_AI_ALWAYS_EXECUTE_CALL             ADDR(        0x06c451,          0x1004de598)
 #define RVA_AI_RITUALS_PICK_UP_CALL            ADDR(        0x06c485,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_NEAREST_TREQ_ON_PLANE           ADDR(        0x06cea0,          MAC_NOT_LOOKED_UP)
-#define RVA_AI_NEAREST_TREQ                    ADDR(        0x06ccf0,          MAC_NOT_LOOKED_UP)
+#define RVA_AI_NEAREST_TREQ                    ADDR(        0x06ccf0,          0x1004dfe70)
 #define RVA_AI_RITUAL_MASTER                   ADDR(        0x06ca10,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_BEST_SPAWNBOOSTER_AT            ADDR(        WIN_NOT_FOUND,     MAC_NOT_LOOKED_UP)
 #define RVA_AI_RECRUIT_TURN_GATE_LATE          ADDR(        0x077355,          MAC_NOT_LOOKED_UP)
@@ -580,8 +581,8 @@
 #define RVA_TRADE_INCOME_APPLY                 ADDR(        0x1490b0,          MAC_INLINED)
 #define RVA_AI_PLAN_SQUARE_BONUS               ADDR(        0x0770a0,          MAC_NOT_LOOKED_UP)
 #define RVA_AI_ITEM_VALUE                      ADDR(        0x073810,          0x1004d41f8)
-#define RVA_AI_REDISTRIBUTE_ITEMS              ADDR(        0x0734b0,          MAC_NOT_LOOKED_UP)
-#define RVA_AI_SHIPS                           ADDR(        0x071630,          MAC_NOT_LOOKED_UP)
+#define RVA_AI_REDISTRIBUTE_ITEMS              ADDR(        0x0734b0,          MAC_INLINED)
+#define RVA_AI_SHIPS                           ADDR(        0x071630,          MAC_INLINED)
 #define RVA_AI_RITUAL_AI_BAD                   ADDR(        0x06d070,          0x1004df834)
 #define RVA_AI_RITUAL_TARGET                   ADDR(        0x06c4f0,          0x1004df98c)
 #define RVA_AI_RITUAL_BAD_TIME                 ADDR(        0x06d290,          0x1004df230)
@@ -602,9 +603,9 @@
 #define RVA_UNIT_STRENGTH_FOR                  ADDR(        0x0bbd60,          MAC_INLINED)
 #define RVA_UNIT_COUNTS_AS_MONSTER             ADDR(        0x1d9010,          0x100520f94)
 #define RVA_SQUARE_SIDE_STRENGTH               ADDR(        0x0f8cb0,          0x1003e7038)
-#define RVA_COMMANDER_MAY_ACT                  ADDR(        0x1df3f0,          MAC_NOT_LOOKED_UP)
+#define RVA_COMMANDER_MAY_ACT                  ADDR(        0x1df3f0,          0x100599b90)
 #define RVA_COMMANDER_RITPOW                   ADDR(        0x2c3e00,          MAC_NOT_FOUND)
-#define RVA_COMMANDER_LED_COUNT                ADDR(        0x128680,          MAC_NOT_LOOKED_UP)
+#define RVA_COMMANDER_LED_COUNT                ADDR(        0x128680,          0x10046c6b0)
 #define RVA_UNIT_HAS_RANGED                    ADDR(        0x322270,          0x10056c998)
 #define RVA_MONSTER_HAS_RANGED                 ADDR(        0x326d50,          MAC_NOT_FOUND)
 #define RVA_UNIT_RETURNS                       ADDR(        0x326440,          0x10056925c)
@@ -625,7 +626,7 @@
 #define RVA_SQUARE_INCOME                      ADDR(        0x32f100,          0x1004cd508)
 #define RVA_SQUARE_GOLD_INCOME                 ADDR(        0x335350,          MAC_NOT_FOUND)
 #define RVA_TERRAIN_BASE_INCOME                ADDR(        0x330a60,          0x1004ce01c)
-#define RVA_SQUARE_LIFEFORCE_AT                ADDR(        0x334830,          MAC_NOT_FOUND)
+#define RVA_SQUARE_LIFEFORCE_AT                ADDR(        0x334830,          MAC_INLINED)
 #define RVA_LIFEFORCE_DRAIN_SQUARE             ADDR(        0x32dd70,          0x1004d0754)
 #define RVA_PLAYER_INCOME_CACHE                 ADDR(        0x11c1bb2c,         0x10ccebe20)
 #define RVA_FREE_TROOPS_STRENGTH               ADDR(        0x128ae0,          0x100475010)
@@ -773,7 +774,7 @@
 #define RVA_AI_PROGRESS_MODE                   ADDR(        0x43c8c4,          MAC_NOT_LOOKED_UP)
 #define RVA_ROUTE_REFUSE_PLAYER                ADDR(        0x43c394,          MAC_NOT_LOOKED_UP)
 #define RVA_ROUTE_REFUSE_CLASS                 ADDR(        0x43c2dc,          MAC_NOT_LOOKED_UP)
-#define RVA_ROUTE_MAX_SEAS                     ADDR(        0x58355f4,         MAC_NOT_LOOKED_UP)
+#define RVA_ROUTE_MAX_SEAS                     ADDR(        0x58355f4,         0x1121124e0)
 #define RVA_ROUTE_MAX_SKIES                    ADDR(        0x58355f0,         0x1121124e4)
 #define RVA_MOVE_COMMANDER_STEP                ADDR(        0x1df540,          0x10059a324)
 #define RVA_CLEAR_SQUARE_MARKS                 ADDR(        0x1b3370,          MAC_NOT_LOOKED_UP)
@@ -787,7 +788,7 @@
 #define RVA_UNIT_AFFLICTION_LIST               ADDR(        0x1d3a60,          0x10051fca8)
 #define UNIT_FEEBLEMINDED                      (1ULL << 25)
 #define RVA_UNIT_AFFLICTION_LINE               ADDR(        0x1d0dc0,          0x10051c884)
-#define RVA_COMMANDER_AP_LEFT                  ADDR(        0x3289a0,          MAC_NOT_LOOKED_UP)
+#define RVA_COMMANDER_AP_LEFT                  ADDR(        0x3289a0,          0x10056a66c)
 #define RVA_RESOURCE_INCOME                    ADDR(        0x3293c0,          0x100567cac)
 #define RVA_RITUAL_FX_FIRST                    ADDR(        0x2c56c0,          MAC_NOT_FOUND)
 #define RVA_RITUAL_FX_FIRST_OR                 ADDR(        0x2cb830,          MAC_NOT_FOUND)
@@ -805,7 +806,7 @@
 #define RVA_NET_SEND_MOVED_UNITS               ADDR(        0x1f0b20,          0x10050c650)
 #define RVA_SQUARE_TERRAIN_RECORD              ADDR(        0x3349a0,          MAC_NOT_LOOKED_UP)
 #define RVA_TERRAIN_BURNABLE_AT                ADDR(        0x106b60,          MAC_INLINED)
-#define RVA_DIG_TUNNEL_SQUARE                  ADDR(        0x1af550,          MAC_NOT_LOOKED_UP)
+#define RVA_DIG_TUNNEL_SQUARE                  ADDR_DIFFERS(0x1af550,          0x1004a9cac)
 #define RVA_PLAYER_BLESSING_VALUE              ADDR(        0x113840,          MAC_INLINED)
 #define RVA_STEP_BURN_FOREST                   ADDR(        0x106af0,          MAC_INLINED)
 #define RVA_AI_SPLIT_LEADER_UNLINK             ADDR(        0x07bbcd,          MAC_NOT_LOOKED_UP)
@@ -832,7 +833,7 @@
 #define RVA_COUNT_FREE_COMMANDERS              ADDR(        0x129360,          MAC_NOT_FOUND)
 #define RVA_UNIT_HAS_SPELL_ATTACK              ADDR(        0x1d9730,          MAC_NOT_LOOKED_UP)
 #define RVA_UNIT_HAS_SPELL_WEAPON              ADDR(        0x3294e0,          0x10056c43c)
-#define RVA_UNIT_HAS_WATER_MOVE                ADDR(        0x329940,          MAC_NOT_LOOKED_UP)
+#define RVA_UNIT_HAS_WATER_MOVE                ADDR(        0x329940,          0x10056ce24)
 #define RVA_UNIT_FLIGHT_KIND                   ADDR(        0x329fd0,          0x10056bc28)
 #define RVA_UNIT_PLANE                         ADDR(        0x329990,          MAC_INLINED)
 #define RVA_UNIT_BATTLE_SIZE                   ADDR(        0x321a10,          0x10056bb74)
@@ -880,7 +881,7 @@
 #define RVA_UNIT_SWIMS                         ADDR(        0x104850,          MAC_NOT_FOUND)
 #define RVA_UNIT_NOLAND                        ADDR(        0x104830,          MAC_NOT_FOUND)
 #define RVA_UNIT_MINDLESS                      ADDR(        0x1d9870,          0x10051fc48)
-#define RVA_SQUARE_SOUTH                       ADDR(        0x2ad410,          MAC_NOT_LOOKED_UP)
+#define RVA_SQUARE_SOUTH                       ADDR(        0x2ad410,          MAC_INLINED)
 #define RVA_SQUARE_NORTH                       ADDR(        0x2ad3c0,          MAC_INLINED)
 #define RVA_COUNT_WATER_NEAR                   ADDR(        0x32cc40,          0x1004c8f58)
 #define RVA_COUNT_LAND_NEAR                    ADDR(        0x32cb20,          0x1004c9090)
@@ -893,7 +894,7 @@
 #define RVA_WANDERER_PICK_TARGET               ADDR(        0x169b90,          0x100548204)
 #define RVA_WANDERER_AT                         ADDR(        0x177620,          0x100547ad8)
 #define RVA_WANDERER_PICK_UP                   ADDR(        0x147610,          MAC_INLINED)
-#define RVA_LONER_STEP                         ADDR(        0x172f80,          MAC_NOT_LOOKED_UP)
+#define RVA_LONER_STEP                         ADDR(        0x172f80,                0x100545954)
 #define RVA_COUNT_UNITS_FLAGGED_AT             ADDR(        0x117b20,          MAC_NOT_FOUND)
 #define RVA_SQUARE_ALL_STRENGTH                ADDR(        0x0bbd40,          MAC_NOT_FOUND)
 #define RVA_REMOVE_COMMANDER_ARMY              ADDR(        WIN_INLINED,       MAC_NOT_LOOKED_UP)
@@ -919,8 +920,9 @@
 #define RVA_DROWN_UNIT_SKIP_2                  ADDR(        WIN_NO_EQUIVALENT, 0x1003b640c)
 #define RVA_DROWN_KILL_CALL                    ADDR(        0x11499a,          0x1003b6398)
 #define RVA_DROWN_KILL_CALL_2                  ADDR(        WIN_NO_EQUIVALENT, 0x1003b6668)
+#define ABILITY_AIRBREATHER                    0x1d0
 #define RVA_LAND_DROWN_KILL_CALL               ADDR(        0x114aed,          0x1003b5ff8)
-#define RVA_UNIT_MAY_BE_ON_LAND                ADDR(        0x31faa0,          0x100548048)
+#define RVA_UNIT_MAY_BE_ON_LAND                ADDR_DIFFERS(0x31faa0,          0x100548048)
 #define UNIT_STATE_FLYING_OVER_WATER           0x2000000000
 #define RVA_CRASH_LANDING_CHECK                ADDR(        0x113b30,          MAC_INLINED)
 #define RVA_TURN_UNIT_UPKEEP                   ADDR(        0x143a70,          0x100399a14)
@@ -1099,10 +1101,10 @@
 #define RVA_RESET_MODS                         ADDR(        0x1ca5d0,          0x100528d40)
 #define RVA_BEFORE_GAME_START                  ADDR(        0x093fd0,          0x100389358)
 #define RVA_TOP_BAR                            ADDR(        0x09bf80,          0x100377348)
-#define RVA_INCOME_DETAIL_SCREEN               ADDR(        0x11afe0,          MAC_NOT_LOOKED_UP)
+#define RVA_INCOME_DETAIL_SCREEN               ADDR(        0x11afe0,          MAC_INLINED)
 #define RVA_INCOME_DETAIL_CALL                 ADDR(        0x0976d9,          MAC_NOT_LOOKED_UP)
-#define RVA_DROUGHT_MONTHS                     ADDR(       0x5822f68,          MAC_NOT_LOOKED_UP)
-#define RVA_TRADE_BONUS_PERCENT                ADDR(        0x32ee80,          MAC_NOT_LOOKED_UP)
+#define RVA_DROUGHT_MONTHS                     ADDR(       0x5822f68,          0x10ce02ee0)
+#define RVA_TRADE_BONUS_PERCENT                ADDR(        0x32ee80,          MAC_INLINED)
 #define RVA_DATE                               ADDR(        0x118890,          MAC_INLINED)
 #define RVA_UNIT_SHOWN_NAME                    ADDR(        0x0f8520,          0x1003bb774)
 #define RVA_COMMANDER_THE_NAME                 ADDR(        0x0f8bd0,          MAC_INLINED)
@@ -1129,6 +1131,22 @@
 #define RVA_SETUP_SERVER                       ADDR(        0x1f0f10,          0x1005022f4)
 #define RVA_NET_CLIENT_GAME                    ADDR(        0x1e8b60,          0x100507278)
 #define RVA_NET_MODVAR                         ADDR(        0x1ea8c0,          MAC_INLINED)
+#define RVA_NET_BEGIN_PACKET                   ADDR(        0x069c10,          0x1004f512c)
+#define RVA_NET_PUT_BYTE                       ADDR(        0x069bb0,          0x1004f5198)
+#define RVA_NET_PUT_STRING                     ADDR(        0x0693e0,          0x1004f55fc)
+#define RVA_NET_SEND_PACKET                    ADDR(        0x0691e0,          0x1004f5854)
+#define RVA_NET_GET_BYTE                       ADDR(        0x0690d0,          0x1004f58bc)
+#define RVA_NET_CHECK_EVENTS                   ADDR(        0x1e8290,          0x10050d2a0)
+#define RVA_NET_EVENTS_UNKNOWN_TRACE           ADDR(        0x1e83de,          0x10050d3cc)
+#define RVA_NET_CLIENT_UNKNOWN_TRACE           ADDR(        0x1ea74b,          0x10050b49c)
+#define RVA_NET_SERVER_LOBBYMSG_TRACE          ADDR(        0x1f681a,          0x1004fadd0)
+#define RVA_PARTICIPANTS_ROW_STRIPE_CALL       ADDR(        0x1ed7f9,          0x1005032a8)
+#define RVA_PARTICIPANTS_WAIT_CALL             ADDR(        0x1edf4f,          0x100503a50)
+#define RVA_PARTICIPANTS_LOBBY_TRACE           ADDR(        0x1ee7da,          0x100503b84)
+#define RVA_LOBBY_MESSAGE                      ADDR(        0x5827590,         0x108810294)
+#define NET_PACKET_LOBBY_MESSAGE               0x43
+#define NET_PACKET_LOBBY_MESSAGE_ALL           0x44
+#define NET_LOBBY_MESSAGE_MAX                  0x200
 #define RVA_NEW_WORLD_NET_AFTER                ADDR(        0x1ad1b0,          MAC_INLINED)
 #define RVA_OPENDIR                            ADDR(        0x05c230,          0x1005aea4c)
 
@@ -1176,6 +1194,7 @@
 #define RVA_GAME_OVER_WAIT_CALL                ADDR(        0x10d033,          0x1004743cc)
 #define RVA_LOAD_TURN_END_CALL                 ADDR(        0x18678e,          0x1004ed444)
 #define RVA_EXIT_DISCONNECT_CALL               ADDR(        0x198dee,          0x10032b37c)
+#define RVA_FILE_WRITE_SPARSE_INTS             ADDR(        0x057e60,          MAC_INLINED)
 #define RVA_RESET_EVENT_VARS                   ADDR(        0x31caa0,          0x100586034)
 #define RVA_MAP_GAME_MENU_CALL                 ADDR(        0x09724b,          MAC_NO_CALL)
 #define RVA_MAP_SQUARE_INFO_CALL               ADDR(        0x097713,          0x1003840f0)
@@ -1195,8 +1214,10 @@
 #define RVA_SERVER_SAVE_CALL                   ADDR(        WIN_NO_CALL,       0x1004fa664)
 #define RVA_SETUP_SERVER_LOAD_CALL             ADDR(        0x1f135f,          0x100502968)
 #define RVA_NET_CLIENT_LOAD_CALL               ADDR(        0x1ea54a,          0x10050b9bc)
+#define RVA_NET_CLIENT_WAIT_CALL               ADDR(        0x1e9957,          0x10050a6b4)
 #define RVA_SETUP_SERVER_LOAD_SCREEN_CALL      ADDR(        0x1f1380,          0x10050292c)
 #define RVA_SETUP_SERVER_PLAY_GAME_CALL        ADDR(        0x1f13be,          0x1005026ac)
+#define RVA_SETUP_SERVER_GAME_LOOP             ADDR(        0x1f13c3,          0x1005026c0)
 #define RVA_MAIN_MENU_LOAD_CALL                ADDR(        0x18ac76,          0x10032e16c)
 #define RVA_MAIN_MENU_LOADED_SET               ADDR(        0x192130,          0x10032e180)
 #define RVA_CMDLINE_LOAD_CALL                  ADDR(        0x190e71,          0x1003336ec)
@@ -1223,6 +1244,13 @@
 #define RVA_UNIT_CLEAR_BENEFITS                ADDR(        0x0d0160,          0x1003bea6c)
 #define RVA_BATTLE_TURN_EFFECTS                ADDR(        0x0d08b0,          0x1003ed6e0)
 #define RVA_WEAPON_AREA_CELLS                  ADDR(        0x0d9a60,          0x1003c6358)
+#define RVA_AREA_LAST                          ADDR(        0x1b1cd90,         0x100872b20)
+#define RVA_AREA_CELLS                         ADDR(        0x120658e0,        0x1069f64bc)
+#define RVA_DOATTACK_SPELL_AREA_CALL           ADDR(        0x0d47c1,          0x1003ec608)
+#define RVA_DOATTACK_AREA_CALL                 ADDR(        0x0d4bf1,          0x1003ecbd8)
+#define RVA_WEAPON_ATTACK_AREA_CALL            ADDR(        0x0d9122,          0x1003bd4e4)
+#define RVA_AREA_ADD                           ADDR(        0x0dadd0,          MAC_INLINED)
+#define RVA_AREA_LISTED                        ADDR(        0x0dad40,          MAC_INLINED)
 #define RVA_BATTLE_IN_RANGE                    ADDR(        0x0db400,          MAC_NOT_FOUND)
 #define RVA_BATTLE_SUMMON_WEAPON               ADDR(        0x0dbee0,          MAC_INLINED)
 #define RVA_BATTLE_WALL_COVER                  ADDR(        0x0e02f0,          0x1003c9d8c)
@@ -1232,22 +1260,22 @@
 #define RVA_BATTLE_FEAR_CHECK                  ADDR(        0x0e40f0,          MAC_INLINED)
 #define RVA_BATTLE_DEPLOY_UNIT                 ADDR(        0x0e5260,          0x1003bba28)
 #define RVA_BATTLE_CELL_TEST                   ADDR(        0x0ecfb0,          MAC_INLINED)
-#define RVA_BATTLE_SQUARE_ABILITY              ADDR(        0x0edd80,          MAC_NOT_FOUND)
+#define RVA_BATTLE_SQUARE_ABILITY              ADDR(        0x0edd80,          MAC_INLINED)
 #define RVA_BATTLE_GATE_SWAP                   ADDR(        0x0ee250,          0x1003cf140)
 #define RVA_FOUND_ITEM                         ADDR(        0x0f0990,          0x1003ce484)
 #define RVA_KILL_UNIT_999                      ADDR(        0x0f14e0,          MAC_NOT_FOUND)
 #define RVA_UNIT_ADD_XP                        ADDR(        0x0f1bf0,          MAC_INLINED)
 #define RVA_REMOVE_TEMP_MEN                    ADDR(        0x1177b0,          0x100469788)
-#define RVA_UNIT_REGEN_PERCENT                 ADDR(        0x321ae0,          MAC_NOT_FOUND)
+#define RVA_UNIT_REGEN_PERCENT                 ADDR(        0x321ae0,          0x10056cc58)
 #define RVA_UNIT_DAMAGE_BONUS                  ADDR(        0x3239b0,          0x10056b128)
-#define RVA_UNIT_MR                            ADDR(        0x324820,          MAC_NOT_FOUND)
+#define RVA_UNIT_MR                            ADDR(        0x324820,          0x10056a3bc)
 #define RVA_UNIT_IS_HUGE                       ADDR(        0x3209f0,          0x100569bec)
-#define RVA_UNIT_LIFELESS                      ADDR(        0x322b80,          MAC_NOT_FOUND)
-#define RVA_UNIT_PRIMABLE                      ADDR(        0x324170,          MAC_NOT_FOUND)
+#define RVA_UNIT_LIFELESS                      ADDR(        0x322b80,          MAC_INLINED)
+#define RVA_UNIT_PRIMABLE                      ADDR(        0x324170,          0x10056ccf8)
 #define RVA_UNIT_IS_UNDEAD                     ADDR(        0x320890,          MAC_INLINED)
 #define RVA_UNIT_IS_DEMON                      ADDR(        0x320f20,          MAC_INLINED)
 #define RVA_HUMANOID_CORPSE_TEST               ADDR(        0x1d8f00,          MAC_NOT_FOUND)
-#define RVA_UNIT_ABILITY_SUM                   ADDR(        0x128760,          MAC_NOT_FOUND)
+#define RVA_UNIT_ABILITY_SUM                   ADDR(        0x128760,          MAC_INLINED)
 #define RVA_BATTLE_IS_REPLAY                   ADDR_DIFFERS(0x5804be8,         0x10c96df38)
 
 #define RVA_UNIT_REMOVE_TEMP_ABILITY           ADDR(        0x117e40,          MAC_INLINED)
@@ -1277,68 +1305,68 @@
 #define RVA_SENSEDEAD_TEXT                     ADDR(        0x2c2030,          0x100565250)
 #define RVA_ARMY_SENSEDEAD                     ADDR(        0x5804b78,         MAC_NOT_FOUND)
 
-#define RVA_TEAM_START_LOCATIONS               ADDR(        0x0a50e0,          MAC_NOT_LOOKED_UP)
-#define RVA_TRIM_TEAM_LOCATIONS                ADDR(        0x0a5d40,          MAC_NOT_LOOKED_UP)
-#define RVA_SWAP_TEAM_LOCATIONS                ADDR(        0x0a62a0,          MAC_NOT_LOOKED_UP)
-#define RVA_CREATE_CITADELS_STEP               ADDR(        0x0a6b40,          MAC_NOT_LOOKED_UP)
-#define RVA_FIX_PORTALS                        ADDR(        0x250970,          MAC_NOT_LOOKED_UP)
-#define RVA_VOID_FLUCTUATIONS                  ADDR(        0x251970,          MAC_NOT_LOOKED_UP)
+#define RVA_TEAM_START_LOCATIONS               ADDR(        0x0a50e0,                MAC_INLINED)
+#define RVA_TRIM_TEAM_LOCATIONS                ADDR(        0x0a5d40,                MAC_INLINED)
+#define RVA_SWAP_TEAM_LOCATIONS                ADDR(        0x0a62a0,                MAC_INLINED)
+#define RVA_CREATE_CITADELS_STEP               ADDR(        0x0a6b40,                MAC_INLINED)
+#define RVA_FIX_PORTALS                        ADDR(        0x250970,          MAC_INLINED)
+#define RVA_VOID_FLUCTUATIONS                  ADDR(        0x251970,                MAC_INLINED)
 #define RVA_PLANESHIFT_COMMANDER               ADDR(        0x254920,          MAC_NOT_LOOKED_UP)
-#define RVA_MIST_SPREAD                        ADDR(        0x12fb90,          MAC_NOT_LOOKED_UP)
-#define RVA_TEMPERATURE_CHANGE                 ADDR(        0x0b3aa0,          MAC_NOT_LOOKED_UP)
-#define RVA_SPECIAL_SITE_POPULATE                      ADDR(        0x140dc0,          MAC_NOT_LOOKED_UP)
-#define RVA_UNIT_SWALLOW                       ADDR(        0x0e2d50,          MAC_NOT_LOOKED_UP)
-#define RVA_UNIT_UNSWALLOW                     ADDR(        0x0e2aa0,          MAC_NOT_LOOKED_UP)
-#define RVA_LIFEFORCE_DRAIN_UNIT               ADDR(        0x0d59e0,          MAC_NOT_LOOKED_UP)
-#define RVA_UNIT_CATCH_FIRE                    ADDR(        0x0d2b70,          MAC_NOT_LOOKED_UP)
-#define RVA_UNIT_CRUSH                         ADDR(        0x0d3290,          MAC_NOT_LOOKED_UP)
-#define RVA_REMOVE_BAD_FOLLOWERS               ADDR(        0x110ba0,          MAC_NOT_LOOKED_UP)
-#define RVA_OVERPOP_CULL                       ADDR(        0x12e4c0,          MAC_NOT_LOOKED_UP)
-#define RVA_MONKEY_CLOAK                       ADDR(        0x12caf0,          MAC_NOT_LOOKED_UP)
-#define RVA_RECYCLE_UNITS                      ADDR(        0x12d150,          MAC_NOT_LOOKED_UP)
-#define RVA_RANDOM_TELEPORT                    ADDR(        0x17e2f0,          MAC_NOT_LOOKED_UP)
-#define RVA_POP_HORRORS                        ADDR(        0x142410,          MAC_NOT_LOOKED_UP)
-#define RVA_KILL_TERRAIN_UNITS                 ADDR(        0x0e1600,          MAC_NOT_LOOKED_UP)
-#define RVA_KILL_SUNKEN_SHIPS                  ADDR(        0x0e0e50,          MAC_NOT_LOOKED_UP)
-#define RVA_CREATE_BOATS                       ADDR(        0x0ef5b0,          MAC_NOT_LOOKED_UP)
-#define RVA_BATTLE_TRAPS                       ADDR(        0x0c32b0,          MAC_NOT_LOOKED_UP)
-#define RVA_BATTLE_ENCHANT_TRAPS               ADDR(        0x0c4bd0,          MAC_NOT_LOOKED_UP)
-#define RVA_BATTLE_SUMMON_STRING               ADDR(        0x0d6c60,          MAC_NOT_LOOKED_UP)
-#define RVA_PAY_SPELL_LIFEFORCE                ADDR(        0x0d5080,          MAC_NOT_LOOKED_UP)
-#define RVA_WORLD_NEWS                         ADDR(        0x106680,          MAC_NOT_LOOKED_UP)
-#define RVA_SEASON_NEWS                        ADDR(        0x103ee0,          MAC_NOT_LOOKED_UP)
-#define RVA_CHECK_GAME_WON                     ADDR(        0x1107e0,          MAC_NOT_LOOKED_UP)
-#define RVA_SPY_CAUGHT                         ADDR(        0x1138a0,          MAC_NOT_LOOKED_UP)
-#define RVA_TOGGLE_AUTO_RECRUIT                ADDR(        0x1082f0,          MAC_NOT_LOOKED_UP)
-#define RVA_CHANGE_LOYALTY                     ADDR(        0x1734b0,          MAC_NOT_LOOKED_UP)
+#define RVA_MIST_SPREAD                        ADDR(        0x12fb90,                MAC_INLINED)
+#define RVA_TEMPERATURE_CHANGE                 ADDR_DIFFERS(0x0b3aa0,                0x100551978)
+#define RVA_SPECIAL_SITE_POPULATE                      ADDR(        0x140dc0,                MAC_INLINED)
+#define RVA_UNIT_SWALLOW                       ADDR(        0x0e2d50,                0x1003ca974)
+#define RVA_UNIT_UNSWALLOW                     ADDR(        0x0e2aa0,                0x1003bc784)
+#define RVA_LIFEFORCE_DRAIN_UNIT               ADDR(        0x0d59e0,                0x1003f1b48)
+#define RVA_UNIT_CATCH_FIRE                    ADDR(        0x0d2b70,                0x1003f152c)
+#define RVA_UNIT_CRUSH                         ADDR(        0x0d3290,                0x1003f2c84)
+#define RVA_REMOVE_BAD_FOLLOWERS               ADDR(        0x110ba0,          MAC_INLINED)
+#define RVA_OVERPOP_CULL                       ADDR(        0x12e4c0,                MAC_INLINED)
+#define RVA_MONKEY_CLOAK                       ADDR(        0x12caf0,                MAC_INLINED)
+#define RVA_RECYCLE_UNITS                      ADDR(        0x12d150,                MAC_INLINED)
+#define RVA_RANDOM_TELEPORT                    ADDR_DIFFERS(0x17e2f0,          0x1004e6350)
+#define RVA_POP_HORRORS                        ADDR(        0x142410,          0x1003b8498)
+#define RVA_KILL_TERRAIN_UNITS                 ADDR(        0x0e1600,                MAC_INLINED)
+#define RVA_KILL_SUNKEN_SHIPS                  ADDR(        0x0e0e50,                MAC_INLINED)
+#define RVA_CREATE_BOATS                       ADDR(        0x0ef5b0,                MAC_INLINED)
+#define RVA_BATTLE_TRAPS                       ADDR(        0x0c32b0,                MAC_INLINED)
+#define RVA_BATTLE_ENCHANT_TRAPS               ADDR(        0x0c4bd0,                MAC_INLINED)
+#define RVA_BATTLE_SUMMON_STRING               ADDR(        0x0d6c60,                MAC_INLINED)
+#define RVA_PAY_SPELL_LIFEFORCE                ADDR(        0x0d5080,                MAC_INLINED)
+#define RVA_WORLD_NEWS                         ADDR(        0x106680,                0x10047e9f8)
+#define RVA_SEASON_NEWS                        ADDR(        0x103ee0,                MAC_INLINED)
+#define RVA_CHECK_GAME_WON                     ADDR(        0x1107e0,                MAC_INLINED)
+#define RVA_SPY_CAUGHT                         ADDR(        0x1138a0,                0x100467a0c)
+#define RVA_TOGGLE_AUTO_RECRUIT                ADDR(        0x1082f0,          MAC_INLINED)
+#define RVA_CHANGE_LOYALTY                     ADDR(        0x1734b0,          0x10053e3c0)
 
-#define RVA_ALTER_TERRAIN_RECT                 ADDR(        0x32d7a0,          MAC_NOT_LOOKED_UP)
-#define RVA_RESPAWN_VOID                       ADDR(        0x2a03f0,          MAC_NOT_LOOKED_UP)
-#define RVA_BATTLE_SIEGE_UNIT                  ADDR(        0x0c94a0,          MAC_NOT_LOOKED_UP)
-#define RVA_GATHER_SHIPS                       ADDR(        0x0c4e60,          MAC_NOT_LOOKED_UP)
-#define RVA_ADVANCE_SHIPS                      ADDR(        0x0c5c30,          MAC_NOT_LOOKED_UP)
-#define RVA_MOVE_ENCHANTS                      ADDR(        0x2dc410,          MAC_NOT_LOOKED_UP)
-#define RVA_MOVE_GEMS                          ADDR(        0x2dc5e0,          MAC_NOT_LOOKED_UP)
-#define RVA_TAINTED_RITUAL_EFFECT              ADDR(        0x2d6c00,          MAC_NOT_LOOKED_UP)
-#define RVA_LOCATION_SWAP                      ADDR(        0x2d8cc0,          MAC_NOT_LOOKED_UP)
-#define RVA_APE_POSSESSION                     ADDR(        0x2b0ad0,          MAC_NOT_LOOKED_UP)
-#define RVA_RITUAL_ASK_HEMISPHERE              ADDR(        0x19a1b0,          MAC_NOT_LOOKED_UP)
-#define RVA_GET_TITHES                         ADDR(        0x2d9c80,          MAC_NOT_LOOKED_UP)
+#define RVA_ALTER_TERRAIN_RECT                 ADDR(        0x32d7a0,                0x1004c6fe4)
+#define RVA_RESPAWN_VOID                       ADDR(        0x2a03f0,                MAC_INLINED)
+#define RVA_BATTLE_SIEGE_UNIT                  ADDR(        0x0c94a0,                0x1003e803c)
+#define RVA_GATHER_SHIPS                       ADDR(        0x0c4e60,                MAC_INLINED)
+#define RVA_ADVANCE_SHIPS                      ADDR(        0x0c5c30,                MAC_INLINED)
+#define RVA_MOVE_ENCHANTS                      ADDR(        0x2dc410,          MAC_INLINED)
+#define RVA_MOVE_GEMS                          ADDR(        0x2dc5e0,          MAC_INLINED)
+#define RVA_TAINTED_RITUAL_EFFECT              ADDR(        0x2d6c00,                0x100351574)
+#define RVA_LOCATION_SWAP                      ADDR_DIFFERS(0x2d8cc0,          0x100358f3c)
+#define RVA_APE_POSSESSION                     ADDR_DIFFERS(0x2b0ad0,                0x10056462c)
+#define RVA_RITUAL_ASK_HEMISPHERE              ADDR(        0x19a1b0,                0x1004a65a0)
+#define RVA_GET_TITHES                         ADDR(        0x2d9c80,                MAC_INLINED)
 
-#define RVA_UNIT_RANDOM_AFFLICTION             ADDR(        0x0bb900,          MAC_NOT_LOOKED_UP)
-#define RVA_REVEAL_TERRAIN_ON_PLANE            ADDR(        0x2d7650,          MAC_NOT_LOOKED_UP)
-#define RVA_NEAR_TERRAIN_SQUARE                ADDR(        0x1adef0,          MAC_NOT_LOOKED_UP)
+#define RVA_UNIT_RANDOM_AFFLICTION             ADDR(        0x0bb900,          0x1003f73e4)
+#define RVA_REVEAL_TERRAIN_ON_PLANE            ADDR(        0x2d7650,          MAC_INLINED)
+#define RVA_NEAR_TERRAIN_SQUARE                ADDR_DIFFERS(0x1adef0,          0x1004a8ae0)
 
-#define RVA_PLANE_IS_REACHABLE                 ADDR(        0x1da490,          MAC_NOT_LOOKED_UP)
+#define RVA_PLANE_IS_REACHABLE                 ADDR(        0x1da490,          MAC_INLINED)
 #define RVA_CLAIM_SQUARES                      ADDR(        0x1438d0,          MAC_NOT_LOOKED_UP)
 #define RVA_REMOVE_MIRROR_IMAGES               ADDR(        0x0e2a20,          MAC_NOT_LOOKED_UP)
 #define RVA_CREATE_ICE_SHEETS                  ADDR(        0x0ef410,          MAC_NOT_LOOKED_UP)
 #define RVA_EXHAUSTION_DAMAGE                  ADDR(        0x0d4f10,          MAC_NOT_LOOKED_UP)
-#define RVA_ENCHANTS_DESTROYED_AT              ADDR(        0x2be650,          MAC_NOT_LOOKED_UP)
+#define RVA_ENCHANTS_DESTROYED_AT              ADDR(        0x2be650,          0x100565fc4)
 #define RVA_ENCHANTS_CHECK_ALL                 ADDR(        0x2be8b0,          MAC_NOT_LOOKED_UP)
-#define RVA_STORM_SPAWN                        ADDR(        0x2d1590,          MAC_NOT_LOOKED_UP)
+#define RVA_STORM_SPAWN                        ADDR(        0x2d1590,                MAC_INLINED)
 #define RVA_WILD_SPAWN                         ADDR(        0x2d1a40,          MAC_NOT_LOOKED_UP)
-#define RVA_REVELS_SPAWN                       ADDR(        0x2d2440,          MAC_NOT_LOOKED_UP)
+#define RVA_REVELS_SPAWN                       ADDR(        0x2d2440,                MAC_INLINED)
 #define RVA_FOREST_SHEPHERD_SPAWN              ADDR(        0x2d2380,          MAC_NOT_LOOKED_UP)
 #define RVA_HORROR_LORD_PICK                   ADDR(        0x29ffa0,          MAC_NOT_LOOKED_UP)
 #define RVA_DESERT_CLOUDS_REMOVE               ADDR(        0x12ff30,          MAC_NOT_LOOKED_UP)
@@ -1372,6 +1400,7 @@
 #define RVA_RESIGN                             ADDR_DIFFERS(0x58294f4,         0x10ce02f00)
 #define RVA_AUTORUN                            ADDR_DIFFERS(0x582815c,         0x10ce0cb68)
 #define RVA_SKIP_SETUP_A                       ADDR_DIFFERS(0x5822fb8,         0x1136f6148)
+#define RVA_TEXT_ONLY                          RVA_SKIP_SETUP_A
 #define RVA_SKIP_SETUP_B                       ADDR_DIFFERS(0x582399c,         0x10c39946c)
 #define RVA_MAP_DESCRIPTION                    ADDR_DIFFERS(0xf06c420,         0x11306ebf4)
 #define RVA_SIMULTANEOUS                       ADDR(        WIN_IN_CODE,       MAC_IN_CODE)
@@ -1766,7 +1795,7 @@
 #define AI_LEVEL_TABLE_MAX                     11
 #define RVA_COMMON_CAUSE_CHECK                 ADDR(        0x11eb30,          0x100471b38)
 #define RVA_WINNER_CHECK                       ADDR(        0x11c6a0,          0x10046caec)
-#define RVA_GAME_WINNER                        ADDR(        0xfb2cc20,         MAC_NOT_LOOKED_UP)
+#define RVA_GAME_WINNER                        ADDR(        0xfb2cc20,         0x10ce02f08)
 #define RVA_PLAYER_HAS_COMMANDER               ADDR(        0x10cac0,          MAC_INLINED)
 #define RVA_PLAYER_HAS_CITADEL                 ADDR(        0x10c7d0,          0x10046c8b4)
 #define RVA_PLANES_ALIKE                       ADDR(        0x253950,          MAC_INLINED)
@@ -1812,6 +1841,7 @@
 #define RVA_RESET_SLOT_COLOURS                 ADDR(        0x31c848,          0x100585e84)
 #define RVA_CHOOSE_COLOUR_SCREEN               ADDR(        0x088b90,          0x100490614)
 #define RVA_LOAD_PLAYER_2H                     ADDR(        0x185460,          0x1004f4d60)
+#define RVA_SERVER_LOAD_2H_CALL                ADDR(        0x1f7316,          0x1004feed4)
 #define RVA_SAVE_PLAYER_2H                     ADDR(        0x185120,          MAC_INLINED)
 #define RVA_MAP_LINE                           ADDR(        0x1b5950,          0x100512b4c)
 #define RVA_MAP_FIXEDPLAYER_LOCKS              ADDR(        0x1b6431,          0x10051381c)
@@ -1858,8 +1888,8 @@
 #define RVA_FIND_START_SQUARE                  ADDR(        0x0a7420,          0x100370384)
 #define RVA_PLAYER_INCOME_BY_TYPE              ADDR(        0x31e6b0,          0x100567bf4)
 #define RVA_IRON_BONUS_PERCENT                 ADDR(        0x32e5e0,          MAC_INLINED)
-#define RVA_GOLD_BONUS_PERCENT                 ADDR(        0x32ec20,          MAC_NOT_FOUND)
-#define RVA_PLAYER_RITUAL_FLAGS                ADDR(        0x2c13e0,          MAC_NOT_FOUND)
+#define RVA_GOLD_BONUS_PERCENT                 ADDR(        0x32ec20,          MAC_INLINED)
+#define RVA_PLAYER_RITUAL_FLAGS                ADDR(        0x2c13e0,          MAC_INLINED)
 #define RVA_ADD_PLAYER_BLESSING                ADDR(        0x2d3320,          0x1003542c0)
 #define RVA_MAP_FIXED_START                    ADDR(        0xf07af86,         MAC_NOT_FOUND)
 
@@ -2025,6 +2055,7 @@
 #define RVA_LOAD_GAME_MOD_DIFFERS_CALL         ADDR(        0x188645,          0x1004eb750)
 #define RVA_LOAD_GAME_MOD_WARNED_SET           ADDR_DIFFERS(0x18864a,          0x1004eb758)
 #define RVA_LOAD_GAME_RESET_MODS_CALL          ADDR(        0x185a27,          0x1004eb770)
+#define RVA_LOAD_GAME_SKIP_RESET_TEST          ADDR(        0x185a25,          0x1004eb76c)
 #define SAVE_VERSION_MOD_CHECKSUMS             0xc3
 #define RVA_LOAD_GAME_MOD_NOT_FOUND            ADDR(        0x18869c,          0x1004ee50c)
 #define RVA_LOAD_GAME_MOD_FLAGS_CLEAR          ADDR(        0x188410,          0x1004eb51c)
@@ -2217,6 +2248,9 @@
 #define PARTICLE_SIZE                          0x30
 #define PARTICLES_MAX                          140000
 #define RVA_PARTICLES_LAST                     ADDR(        0x43a654,          0x100862780)
+#define RVA_PARTICLE_FREE_HINT                 ADDR(        0x57f1084,         0x1067c5674)
+#define PARTICLE_FLAGS                         0x00
+#define PARTICLE_SIZE_PX                       0x18
 #define RVA_PARTICLE_ADD                       ADDR(        0x051d00,          0x100350dd4)
 #define RVA_PARTICLE_ADD_AT                    ADDR(        0x051e30,          MAC_INLINED)
 #define RVA_PARTICLES_UPDATE                   ADDR(        0x051720,          MAC_INLINED)
@@ -2236,6 +2270,23 @@
 #define FLY_WEAPON_SIZE                        0x38
 #define FLY_WEAPONS_MAX                        12000
 #define RVA_FLY_WEAPONS_LAST                   ADDR(        0x43e7f4,          0x1049c81b0)
+#define RVA_DOATTACK_FLY_CALL_A                ADDR_DIFFERS(0x0d480f          ,0x1003ec5ec)
+#define RVA_DOATTACK_FLY_CALL_B                ADDR_DIFFERS(0x0d4834          ,0x1003ec668)
+#define RVA_DOATTACK_FLY_CALL_C                ADDR_DIFFERS(0x0d48a0          ,0x1003ec6c0)
+#define RVA_DOATTACK_FLY_CALL_D                ADDR_DIFFERS(0x0d4c43          ,0x1003ecbbc)
+#define RVA_DOATTACK_FLY_CALL_E                ADDR_DIFFERS(0x0d4d0e          ,0x1003ecc38)
+#define RVA_DOATTACK_FLY_CALL_F                ADDR_DIFFERS(0x0d4eb5          ,0x1003eccb0)
+#define RVA_FLY_STEP_DRAW_CALL_A               ADDR(0x101b14          ,0x100585770)
+#define RVA_FLY_STEP_DRAW_CALL_B               ADDR(0x101ba6          ,0x1005857c4)
+#define RVA_FLY_STEP_DRAW_CALL_C               ADDR(0x101be4          ,0x1005857f0)
+#define FLY_WEAPON_ATTACKER                    0x00
+#define FLY_WEAPON_WEAPON                      0x04
+#define FLY_WEAPON_FROM_X                      0x14
+#define FLY_WEAPON_FROM_Y                      0x18
+#define FLY_WEAPON_TO_X                        0x1c
+#define FLY_WEAPON_TO_Y                        0x20
+#define FLY_WEAPON_MODE                        0x24
+#define FLY_WEAPON_PROGRESS                    0x2c
 #define RVA_FLY_WEAPONS_STEP                   ADDR(        0x101960,          0x100585538)
 #define RVA_FLY_WEAPON_DRAW_FX                 ADDR(        0x101250,          0x100585898)
 #define RVA_FLY_WEAPON_DRAW_SPRITES            ADDR(        0x100ca0,          MAC_INLINED)
@@ -2626,6 +2677,9 @@
 #define RVA_STATS_KNOWN_BOXES_SKIP             ADDR(        0x1d6884,          MAC_INLINED)
 #define FRAME_STATS_SCREEN_UNIT                FRAME_OFFSET(0x000044,          MAC_INLINED)
 #define FRAME_STATS_SCREEN_STRIPE              FRAME_OFFSET(0x000048,          MAC_INLINED)
+#define FRAME_DOATTACK_SPELL_WEAPON            FRAME_OFFSET(0x00006c,         0xb8)
+#define FRAME_DOATTACK_WEAPON                  FRAME_OFFSET(0x000050,         0x108)
+#define FRAME_WEAPON_ATTACK_WEAPON             FRAME_OFFSET(0x000090,         0x168)
 #define RVA_TITLE_CELL                         ADDR(        0x03a000,          MAC_INLINED)
 #define RVA_HEADER_TEXT                        ADDR(        0x039f40,          0x10033cdfc)
 #define RVA_TEXT_CELL                          ADDR(        0x039be0,          MAC_INLINED)
@@ -2722,8 +2776,13 @@
 #define RVA_FIND_SPELL                         ADDR(        0x2e6c80,          MAC_INLINED)
 #define RVA_SPELL_USEFUL                       ADDR(        0x2e5480,          0x1004bf9ac)
 #define RVA_SPELL_FLAG_LINES                   ADDR(        0x2e44a0,          0x1004bf378)
+#define RVA_SPELL_FLAG_LINES_CALL_A            ADDR(        0x17ec06,          MAC_INLINED)
+#define RVA_SPELL_FLAG_LINES_CALL_B            ADDR(        0x17f98f,          MAC_INLINED)
+#define RVA_SPELL_FLAG_LINES_CALL_C            ADDR(        0x2e414d,          MAC_INLINED)
 #define RVA_ARMY_HAS_SPELL_FLAG                ADDR(        0x2e4770,          0x1004bfaac)
 #define RVA_UNIT_HEAL_RATE                     ADDR(        0x324500,          MAC_INLINED)
+#define RVA_UPKEEP_HEAL_RATE_CALL              ADDR(        0x144506,          MAC_INLINED)
+#define RVA_UPKEEP_HEAL_RESIST_CALL            ADDR(        WIN_NO_CALL,       0x10039b510)
 #define RVA_SPELL_BROWSER                      ADDR(        WIN_NOT_FOUND,     MAC_NOT_FOUND)
 #define RVA_SPELL_BROWSER_BOUND                ADDR(        WIN_NOT_FOUND,     MAC_NOT_FOUND)
 #define RVA_LISTSPELLS_BOUND                   ADDR(        WIN_NOT_FOUND,     MAC_NOT_FOUND)
@@ -3001,6 +3060,23 @@
 #define RVA_ALLOC_TEMP_UNIT                    ADDR(        0x110410,          MAC_INLINED)
 #define RVA_RESERVED_UNIT                      ADDR(        0x1f1ef0,          MAC_INLINED)
 #define RVA_RESERVED_COMMANDER                 ADDR(        WIN_INLINED,       MAC_INLINED)
+#define RVA_RESERVE_UNITS                      ADDR(        0x1e8630,        0x10050bfc4)
+#define RVA_RESERVE_COMMANDERS                 ADDR(        0x1e8420,        0x10050c1b4)
+#define RVA_RESERVE_FOR_ALL                    ADDR(        0x1f3140,        0x10050c45c)
+#define RVA_2H_UNIT_INCLUDED                   ADDR(        0x1853a0,        MAC_INLINED)
+#define RVA_TEMP_FILES_REMOVE                  ADDR(        0x191060,        0x10032b438)
+#define RVA_CLIENT_TMP_MYTURN_NAME             ADDR(        0x1ea38b,        0x10050b97c)
+#define RVA_CLIENT_NO_SLOT_EXIT                ADDR(        0x1ea76e,        0x10050bec4)
+#define SLOT_CONTROLLER_MINE                   5
+#define RVA_NET_SEND_RICHES                    ADDR(        0x1f2370,        0x10050e75c)
+#define RVA_NET_SEND_KILL_UNIT                 ADDR(        0x1e6fb0,        0x10050e384)
+#define RVA_NET_RECV_TIMER                     ADDR(        0x1ea930,        MAC_INLINED)
+#define RVA_NET_WAITING_FOR_TURN               ADDR_DIFFERS(0x5835668,         0x10880c9e0)
+#define RVA_TURN_TIMER_MS                      ADDR(        0x583566c,       0x10880c9e4)
+#define RVA_TURN_TIMER_LEFT                    ADDR(        0x5835670,       0x10880c9e8)
+#define RVA_TIMER_TICK_READ                    ADDR(        0x24089b,        0x10048e394)
+#define RVA_MAP_SCREEN_TIME_UP_READ            ADDR(        0x9715c,         0x10037fec8)
+#define RVA_GAME_MENU_CLIENT_TEST              ADDR_DIFFERS(0x124193, 0x1003803e4)
 #define RVA_REBUILD_SQUARE_ARMY                ADDR(        0x18f440,          0x1004effc0)
 #define RVA_UNIT_HOLDS_SQUARE                  ADDR(        0x31fa40,          MAC_INLINED)
 #define RVA_UNIT_FIT_TERRAIN                   ADDR(        0x114e50,          0x100467450)
@@ -3394,8 +3470,8 @@
 #define RVA_UNIQUE_SUMMON_ALLOWED              ADDR(        0x2d5c70,          0x100357b64)
 #define RVA_CRUSADE_RUN                        ADDR(        0x2d7ea0,          0x10035325c)
 #define RVA_DRAINED_TERRAIN                    ADDR(        0x2d9a30,          0x100356578)
-#define RVA_CHOP_BURN_SCREEN                   ADDR(        0x2dcce0,          0x10035bbb4)
-#define RVA_SLAVE_HUNT_SCREEN                  ADDR(        0x2e0e20,          0x10035c2cc)
+#define RVA_CHOP_BURN_SCREEN                   ADDR_DIFFERS(0x2dcce0,          0x10035bbb4)
+#define RVA_SLAVE_HUNT_SCREEN                  ADDR_DIFFERS(0x2e0e20,          0x10035c2cc)
 #define RVA_UNIT_SPELL_FLAGS                   ADDR(        0x2e3e30,          MAC_NOT_FOUND)
 #define RVA_TERRAIN_NAME_TYPE                  ADDR(        0x2e9780,          MAC_INLINED)
 #define RVA_UNIT_REFORMLOC                     ADDR(        0x31de60,          0x100568e4c)
@@ -3551,6 +3627,7 @@
 #define RVA_MISC_MENU                          ADDR(        0x0a0d20,          0x100372ec8)
 #define RVA_BIND_HOTKEY_NEGATIVE               ADDR(        WIN_NOT_FOUND,     MAC_NOT_FOUND)
 #define RVA_MAP_VIEW_UPDATE                    ADDR(        0x23ca40,          MAC_INLINED)
+#define RVA_MAP_VIEW_UPDATE_CALL               ADDR(        0x24080f,          MAC_INLINED)
 #define RVA_BATTLE_VIEW_UPDATE                 ADDR(        0x23c360,          MAC_INLINED)
 #define RVA_WAIT_TAB_READ                      ADDR(        0x23ff3d,          MAC_NOT_FOUND)
 #define RVA_SDL_POLL_EVENT                     ADDR_DIFFERS(WIN_INLINED,       0x10000f764)
@@ -3771,6 +3848,30 @@
 #define RVA_CRT_SRAND                          ADDR_DIFFERS(0x00f01c,          0x1005aed4c)
 #define RVA_BATTLE_SEED_DRAW_CALL              ADDR(        0x0f511e,          0x1003dc69c)
 #define RVA_RANDOM_TABLE                       ADDR(        0x343790,          0x10075baa4)
+#define RVA_RAND_CHURN_0                       ADDR(        0xd63ec44,         0x10b904630)
+#define RVA_RAND_CHURN_1                       ADDR(        0x1ab764c,         0x100873510)
+#define RVA_RAND_CHURN_2                       ADDR(        0x58356d4,         0x10b903c50)
+#define RVA_RAND_CHURN_3                       ADDR(        0x58356cc,         0x10b903c58)
+#define RVA_RAND_CHURN_4                       ADDR(        0x1ab671c,         0x100873518)
+#define RVA_RAND_CHURN_5                       ADDR(        0x1ab6b2c,         0x100873514)
+#define RVA_RAND_CHURN_6                       ADDR(        0x58356d8,         0x10b903c5c)
+#define RVA_RAND_CHURN_7                       ADDR(        0xd63ec40,         0x10b904634)
+#define RVA_RAND_CHURN_8                       ADDR(        0x58356dc,         0x10b903c64)
+#define RVA_RAND_CHURN_9                       ADDR(        0x11f48ea0,        0x10b904640)
+#define RVA_RAND_CHURN_10                      ADDR(        0x11f97a40,        0x10b904644)
+#define RVA_RAND_CHURN_11                      ADDR(        0x11f48f38,        0x10b904638)
+#define RVA_RAND_CHURN_12                      ADDR(        0x11f48f74,        0x10b90463c)
+#define RVA_RAND_CHURN_COUNT_A                 ADDR(        0x44192c,          0x10087351c)
+#define RVA_RAND_CHURN_COUNT_B                 ADDR(        0x441894,          0x100873520)
+#define RVA_RAND_CHURN_MIX                     ADDR(        WIN_INLINED,       0x10051c0d0)
+#define RVA_RAND_CHURN_OUTER                   ADDR(        WIN_INLINED,       0x10051bc08)
+#define RVA_RAND_CHURN_WRAP                    ADDR(        WIN_INLINED,       0x10051b9c0)
+#define CRT_RAND_STATE_OFFSET                  0x28
+#define RVA_CRT_THREAD_DATA                    ADDR(        0x014438,          MAC_STORED_DIFFERENTLY)
+#define RVA_PROGRESS_TEXT_WAIT_CALL            ADDR(        0x08984a,          0x100490418)
+#define RVA_WINDOW_CLOSE_ASKED                 ADDR_DIFFERS(0x57f0680,         0x113997030)
+#define RVA_WHEEL_FRAME                        ADDR(        0xd63ec38,         0x10c96df58)
+#define RVA_MAP_WHEEL_LAST                     ADDR(        0x1abbdb4,         0x100872ba4)
 #define RVA_MEMSET                             ADDR(        0x002ef0,          0x1005ae8a8)
 #define RVA_MEMMOVE                            ADDR(        0x002630,          0x1005ae89c)
 #define RVA_MEMCPY                             ADDR_DIFFERS(0x002630,          0x1005ae890)
@@ -4069,8 +4170,8 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0x2afac1),       0x2c9970,
  (M(0x100360100)), M(0x10055bcfc)),
     [SITE_MAP_SCREEN_WAIT] = SITE("map_screen_wait", 0,
- (0x097157),       0x23ec30,
- (M(0x10037febc)), M(0x100485000)),
+ (0x097157, 0x1e9957),             0x23ec30,
+ (M(0x10037febc), M(0x10050a6b4)), M(0x100485000)),
     [SITE_MAP_MENU_BUTTON_TEXT] = SITE("map_menu_button_text", 0,
  (0x09d711),       0x038f60,
  (M(0x10037ade8)), M(0x10033d804)),
@@ -4483,48 +4584,51 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),        0),
     [SITE_POPULATE_SKY] = SITE("populate_sky", 0,
  (0x304dff), 0x299440,
- (0),        0),
+ (M(0x10058e218)), M(0x100451888)),
     [SITE_POPULATE_AGARTHA] = SITE("populate_agartha", 0,
  (0x304e12), 0x272b20,
  (0),        0),
     [SITE_POPULATE_INFERNO] = SITE("populate_inferno", 0,
  (0x304e25), 0x28b920,
- (0),        0),
+ (M(0x100590344)), M(0x10043ad34)),
     [SITE_POPULATE_HADES] = SITE("populate_hades", 0,
  (0x304e38), 0x27bc20,
- (0),        0),
+ (M(0x100590358)), M(0x100446780)),
     [SITE_POPULATE_AZTLAN] = SITE("populate_aztlan", 0,
  (0x304e4b), 0x274c30,
- (0),        0),
+ (M(0x10059036c)), M(0x10045d280)),
     [SITE_POPULATE_PRIMAL] = SITE("populate_primal", 0,
  (0x304e5e), 0x293340,
- (0),        0),
+ (M(0x100590380)), M(0x10045873c)),
     [SITE_POPULATE_ELEMENTAL] = SITE("populate_elemental", 0,
  (0x304e71), 0x284a90,
- (0),        0),
+ (M(0x100590394)), M(0x10042dd44)),
     [SITE_PLANE_RISE_TO_ELYSIUM] = SITE("plane_rise_to_elysium", 0,
  (0x1784cb), 0x252e30,
  (0),        0),
     [SITE_ENLARGE_PLANE] = SITE("enlarge_plane", 0,
  (0x250522, 0x2a32b7, 0x2a32da), 0x241ac0,
- (0),                            0),
+ (0),        0),
     [SITE_GEN_FLOOD_PLANE] = SITE("gen_flood_plane", 0,
  (0x1b0517, 0x24da65), 0x199240,
- (0),                  0),
+ (M(0x10036f6e8), M(0x1004aa0fc), M(0x10057319c)), M(0x1004aa164)),
     [SITE_ADDPLANE] = SITE("addplane", 0,
  (0x1b5c30, 0x1b5cec, 0x1b89fc, 0x1b8a6d, 0x2434a1, 0x244795, 0x24866c, 0x24adf9, 0x24cca6,
                        0x24eef5, 0x24f9cd, 0x2a36b0, 0x2a37d5), 0x2505b0,
- (0),                                      0),
+ (M(0x1004b4928), M(0x1004b4c6c), M(0x1004b4d04), M(0x1004b4dec), M(0x100513300), M(0x100513364),
+                       M(0x1005162b0), M(0x1005162d8), M(0x10056e05c), M(0x100572508), M(0x1005752f0), M(0x1005788d0),
+                       M(0x100579ab8)), M(0x10056deac)),
     [SITE_LOAD_MAP_PLANE] = SITE("load_map_plane", 0,
  (0x246eb8, 0x24b3b8, 0x2a3407, 0x2a3460, 0x2a34b9, 0x2a3512, 0x2a356b, 0x2a35c4, 0x2a35f6,
                        0x2a3628), 0x1b5840,
- (0),        0),
+ (M(0x1004b47e4), M(0x1004b4810), M(0x1004b4864), M(0x1004b48b8), M(0x1004b490c), M(0x1004b4b70),
+                       M(0x1004b4bb0), M(0x1004b4bfc), M(0x1004b4c38), M(0x100516340), M(0x100578560)), M(0x100513bf8)),
     [SITE_UNIT_ADD_XP] = SITE("unit_add_xp", 0,
  (0x0cf1ec, 0x143c9e, 0x14485a), 0x0f1bf0,
  (0),                            0),
     [SITE_USE_SPECIAL_SITE] = SITE("use_special_site", 0,
  (0x07abb2, 0x097683), 0x0b1600,
- (0),                  0),
+ (M(0x100380c90), M(0x1004d1e04)), M(0x100388804)),
     [SITE_LONER_STEP] = SITE("loner_step", 0,
  (0x0920dd, 0x0920e4, 0x0920eb, 0x1671e3, 0x1671ea, 0x1671f1), 0x172f80,
  (0),                                                          0),
@@ -4540,7 +4644,7 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),        0),
     [SITE_OVERRUN_CHECK] = SITE("overrun_check", 0,
  (0x1df16e, 0x1ebe20, 0x1f4cd9), 0x1dca30,
- (0),                            0),
+ (M(0x1004fcef4), M(0x1005059c0), M(0x10059da6c)), M(0x10059b0c8)),
     [SITE_KILL_UNIT_999] = SITE("kill_unit_999", 0,
  (0x1078e1, 0x1dcc44), 0x0f14e0,
  (0),                  0),
@@ -4549,16 +4653,16 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),                  0),
     [SITE_CONTINUE_MOVE_ORDERS] = SITE("continue_move_orders", 0,
  (0x0973e9, 0x097727, 0x097757), 0x09d9e0,
- (0),                            0),
+ (M(0x100380a08), M(0x100386cfc), M(0x100386d34)), M(0x100377100)),
     [SITE_HUMAN_MULTI_MOVE] = SITE("human_multi_move", 0,
  (0x098786, 0x09da95), 0x09dae0,
- (0),                  0),
+ (M(0x1003771fc), M(0x100387e30)), M(0x100376bd8)),
     [SITE_GROUP_MOVE] = SITE("group_move", 0,
  (0x098b67, 0x09de10), 0x1de4b0,
- (0),                  0),
+ (M(0x100376f40), M(0x1003882e0)), M(0x10059b598)),
     [SITE_MOVE_ORDER_ROUTE] = SITE("move_order_route", 0,
  (0x098816, 0x09da82, 0x0a0c1f), 0x09e0a0,
- (0),                            0),
+ (M(0x100373b14), M(0x1003741a4), M(0x1003771ec), M(0x1003872d4), M(0x100388240)), M(0x100373b1c)),
     [SITE_UNIT_REMOVE_ITEM] = SITE("unit_remove_item", 0,
  (0x073745, 0x14635a, 0x182b35, 0x1d02a3, 0x1f0d4f, 0x1f6942), 0x184fc0,
  (0),                                                          0),
@@ -4567,28 +4671,30 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),                                                                              0),
     [SITE_LEARN_RANDOM_SPELL] = SITE("learn_random_spell", 0,
  (0x2c6227, 0x2c66dc, 0x2c66fb, 0x2c671a, 0x2e36fe), 0x2e46d0,
- (0),                                                0),
+ (M(0x10035ca58), M(0x1004e6908), M(0x1004e6970), M(0x1004e69d8), M(0x10055f920), M(0x100560b30)), M(0x1004beb68)),
     [SITE_GET_START_RITUALS] = SITE("get_start_rituals", 0,
  (0x10fc1c, 0x1283d5), 0x2bfe30,
- (0),                  0),
+ (M(0x10046d8f8), M(0x10046e298)), M(0x1005540f0)),
     [SITE_COMMANDER_LEARN_RITUAL] = SITE("commander_learn_ritual", 0,
  (0x2bfd06, 0x2bfd99, 0x2c0565, 0x2c0577, 0x2c0896, 0x2c84bf), 0x2bddb0,
  (0),                                                          0),
     [SITE_BOLSTER_BLESSING] = SITE("bolster_blessing", 0,
  (0x2c8624, 0x2e2239, 0x304d98), 0x2d5590,
- (0),                            0),
+ (M(0x10035243c), M(0x100560f44), M(0x100561370), M(0x10058c574), M(0x10058c584), M(0x10058c594),
+                       M(0x10058c5a4), M(0x10058c5b4), M(0x10058c5c4), M(0x10058c5d4)), M(0x100352938)),
     [SITE_ADD_PLAYER_BLESSING] = SITE("add_player_blessing", 0,
  (0x2d5901, 0x2d591e), 0x2d3320,
- (0),                  0),
+ (M(0x1003529f0), M(0x100352eac)), M(0x1003542c0)),
     [SITE_REMOVE_ENCHANT] = SITE("remove_enchant", 0,
  (0x1f6fbf, 0x2c6b18, 0x2c6cd9), 0x2bdeb0,
- (0),                            0),
+ (M(0x1004fb590), M(0x10055f27c), M(0x10055f360)), M(0x100563fcc)),
     [SITE_RITUAL_PAY_COSTS] = SITE("ritual_pay_costs", 0,
  (0x06b220, 0x06c1e4, 0x06c421, 0x2b01dc, 0x2c1e11, 0x2c989d), 0x2c2510,
- (0),                                                          0),
+ (M(0x10036103c), M(0x1004dd2ac), M(0x1004de574), M(0x1004de748), M(0x100562d44), M(0x100566510),
+                       M(0x1005665e0), M(0x1005666b0), M(0x100566750)), M(0x100558950)),
     [SITE_RITUAL_FAR_SUMMON_UNITS] = SITE("ritual_far_summon_units", 0,
  (0x2b3bb4, 0x2b3c01), 0x2d7210,
- (0),                  0),
+ (M(0x10055cd78), M(0x10055d164)), M(0x100356dd0)),
     [SITE_PRIEST_FREESPAWN] = SITE("priest_freespawn", 0,
  (0x167ac9), 0x2db5f0,
  (0),        0),
@@ -4597,10 +4703,10 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),                  0),
     [SITE_GIVE_ITEM_BY_NAME] = SITE("give_item_by_name", 0,
  (0x2c9491, 0x2c9540), 0x1835e0,
- (0),                  0),
+ (M(0x10052dc08), M(0x1005628b4), M(0x100562c38)), M(0x1004e5710)),
     [SITE_TAKE_ITEM_BY_NAME] = SITE("take_item_by_name", 0,
  (0x1c757a), 0x17ff70,
- (0),        0),
+ (M(0x10052dd8c)), M(0x1004e582c)),
     [SITE_GIVE_RANDOM_ITEM] = SITE("give_random_item", 0,
  (0x180e86, 0x18118f, 0x181440, 0x181700, 0x18197b, 0x181a76, 0x181ad6, 0x181b36, 0x181b96,
                        0x181c27, 0x181c3c, 0x181c4f, 0x181ca9, 0x181cbe, 0x181d39, 0x181d98, 0x181dab, 0x181de7,
@@ -4619,7 +4725,15 @@ static const SiteInfo SITES[SITE_COUNT] = {
                        0x0acbf8, 0x0acdd5, 0x0acfa2, 0x0ad10f, 0x0ad170, 0x0ad24d, 0x0ad5bc, 0x0ad744, 0x0ad84a,
                        0x0ada5d, 0x0adbef, 0x0ade08, 0x0ae02c, 0x0ae2bd, 0x0ae35c, 0x0ae4cf, 0x0ae560, 0x0ae5f0,
                        0x0ae6cb, 0x0ae777, 0x0ae88b, 0x0af124), 0x0af270,
- (0),                                      0),
+ (M(0x1003635e4), M(0x1003652f8), M(0x1003655b8), M(0x100365df8), M(0x1003660e0), M(0x1003663c8),
+                       M(0x1003666ac), M(0x100366994), M(0x100366c7c), M(0x100366f64), M(0x100367258), M(0x10036754c),
+                       M(0x100367820), M(0x100367af4), M(0x100367dc0), M(0x1003680f8), M(0x1003683e0), M(0x1003685dc),
+                       M(0x1003687dc), M(0x1003689d8), M(0x100368bd4), M(0x100368dd0), M(0x100368fcc), M(0x1003691c8),
+                       M(0x1003693c4), M(0x1003695c0), M(0x1003697bc), M(0x1003699b8), M(0x100369bb4), M(0x100369db0),
+                       M(0x100369fb0), M(0x10036a1ac), M(0x10036a3ac), M(0x10036a6b0), M(0x10036ab14), M(0x10036ad54),
+                       M(0x10036af80), M(0x10036b1e4), M(0x10036b42c), M(0x10036b69c), M(0x10036bac4), M(0x10036be44),
+                       M(0x10036c07c), M(0x10036c384), M(0x10036c5b4), M(0x10036c7e4), M(0x10036cc0c), M(0x10036cf14),
+                       M(0x10036d40c)), M(0x10036240c)),
     [SITE_WORLD_FIRE_UPDATE] = SITE("world_fire_update", 0,
  (0x1617fd), 0x1433a0,
  (0),        0),
@@ -4631,7 +4745,7 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),        0),
     [SITE_GAME_STATISTICS] = SITE("game_statistics", 0,
  (0x091a3d, 0x091c6d), 0x31d1a0,
- (0),                  0),
+ (M(0x100389b10), M(0x10038a170)), M(0x10053bb38)),
     [SITE_ALTER_TERRAIN] = SITE("alter_terrain", 0,
  (0x0b18eb, 0x127c7b, 0x127f88, 0x1af608, 0x254ec1, 0x2c7c80, 0x2c7d29, 0x2c8b4b, 0x2c8b6c,
                        0x2db205, 0x2db262, 0x2db2a5, 0x2db2eb, 0x2db32d, 0x2db378, 0x2db499, 0x2db509, 0x2db572,
@@ -4639,7 +4753,8 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),                  0),
     [SITE_RUIN_SQUARE] = SITE("ruin_square", 0,
  (0x0b1c0e, 0x123d30, 0x1436df, 0x165a6d, 0x1b975b, 0x253c51, 0x2c85db), 0x2e05b0,
- (0),                                                                    0),
+ (M(0x100388f5c), M(0x1003a0b78), M(0x1003b016c), M(0x1003b040c), M(0x1003b06a8), M(0x10046a21c),
+                       M(0x10051715c), M(0x1005612a0), M(0x100575014)), M(0x100356744)),
     [SITE_DESTROY_GATEWAY] = SITE("destroy_gateway", 0,
  (0x07ab75, 0x0983bf, 0x241252), 0x254e20,
  (0),                            0),
@@ -4681,25 +4796,25 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),        0),
     [SITE_TEMPERATURE_CHANGE] = SITE("temperature_change", 0,
  (0x091a42, 0x162b61), 0x0b3aa0,
- (0),                  0),
+ (M(0x100389b14), M(0x1003a3e98)), M(0x100551978)),
     [SITE_SPECIAL_SITE_POPULATE] = SITE("special_site_populate", 0,
  (0x1633cd), 0x140dc0,
  (0),        0),
     [SITE_UNIT_SWALLOW] = SITE("unit_swallow", 0,
  (0x0de93d), 0x0e2d50,
- (0),        0),
+ (M(0x1003c59dc)), M(0x1003ca974)),
     [SITE_UNIT_UNSWALLOW] = SITE("unit_unswallow", 0,
  (0x0bf0d0), 0x0e2aa0,
- (0),        0),
+ (M(0x1003ba7e4), M(0x1003dea88)), M(0x1003bc784)),
     [SITE_LIFEFORCE_DRAIN_UNIT] = SITE("lifeforce_drain_unit", 0,
  (0x0d5967, 0x0d5990), 0x0d59e0,
- (0),                  0),
+ (M(0x1003ec168), M(0x1003ec320), M(0x1003ec358)), M(0x1003f1b48)),
     [SITE_UNIT_CATCH_FIRE] = SITE("unit_catch_fire", 0,
  (0x0d2b09, 0x0d2b3d), 0x0d2b70,
- (0),                  0),
+ (M(0x1003eefa8), M(0x1003ef028)), M(0x1003f152c)),
     [SITE_UNIT_CRUSH] = SITE("unit_crush", 0,
  (0x0d31c9, 0x0d321d), 0x0d3290,
- (0),                  0),
+ (M(0x1003eaf2c), M(0x1003eafa0)), M(0x1003f2c84)),
     [SITE_REMOVE_BAD_FOLLOWERS] = SITE("remove_bad_followers", 0,
  (0x107b1a, 0x114141), 0x110ba0,
  (0),                  0),
@@ -4714,10 +4829,10 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),        0),
     [SITE_RANDOM_TELEPORT] = SITE("random_teleport", 0,
  (0x18426a, 0x1842b8, 0x1843a5), 0x17e2f0,
- (0),                            0),
+ (M(0x1004e79d0), M(0x1004e79fc), M(0x1004e7ac8)), M(0x1004e6350)),
     [SITE_POP_HORRORS] = SITE("pop_horrors", 0,
  (0x162b82, 0x163331), 0x142410,
- (0),                  0),
+ (M(0x1003a3eb8), M(0x1003a65bc)), M(0x1003b8498)),
     [SITE_KILL_TERRAIN_UNITS] = SITE("kill_terrain_units", 0,
  (0x0f5830), 0x0e1600,
  (0),        0),
@@ -4752,7 +4867,7 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),        0),
     [SITE_SPY_CAUGHT] = SITE("spy_caught", 0,
  (0x149dc7, 0x1df1e4), 0x1138a0,
- (0),                  0),
+ (M(0x1003929f0), M(0x10059dc38)), M(0x100467a0c)),
     [SITE_TOGGLE_AUTO_RECRUIT] = SITE("toggle_auto_recruit", 0,
  (0x126bc3, 0x1271ae), 0x1082f0,
  (0),                  0),
@@ -4761,13 +4876,13 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),                            0),
     [SITE_ALTER_TERRAIN_RECT] = SITE("alter_terrain_rect", 0,
  (0x163162, 0x16331a), 0x32d7a0,
- (0),                  0),
+ (M(0x1003a49b0), M(0x1003a648c)), M(0x1004c6fe4)),
     [SITE_RESPAWN_VOID] = SITE("respawn_void", 0,
  (0x166632), 0x2a03f0,
  (0),        0),
     [SITE_BATTLE_SIEGE_UNIT] = SITE("battle_siege_unit", 0,
  (0x0c7353, 0x0f28e8), 0x0c94a0,
- (0),                  0),
+ (M(0x1003e0c5c), M(0x1003e9fdc)), M(0x1003e803c)),
     [SITE_GATHER_SHIPS] = SITE("gather_ships", 0,
  (0x0f2b9d), 0x0c4e60,
  (0),        0),
@@ -4782,16 +4897,16 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),        0),
     [SITE_TAINTED_RITUAL_EFFECT] = SITE("tainted_ritual_effect", 0,
  (0x2c98e8, 0x2e2c05), 0x2d6c00,
- (0),                  0),
+ (M(0x1003528f0), M(0x100562d74)), M(0x100351574)),
     [SITE_LOCATION_SWAP] = SITE("location_swap", 0,
  (0x1f6700, 0x2c8800), 0x2d8cc0,
- (0),                  0),
+ (M(0x1004fead8), M(0x1005627cc)), M(0x100358f3c)),
     [SITE_APE_POSSESSION] = SITE("ape_possession", 0,
  (0x2c84a4), 0x2b0ad0,
- (0),        0),
+ (M(0x100561fc8)), M(0x10056462c)),
     [SITE_RITUAL_ASK_HEMISPHERE] = SITE("ritual_ask_hemisphere", 0,
  (0x2c727b), 0x19a1b0,
- (0),        0),
+ (M(0x10055f2f8)), M(0x1004a65a0)),
     [SITE_GET_TITHES] = SITE("get_tithes", 0,
  (0x165eff), 0x2d9c80,
  (0),        0),
@@ -4800,7 +4915,7 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),                  0),
     [SITE_FIND_START_SQUARE] = SITE("find_start_square", 0,
  (0x0a3fcb, 0x304cde), 0x0a7420,
- (0),                  0),
+ (M(0x10036ec54), M(0x100589ea4)), M(0x100370384)),
     [SITE_TROLL_FOREST_SPAWN] = SITE("troll_forest_spawn", 0,
  (0x2da13f), 0x2d27f0,
  (0),        0),
@@ -4824,7 +4939,7 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),        0),
     [SITE_CHECK_FOLLOWER_LINKS] = SITE("check_follower_links", 0,
  (0x110c0f, 0x2c98dd, 0x2dc2d6), 0x110c50,
- (0),                            0),
+ (M(0x100358cfc), M(0x1003b5b74), M(0x10047329c), M(0x100562d68)), M(0x100467848)),
     [SITE_STEP_BURN_FOREST] = SITE("step_burn_forest", 0,
  (0x163542, 0x16505b, 0x1dfc54, 0x2dc3a2, 0x2e155d), 0x106af0,
  (0),                                                0),
@@ -4836,25 +4951,25 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),                            0),
     [SITE_LIFEFORCE_DRAIN_SQUARE] = SITE("lifeforce_drain_square", 0,
  (0x145540, 0x32e4d1), 0x32dd70,
- (0),                  0),
+ (M(0x10039d698), M(0x1004d0eec)), M(0x1004d0754)),
     [SITE_SPEND_ALL_AP_AT] = SITE("spend_all_ap_at", 0,
  (0x1df21e, 0x2d6573, 0x2d7d7b, 0x2d8f23, 0x2d8f46, 0x2dc355), 0x104d60,
- (0),                                                          0),
+ (M(0x100357908), M(0x100358794), M(0x100358d98), M(0x1003594f8), M(0x100359518), M(0x10059dca8)), M(0x1004816c0)),
     [SITE_SWAP_SQUARES] = SITE("swap_squares", 0,
  (0x250fa0, 0x2512ce), 0x240ec0,
- (0),                  0),
+ (M(0x1003a1fa8), M(0x1003a2128)), M(0x10057c578)),
     [SITE_TELEPORT_UNIT] = SITE("teleport_unit", 0,
  (0x2c8710), 0x2dc790,
  (0),        0),
     [SITE_UNIT_CLEAR_BENEFITS] = SITE("unit_clear_benefits", 0,
  (0x0bf542, 0x0cf1c2, 0x1463bd), 0x0d0160,
- (0),                            0),
+ (M(0x100399b6c), M(0x1003bb1dc), M(0x1003e6278)), M(0x1003bea6c)),
     [SITE_GAME_MENU] = SITE("game_menu", 0,
  (0x09724b), 0x123e70,
  (0),        0),
     [SITE_ARMY_COMMANDS_MENU] = SITE("army_commands_menu", 0,
  (0x121551), 0x111650,
- (0),        0),
+ (M(0x10038599c)), M(0x10046ae60)),
     [SITE_CEREMONY_SCREEN] = SITE("ceremony_screen", 0,
  (0x2e0d84), 0x2d3470,
  (0),        0),
@@ -4871,10 +4986,11 @@ static const SiteInfo SITES[SITE_COUNT] = {
     [SITE_BATTLE_FIGHT_MOVE] = SITE("battle_fight_move", 0,
  (0x0c810c, 0x0c82a4, 0x0c87d1, 0x0c891f, 0x0c8e1a, 0x0c8f19, 0x0c9861, 0x0c9f35, 0x0ca6ea,
                        0x0cacd0, 0x0caed4), 0x0cb4d0,
- (0),                  0),
+ (M(0x1003e84b4), M(0x1003e9298), M(0x1003e9888), M(0x1003ea264), M(0x1003ea510), M(0x1003ea9d0),
+                       M(0x1003eab84), M(0x1003eabf4), M(0x1003f3518), M(0x1003f3aec), M(0x1003f3c1c)), M(0x1003f43b4)),
     [SITE_BATTLE_FLY_MOVE] = SITE("battle_fly_move", 0,
  (0x0c76a5), 0x0ca720,
- (0),        0),
+ (M(0x1003e9f60)), M(0x1003f37c0)),
     [SITE_BATTLE_FLEE] = SITE("battle_flee", 0,
  (0x0c71c2, 0x0c723d), 0x0e4430,
  (0),                  0),
@@ -4883,25 +4999,25 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),        0),
     [SITE_BATTLE_CLOUD_STEP] = SITE("battle_cloud_step", 0,
  (0x0f2668, 0x0f2c08, 0x0f2c88, 0x0f2ce1, 0x0f2d33), 0x0c0e00,
- (0),                                                0),
+ (M(0x1003e0c04), M(0x1003e1184), M(0x1003e122c), M(0x1003e126c), M(0x1003e12f0)), M(0x1003e750c)),
     [SITE_BATTLE_ENSNARE_CHECK] = SITE("battle_ensnare_check", 0,
  (0x0f2fe5, 0x0f32a6, 0x0f3319, 0x0f37bb), 0x0d3d70,
- (0),                                      0),
+ (M(0x1003e39c0), M(0x1003e3b60), M(0x1003e3bcc), M(0x1003e5f5c)), M(0x1003eafd0)),
     [SITE_BATTLE_ENSNARE_RELEASE] = SITE("battle_ensnare_release", 0,
  (0x0f3036, 0x0f32db, 0x0f3320, 0x0f37c2), 0x0d3780,
- (0),                                      0),
+ (M(0x1003e39f4), M(0x1003e3b68), M(0x1003e3c20), M(0x1003e5f64)), M(0x1003ecf84)),
     [SITE_BATTLE_WALL_ENCHANTS] = SITE("battle_wall_enchants", 0,
  (0x0f25f4, 0x0f35c7, 0x0f38d4, 0x0f7e23), 0x0c3cf0,
- (0),                                      0),
+ (M(0x1003d0748), M(0x1003e0b34), M(0x1003e5f20), M(0x1003e68c8)), M(0x1003d44b0)),
     [SITE_BATTLE_WALL_EFFECTS] = SITE("battle_wall_effects", 0,
  (0x0f34cc, 0x0f35d1), 0x0c1e40,
- (0),                  0),
+ (M(0x1003e5824), M(0x1003e5f28)), M(0x1003efe2c)),
     [SITE_BATTLE_START_SETUP] = SITE("battle_start_setup", 0,
  (0x0f1ddf), 0x0bff10,
  (0),        0),
     [SITE_BATTLE_TUNNEL_MOVE] = SITE("battle_tunnel_move", 0,
  (0x0c76dd), 0x0c9c70,
- (0),        0),
+ (M(0x1003e9fa0)), M(0x1003f3064)),
     [SITE_BATTLE_BANISH] = SITE("battle_banish", 0,
  (0x0de803), 0x0e2df0,
  (0),        0),
@@ -4909,7 +5025,10 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0x0be7fc, 0x0bf70f, 0x0c2fb6, 0x0cb8e0, 0x0d741b, 0x0dc22b, 0x0dc9f3, 0x0de52e, 0x0de863,
                        0x0decbc, 0x0deeb3, 0x0df37a, 0x0df409, 0x0df505, 0x0df5c1, 0x0df66a, 0x0e2cee, 0x0e3ed4,
                        0x0e5879, 0x0ee3e4), 0x0e5260,
- (0),                  0),
+ (M(0x1003b98e8), M(0x1003ba598), M(0x1003bc81c), M(0x1003bdca8), M(0x1003bde7c), M(0x1003c4a08),
+                       M(0x1003c4b14), M(0x1003c4c44), M(0x1003c4fb0), M(0x1003c5054), M(0x1003c544c), M(0x1003c55c0),
+                       M(0x1003c5a44), M(0x1003c5cc8), M(0x1003c5ffc), M(0x1003cdac8), M(0x1003cf414), M(0x1003e2a74),
+                       M(0x1003e45e4), M(0x1003f11a4), M(0x1003f4b30)), M(0x1003bba28)),
     [SITE_BATTLE_AFTER_FIGHT_UPKEEP] = SITE("battle_after_fight_upkeep", 0,
  (0x0f3839), 0x0cf010,
  (0),        0),
@@ -4924,28 +5043,29 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),        0),
     [SITE_BATTLE_GATE_SWAP] = SITE("battle_gate_swap", 0,
  (0x0f7c8e, 0x0f7cbe, 0x0f7ce5, 0x0f7d00, 0x0f7d27, 0x0f7d4e, 0x0f7d75, 0x0f7e1e), 0x0ee250,
- (0),                                                                              0),
+ (M(0x1003d03f8), M(0x1003d041c), M(0x1003d0474), M(0x1003d048c), M(0x1003d04b0), M(0x1003d04d4),
+                       M(0x1003d04f8), M(0x1003d0740)), M(0x1003cf140)),
     [SITE_BATTLE_SPREAD_COLLAPSE] = SITE("battle_spread_collapse", 0,
  (0x0bed00, 0x0bed66), 0x0bf7f0,
- (0),                  0),
+ (M(0x1003bb678), M(0x1003bb714)), M(0x1003bc4f0)),
     [SITE_UNIT_CURE_AFFLICTION] = SITE("unit_cure_affliction", 0,
  (0x144714, 0x144785, 0x184c1f, 0x1c7ad0, 0x2c8e33, 0x327ec2), 0x0bb370,
- (0),                                                          0),
+ (M(0x10039aea8), M(0x10039af4c), M(0x1004e8388), M(0x10052e8cc), M(0x100561db4), M(0x100568b48)), M(0x1003f7644)),
     [SITE_UNIT_HP_SHAPE_CHANGE] = SITE("unit_hp_shape_change", 0,
  (0x0be814, 0x0d290a, 0x144700), 0x0bfcb0,
- (0),                            0),
+ (M(0x10039ae90), M(0x1003b98fc), M(0x1003efdb0)), M(0x1003bbfe4)),
     [SITE_BERSERK_END] = SITE("berserk_end", 0,
  (0x0be8fa, 0x0d106f, 0x0d110e, 0x0df23d, 0x0e05cf), 0x0b71b0,
  (0),                                                0),
     [SITE_UNIT_RANDOM_AFFLICTION] = SITE("unit_random_affliction", 0,
  (0x129eca, 0x1c7a7c), 0x0bb900,
- (0),                  0),
+ (M(0x100470c58), M(0x10052e854)), M(0x1003f73e4)),
     [SITE_REVEAL_TERRAIN_ON_PLANE] = SITE("reveal_terrain_on_plane", 0,
  (0x2c7b7a, 0x2c7b8d, 0x2c7ba0), 0x2d7650,
  (0),                            0),
     [SITE_NEAR_TERRAIN_SQUARE] = SITE("near_terrain_square", 0,
  (0x16b7df, 0x16ba24, 0x16bb60, 0x16be91, 0x16befa, 0x16bfae, 0x16c160), 0x1adef0,
- (0),                                                                    0),
+ (M(0x1005491dc), M(0x100549340), M(0x100549398), M(0x100549408), M(0x10054a130), M(0x10054a564), M(0x10054a7b4)), M(0x1004a8ae0)),
     [SITE_PLAY_SAMPLE] = SITE("play_sample", 0,
  (0x089459, 0x0977d2, 0x0be806, 0x0c2262, 0x0c2492, 0x0c2668, 0x0c2883, 0x0c2a06, 0x0c2c48,
                        0x0c3112, 0x0c3488, 0x0c3638, 0x0c37e8, 0x0c3990, 0x0c3ba0, 0x0c98fa, 0x0c9c04, 0x0c9f7a,
@@ -4967,7 +5087,7 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),                                                                              0),
     [SITE_CREATE_RANDOM_MAP] = SITE("create_random_map", 0,
  (0x30510b), 0x2a0d50,
- (0),        0),
+ (M(0x1005919b4)), M(0x1004b4d64)),
     [SITE_WORLD_PART_TERRAIN] = SITE("world_part_terrain", 0,
  (0x2a2c91), 0x2a6330,
  (0),        0),
@@ -4988,46 +5108,47 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),        0),
     [SITE_MARK_RIVER] = SITE("mark_river", 0,
  (0x24fdeb, 0x24fe0f, 0x2501f6, 0x250302, 0x2a538a), 0x2a87e0,
- (0),                                                0),
+ (M(0x1004ae244), M(0x10056e334), M(0x10056e354), M(0x10056e9c8), M(0x10056ea24)), M(0x1004ad8c4)),
     [SITE_GEN_DIAGONAL_FIX] = SITE("gen_diagonal_fix", 0,
  (0x0a4377, 0x24da16), 0x254040,
- (0),                  0),
+ (0),        0),
     [SITE_GEN_UPDATE_MOIST_WALLS] = SITE("gen_update_moist_walls", 0,
  (0x1b0532, 0x24da80, 0x24da8a), 0x199040,
- (0),                            0),
+ (M(0x10036f70c), M(0x1004aa124), M(0x1005731c0), M(0x1005731e4)), M(0x1004aa590)),
     [SITE_GEN_TERRAIN_BLOB] = SITE("gen_terrain_blob", 0,
  (0x0a4356, 0x24b724, 0x24b99c, 0x24c9ab, 0x24ca97, 0x24cb4a, 0x24cbfa, 0x253c94, 0x2abcaa), 0x241530,
- (0),                                                                                        0),
+ (M(0x10036f6a4), M(0x1004b0578), M(0x10057b308), M(0x10057b428), M(0x10057b5c0), M(0x10057c2c4),
+                       M(0x10057c3dc), M(0x10057c49c), M(0x10057c548)), M(0x1005731f4)),
     [SITE_CREATE_CELESTIAL_PLANE] = SITE("create_celestial_plane", 0,
  (0x1b8925, 0x2a340e), 0x24ada0,
- (0),                  0),
+ (M(0x1004b47a8), M(0x100516294)), M(0x1005788a0)),
     [SITE_CREATE_SKY_PLANE] = SITE("create_sky_plane", 0,
  (0x1b8939, 0x2a3467), 0x24ee90,
- (0),                  0),
+ (M(0x1004b4820), M(0x1005162e4)), M(0x100579a84)),
     [SITE_CREATE_AGARTHA_PLANE] = SITE("create_agartha_plane", 0,
  (0x1b894d, 0x2a34c0), 0x24cc40,
- (0),                  0),
+ (M(0x1004b4874), M(0x1005162f8)), M(0x1005724d4)),
     [SITE_CREATE_INFERNO_PLANE] = SITE("create_inferno_plane", 0,
  (0x1b8961, 0x2a3519), 0x24f950,
- (0),                  0),
+ (M(0x1004b48c0), M(0x100516304)), M(0x10056e004)),
     [SITE_CREATE_HADES_PLANE] = SITE("create_hades_plane", 0,
  (0x2a3572), 0x244730,
  (0),        0),
     [SITE_CREATE_ELEMENTAL_PLANE] = SITE("create_elemental_plane", 0,
  (0x1b8990, 0x2a362f), 0x248610,
- (0),                  0),
+ (M(0x1004b4c40), M(0x100516240)), M(0x1005752c0)),
     [SITE_LOAD_AZTLAN_PLANE] = SITE("load_aztlan_plane", 0,
  (0x1b8975, 0x2a35cb), 0x246e70,
  (0),                  0),
     [SITE_LOAD_PRIMAL_PLANE] = SITE("load_primal_plane", 0,
  (0x1b8984, 0x2a35fd), 0x24b370,
- (0),                  0),
+ (M(0x1004b4c0c), M(0x1005162f0)), M(0x100578500)),
     [SITE_AUTO_RECRUIT] = SITE("auto_recruit", 0,
  (0x0925b7), 0x166720,
  (0),        0),
     [SITE_USE_LIBRARY] = SITE("use_library", 0,
  (0x07abeb, 0x2de5b6), 0x2e3570,
- (0),                  0),
+ (M(0x10035db64), M(0x1004d1f40)), M(0x10035c7b4)),
     [SITE_ADD_GROUND_ITEMS] = SITE("add_ground_items", 0,
  (0x24da0c, 0x255ca1, 0x257cec, 0x257de2, 0x258803, 0x25a2ac, 0x260885, 0x260e89, 0x261224,
                        0x2612af, 0x2617d8, 0x261fae, 0x262f13, 0x26312a, 0x2633ec, 0x263567, 0x263de4, 0x263f55,
@@ -5038,10 +5159,10 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),                                      0),
     [SITE_VOID_INSANITY] = SITE("void_insanity", 0,
  (0x0b1a1f, 0x2c7a07, 0x2c7af9), 0x2dee40,
- (0),                            0),
+ (M(0x100389050), M(0x100560cf8), M(0x100561f40)), M(0x10035aa94)),
     [SITE_WANDERER_PICK_TARGET] = SITE("wanderer_pick_target", 0,
  (0x17c6f4, 0x17c79e), 0x169b90,
- (0),                  0),
+ (M(0x10038c6b0), M(0x10038ddf8)), M(0x100548204)),
     [SITE_WANDERER_PICK_UP] = SITE("wanderer_pick_up", 0,
  (0x1454e2, 0x17c64b), 0x147610,
  (0),                  0),
@@ -5053,14 +5174,16 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),                  0),
     [SITE_CHOP_BURN_SCREEN] = SITE("chop_burn_screen", 0,
  (0x09811b), 0x2dcce0,
- (0),        0),
+ (M(0x100387968)), M(0x10035bbb4)),
     [SITE_SLAVE_HUNT_SCREEN] = SITE("slave_hunt_screen", 0,
  (0x098207), 0x2e0e20,
- (0),        0),
+ (M(0x100387a84)), M(0x10035c2cc)),
     [SITE_UNIT_STATS_SCREEN] = SITE("unit_stats_screen", 0,
  (0x0972c2, 0x098d19, 0x0fa5ae, 0x10030e, 0x111e9b, 0x1120f9, 0x11e129, 0x1217d9, 0x122048,
                        0x1224f4, 0x18311a, 0x1d0186, 0x1d426f, 0x1d96c2, 0x2b02e0, 0x2d5422, 0x2e00dd), 0x1d4290,
- (0),                                                                              0),
+ (M(0x100356188), M(0x10035e320), M(0x10035f58c), M(0x100380b20), M(0x100386118), M(0x100386ab4),
+                       M(0x100387040), M(0x10046ac88), M(0x10047c9f8), M(0x10047dc0c), M(0x10047e184), M(0x100482d10),
+                       M(0x1004e9914), M(0x1005207e4), M(0x10058442c), M(0x100584504), M(0x100584734)), M(0x100521160)),
     [SITE_ITEM_INFO_SCREEN] = SITE("item_info_screen", 0,
  (0x1d817c), 0x17e850,
  (0),        0),
@@ -5069,7 +5192,7 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),        0),
     [SITE_PLANE_INFO_SCREEN] = SITE("plane_info_screen", 0,
  (0x097791), 0x254470,
- (0),        0),
+ (M(0x100386d70)), M(0x10057c7c8)),
     [SITE_BATTLE_INTRO_SCREEN] = SITE("battle_intro_screen", 0,
  (0x0f56ed), 0x0e17e0,
  (0),        0),
@@ -5078,7 +5201,7 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),                            0),
     [SITE_SELECT_NEXT_COMMANDER] = SITE("select_next_commander", 0,
  (0x094708, 0x094912, 0x09730e, 0x097657, 0x097698), 0x0a08a0,
- (0),                                                0),
+ (M(0x10037b560), M(0x10037b994), M(0x1003800c4), M(0x100380c98), M(0x100382718)), M(0x100374068)),
     [SITE_SELECT_PREV_COMMANDER] = SITE("select_prev_commander", 0,
  (0x09733a), 0x0a0640,
  (0),        0),
@@ -5096,10 +5219,11 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),        0),
     [SITE_CLEAN_SQUARE] = SITE("clean_square", 0,
  (0x1405d0, 0x2b2abf), 0x140790,
- (0),                  0),
+ (M(0x1003b78dc), M(0x100563898)), M(0x10039ff68)),
     [SITE_ADJUST_FOR_SNOW] = SITE("adjust_for_snow", 0,
  (0x091a59, 0x162b78, 0x1b9289, 0x1b92f1, 0x1b96f6, 0x1b9aa5, 0x1ddcb7, 0x3347fc), 0x0b4040,
- (0),                                                                              0),
+ (M(0x100389b28), M(0x1003a3eb0), M(0x1004c66f0), M(0x100515ff8), M(0x100516148), M(0x100517264),
+                       M(0x100517f88), M(0x100599310)), M(0x100552314)),
     [SITE_START_TUNE] = SITE("start_tune", 0,
  (0x091b45, 0x092345, 0x093b9b, 0x10cd97, 0x10d07f, 0x10d0d6, 0x19143f, 0x198514, 0x1e8cdd), 0x122580,
  (0),                                                                                        0),
@@ -5108,7 +5232,7 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),                            0),
     [SITE_TEAMLESS_OWN_TEAM] = SITE("teamless_own_team", 0,
  (0x1f3c59), 0x32a750,
- (0),        0),
+ (M(0x1004fb2d8), M(0x100589e64)), M(0x1005114dc)),
     [SITE_ADD_BENEFIT] = SITE("add_benefit", 0,
  (0x0de302, 0x14403e, 0x144940), 0x0bbbb0,
  (0),                            0),
@@ -5117,14 +5241,17 @@ static const SiteInfo SITES[SITE_COUNT] = {
  (0),                  0),
     [SITE_MOVE_STEP_AFTER] = SITE("move_step_after", 0,
  (0x07109b, 0x098c9b, 0x09deb3, 0x16da56, 0x17ce92, 0x17d0c5, 0x2dc3b1), 0x1df050,
- (0),                                                                    0),
+ (M(0x100358e90), M(0x100376ffc), M(0x1003883f8), M(0x10038d8f8), M(0x10038dcb4), M(0x1004db3d8),
+                       M(0x100546a70)), M(0x10059d9dc)),
     [SITE_NUMBER_BOX] = SITE("number_box", 0,
  (0x12490f, 0x1b8838, 0x1b888b, 0x1b93ae, 0x1b9472, 0x1b94e8, 0x1b9512, 0x1b9567, 0x1b957d,
                        0x1f0f96, 0x1f1a51, 0x2aad02, 0x2aad30), 0x042770,
- (0),                                      0),
+ (M(0x100380858), M(0x1004b3020), M(0x1004b3050), M(0x10050248c), M(0x100507474), M(0x100515c8c),
+                       M(0x100515e90), M(0x100515ea8), M(0x1005161b8), M(0x100516664), M(0x10051668c), M(0x100516ff4),
+                       M(0x10051710c)), M(0x1003489ac)),
     [SITE_ENCHANTS_DESTROYED_AT] = SITE("enchants_destroyed_at", 0,
  (0x1ae97d, 0x1df1d2, 0x1ebed0, 0x1f4dcb), 0x2be650,
- (0),                                      0),
+ (M(0x1004aa960), M(0x1004fd074), M(0x100505b34), M(0x10059dc24)), M(0x100565fc4)),
     [SITE_STORM_SPAWN] = SITE("storm_spawn", 0,
  (0x2da136), 0x2d1590,
  (0),        0),
@@ -5137,6 +5264,12 @@ static const SiteInfo SITES[SITE_COUNT] = {
     [SITE_HORROR_LORD_PICK] = SITE("horror_lord_pick", 0,
  (0x263b95, 0x2645b5, 0x26fbca, 0x285077, 0x29eeed, 0x29f591, 0x29fd95), 0x29ffa0,
  (0),                                                                    0),
+    [SITE_CLIENT_TURN] = SITE("client_turn", 0,
+ (0x1ea5b7),       0x0944c0,
+ (M(0x10050bc04)), M(0x10037afe8)),
+    [SITE_SETUP_SERVER] = SITE("setup_server", 0,
+ (0x190d9f, 0x1f1765),             0x1f0f10,
+ (M(0x100333530), M(0x10032e214)), M(0x1005022f4)),
 };
 #undef M
 #undef SITE

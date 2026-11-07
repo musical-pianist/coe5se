@@ -123,7 +123,7 @@ static int lReleaseFollower(lua_State *L) {
     }
     int active = G32(RVA_ACTIVE_PLAYER);
     LuaScript *s = luaScriptOf(L);
-    const char *reason = followerReleaseRefusal(aiSiteRunning(), isNetworkGame(), unit, owner, controller, active);
+    const char *reason = followerReleaseRefusal(aiSiteRunning(), netShutsGameCalls(), unit, owner, controller, active);
     if (reason) {
         refuseLuaCall(s ? s->mod : "?", "coe5.releaseFollower", reason, "unit=%lld player=%d controller=%d active=%d commander=%d",
                       (long long)unit, owner, controller, active, leader);
@@ -226,7 +226,7 @@ static int lTransferFollower(lua_State *L) {
     }
     int active = G32(RVA_ACTIVE_PLAYER);
     LuaScript *s = luaScriptOf(L);
-    const char *reason = followerTransferRefusal(aiSiteRunning(), isNetworkGame(), unit, owner, controller, active, commander,
+    const char *reason = followerTransferRefusal(aiSiteRunning(), netShutsGameCalls(), unit, owner, controller, active, commander,
                                                  commanderOwner, commanderUnit, leader, ux == cx && uy == cy);
     if (!reason && !transferUnitGame((int)unit, (int)commander)) reason = "game_refused";
     if (reason) {
@@ -257,6 +257,19 @@ typedef struct AiRecruitCalls {
     void (*makeSpawnbooster)(int commander);
 } AiRecruitCalls;
 static AiRecruitCalls aiRecruitCalls;
+
+#if defined(__APPLE__) || defined(COE5SE_BUY_SELFCHECK) || defined(COE5SE_COPY_SELFCHECK)
+static const char *commanderTheName(int commander) {
+    if (commander < 0 || commander > G32(RVA_LAST_COMMANDER) || commander >= COMMANDER_TABLE_MAX) return "John Doe";
+    int ring = G32(RVA_COMMANDER_THE_NAME_INDEX);
+    ring = ring >= 9 ? 0 : ring + 1;
+    G32(RVA_COMMANDER_THE_NAME_INDEX) = ring;
+    const char *shown = GAME_FN(const char *(*)(int), RVA_UNIT_SHOWN_NAME)(G32(RVA_COMMANDERS + (size_t)commander * COMMANDER_SIZE));
+    char *out = (char *)GAME_PTR(RVA_COMMANDER_THE_NAME_RING + (size_t)ring * 100);
+    snprintf(out, 100, "%.47s the %.50s", (const char *)GAME_PTR(RVA_COMMANDER_NAMES + (size_t)commander * COMMANDER_SIZE), shown);
+    return out;
+}
+#endif
 
 // ---- The AI's buys, as CoE5SE's own code ------------------------------------------------------------
 #if defined(__APPLE__) || defined(COE5SE_BUY_SELFCHECK)
@@ -333,17 +346,6 @@ static void upgradeAiUnit(int u, int monster, int free) {
     if (free) G32(RVA_UNIT_LEADER + rec) = -1;
     int hp = maxHp(u) - wounds;
     G16(RVA_UNIT_HP + rec) = (short)(hp < 1 ? 1 : hp);
-}
-
-static const char *commanderTheName(int commander) {
-    if (commander < 0 || commander > G32(RVA_LAST_COMMANDER) || commander >= COMMANDER_TABLE_MAX) return "John Doe";
-    int ring = G32(RVA_COMMANDER_THE_NAME_INDEX);
-    ring = ring >= 9 ? 0 : ring + 1;
-    G32(RVA_COMMANDER_THE_NAME_INDEX) = ring;
-    const char *shown = GAME_FN(const char *(*)(int), RVA_UNIT_SHOWN_NAME)(G32(RVA_COMMANDERS + (size_t)commander * COMMANDER_SIZE));
-    char *out = (char *)GAME_PTR(RVA_COMMANDER_THE_NAME_RING + (size_t)ring * 100);
-    snprintf(out, 100, "%.47s the %.50s", (const char *)GAME_PTR(RVA_COMMANDER_NAMES + (size_t)commander * COMMANDER_SIZE), shown);
-    return out;
 }
 
 static void buyAiTroops(int player, int offer, int x, int y) {

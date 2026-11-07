@@ -1,8 +1,11 @@
 static int monsterRowIndex;
+static int uiButtonCount;
+static int uiButtonsWaiting;
 static void closeLuaRow(lua_State *L, const char *call);
 static int lScreenBegin(lua_State *L) {
     closeLuaRow(L, "coe5.ui.screenBegin");
     monsterRowIndex = 0;
+    uiButtonCount = 0;
     luaApi->ui->screenBegin(luaL_checkstring(L, 1));
     return 0;
 }
@@ -65,7 +68,10 @@ static int lWait(lua_State *L) {
     checkLuaMainThread(L, "coe5.ui.wait");
     closeLuaRow(L, "coe5.ui.wait");
     luaCodeRunning--;
+    uiButtonsWaiting++;
     int id = luaApi->ui->wait();
+    uiButtonsWaiting--;
+    uiButtonCount = 0;
     luaCodeRunning++;
     resetLuaSteps(L);
     lua_pushinteger(L, id);
@@ -178,6 +184,127 @@ static int lRowEnd(lua_State *L) {
     closeLuaGameRow();
     luaRowOpen = 0;
     return 0;
+}
+
+#define TEXT_RENDER_FLAG_SCALED 4
+#define TEXT_SCALED_FONT_PIXELS 64
+
+static double measureUiText(const char *text, float size) {
+    float pixels = size * uiScaleY() * DRAW_TEXT_SIZE_SCALE;
+    int flags = G32(RVA_TEXT_RENDER_FLAGS), scaled = (flags & TEXT_RENDER_FLAG_SCALED) != 0;
+    int slot = GAME_FN(int (*)(const char *, int, int), RVA_OPEN_GUI_FONT)((const char *)GAME_PTR(RVA_STR_GUIFONT), scaled ? TEXT_SCALED_FONT_PIXELS : (int)pixels, flags);
+    if (slot < 0) return -1;
+    int w = 0, h = 0;
+    GAME_FN(void (*)(int, const char *, int *, int *), RVA_TEXT_MEASURE)(slot, text, &w, &h);
+    return (double)w * (scaled ? (double)pixels / TEXT_SCALED_FONT_PIXELS : 1.0) / (double)uiScaleX();
+}
+
+// ---- coe5.ui.button: a button with a face of its own, on a screen ----------------------------------
+#define UI_BUTTON_MAX        64
+#define UI_BUTTON_TEXT       100
+#define UI_BUTTON_GAP        7.0f
+#define UI_BUTTON_LABEL_SIZE 13.0f
+#define UI_BUTTON_LINE2_SIZE 11.5f
+typedef struct {
+    int id;
+    float colour[3];
+    char label[UI_BUTTON_TEXT], line2[UI_BUTTON_TEXT];
+} UiButton;
+static UiButton uiButtons[UI_BUTTON_MAX];
+
+static const char *luaButtonRefusal(int open, int count, lua_Integer id, float width, float height, const float colour[3]) {
+    if (open) return "row_open";
+    if (count >= UI_BUTTON_MAX) return "too_many";
+    if (id == 0 || !fitsInt(id) || width <= 0 || height <= 0) return "out_of_range";
+    for (int i = 0; i < 3; i++)
+        if (colour[i] < 0 || colour[i] > 1) return "out_of_range";
+    return NULL;
+}
+
+static void addUiButtonRow(int id, float width, float height) {
+    const float none[4] = {0, 0, 0, 0};
+    float *textSize = (float *)GAME_PTR(RVA_COLUMN_BASE), kept = *textSize;
+    *textSize = height;
+    openLuaGameRow(id, width, none);
+    closeLuaGameRow();
+    *textSize = UI_BUTTON_GAP;
+    openLuaGameRow(0, width, none);
+    closeLuaGameRow();
+    *textSize = kept;
+}
+
+static int lButton(lua_State *L) {
+    lua_Integer id = luaL_checkinteger(L, 1);
+    const char *label = luaL_checkstring(L, 2);
+    float size[2], colour[3] = {0.36f, 0.375f, 0.42f};
+    if (!luaDrawFloats(L, "coe5.ui.button", 3, 4, size)) return 0;
+    if (!lua_isnoneornil(L, 5) && !luaDrawFloats(L, "coe5.ui.button", 5, 7, colour)) return 0;
+    const char *line2 = luaL_optstring(L, 8, "");
+    const char *reason = luaButtonRefusal(luaRowOpen, uiButtonCount, id, size[0], size[1], colour);
+    if (reason) {
+        refuseLuaCall(runningLuaMod(), "coe5.ui.button", reason, "id=%lld width=%g height=%g", (long long)id, (double)size[0], (double)size[1]);
+        return 0;
+    }
+    UiButton *b = &uiButtons[uiButtonCount++];
+    b->id = (int)id;
+    memcpy(b->colour, colour, sizeof b->colour);
+    char cut[UI_BUTTON_TEXT];
+    snprintf(b->label, sizeof b->label, "%s", fitGameText((void *)lButton, "coe5.ui.button", label, cut, sizeof cut));
+    snprintf(b->line2, sizeof b->line2, "%s", fitGameText((void *)lButton, "coe5.ui.button", line2, cut, sizeof cut));
+    addUiButtonRow(b->id, size[0], size[1]);
+    return 0;
+}
+
+static void drawUiButtonText(const char *text, float x, float y, float size, const float ink[3]) {
+    double width = measureUiText(text, size);
+    drawUiText(x - (float)(width < 0 ? 0 : width) / 2, y, size, text, ink[0], ink[1], ink[2], 1.0f);
+}
+
+static void drawUiButton(const UiButton *b, float x, float y, float w, float h, int hovered, int pressed) {
+    float lift = pressed ? -0.03f : hovered ? 0.08f : 0.0f, face[3], edge[3], light[3], dark[3];
+    for (int i = 0; i < 3; i++) {
+        float c = b->colour[i] + lift;
+        face[i] = c < 0 ? 0 : c > 1 ? 1 : c;
+        edge[i] = face[i] + (1 - face[i]) * 0.45f;
+        light[i] = face[i] + (1 - face[i]) * 0.18f;
+        dark[i] = face[i] * 0.65f;
+    }
+    drawUiRect(x, y, w, h, edge[0], edge[1], edge[2], 1.0f);
+    drawUiRect(x + 1, y + 1, w - 2, h - 2, face[0], face[1], face[2], 1.0f);
+    drawUiRect(x + 1, y + h - 2, w - 2, 1, light[0], light[1], light[2], 1.0f);
+    drawUiRect(x + 1, y + 1, w - 2, 1, dark[0], dark[1], dark[2], 1.0f);
+    float brightness = 0.3f * face[0] + 0.6f * face[1] + 0.1f * face[2];
+    const float lightInk[3] = {0.93f, 0.93f, 0.94f}, lightInk2[3] = {0.74f, 0.75f, 0.77f}, darkInk[3] = {0.08f, 0.08f, 0.09f};
+    int bright = brightness > 0.6f;
+    float mid = x + w / 2;
+    if (b->line2[0]) {
+        drawUiButtonText(b->label, mid, y + h / 2 + 0.5f, UI_BUTTON_LABEL_SIZE, bright ? darkInk : lightInk);
+        drawUiButtonText(b->line2, mid, y + h / 2 - UI_BUTTON_LINE2_SIZE - 0.5f, UI_BUTTON_LINE2_SIZE, bright ? darkInk : lightInk2);
+    } else {
+        drawUiButtonText(b->label, mid, y + (h - UI_BUTTON_LABEL_SIZE) / 2 + 1.5f, UI_BUTTON_LABEL_SIZE, bright ? darkInk : lightInk);
+    }
+}
+
+static void drawUiButtons(void) {
+    if (uiButtonsWaiting <= 0 || !uiButtonCount) return;
+    float px, py;
+    memcpy(&px, GAME_PTR(RVA_UI_MOUSE_X), 4);
+    memcpy(&py, GAME_PTR(RVA_UI_MOUSE_Y), 4);
+    int last = G32(RVA_GUI_LAST_SLOT), pressed = G32(RVA_MOUSE_BUTTONS) & 1;
+    const unsigned char *table = GAME_PTR(RVA_GUI_TABLE);
+    for (int i = 0; i <= last; i++) {
+        const unsigned char *e = table + (size_t)i * GUI_STRIDE;
+        int id;
+        float x, y, w, h;
+        memcpy(&id, e, 4), memcpy(&x, e + 4, 4), memcpy(&y, e + GUI_ELEMENT_Y, 4), memcpy(&w, e + GUI_ELEMENT_WIDTH, 4), memcpy(&h, e + 0x10, 4);
+        if (!id || !(h > 0)) continue;
+        for (int n = 0; n < uiButtonCount; n++) {
+            if (uiButtons[n].id != id) continue;
+            int hovered = px >= x && px < x + w && py >= y && py < y + h;
+            drawUiButton(&uiButtons[n], x, y, w, h, hovered, hovered && pressed);
+            break;
+        }
+    }
 }
 
 static int luaMayDraw(lua_State *L, const char *call) {
@@ -383,8 +510,9 @@ static int lShowMessageBox(lua_State *L) {
     const char *title = luaL_checkstring(L, 1), *text = luaL_checkstring(L, 2);
     int active = G32(RVA_ACTIVE_PLAYER);
     int controller = active >= 0 && active < playerSlotCount() ? (*(short *)playerSlotAddress(RVA_SLOT_CONTROLLER, active, 2)) : CONTROLLER_HUMAN;
+    if (netRoleNow() == NET_ROLE_CLIENT) controller = CONTROLLER_HUMAN;
     const char *reason =
-        messageBoxRefusal(isNetworkGame(), portalHandlerRunning && portalHandlerPlanning, aiSiteRunning(), active, controller);
+        messageBoxRefusal(netRoleNow() == NET_ROLE_OFFICIAL, portalHandlerRunning && portalHandlerPlanning, aiSiteRunning(), active, controller);
     if (reason) {
         refuseLuaCall(runningLuaMod(), "coe5.showMessageBox", reason, "title=%.80s active=%d controller=%d", title, active, controller);
         lua_pushboolean(L, 0);

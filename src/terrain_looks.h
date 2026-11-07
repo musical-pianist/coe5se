@@ -137,6 +137,11 @@ static TerrainLooks *findTerrainLooks(int terrain) {
     return NULL;
 }
 
+static void markScriptLooksRestarting(const char *mod) {
+    for (int i = 0; i < terrainLooksCount; i++)
+        if (terrainLooks[i].script && !terrainLooks[i].from && !strcmp(terrainLooks[i].mod, mod)) terrainLooks[i].from = TERRAIN_LOOKS_EARLIER_PASS;
+}
+
 static const char *declareTerrainLooks(const char *mod, const TerrainLooksFields *f, int script, const char *file, int line) {
     if (f->terrain <= TERRAIN_VANILLA_LAST || f->terrain >= TERRAIN_TABLE_MAX) return "not_a_mod_terrain";
     if (f->ground > TERRAIN_VANILLA_LAST || f->decor > TERRAIN_VANILLA_LAST) return "not_a_game_terrain";

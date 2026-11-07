@@ -31,7 +31,8 @@ static int actionExtraKeys[KEY_ACTION_COUNT];
 static char actionKeySetBy[KEY_ACTION_COUNT][2][80];
 static unsigned char screenChanged[KEY_SCREEN_COUNT];
 static int keyScreen;
-static int shortcutsListNetwork = -1;
+static NetRole keyRole = NET_ROLE_SINGLE;
+static unsigned char actionFromPersonal[KEY_ACTION_COUNT];
 static void refreshShortcutsList(void);
 static int unitListSheetOpen;
 static int unitListNeedsSheet;
@@ -45,8 +46,9 @@ static void actionKeyText(int action, char *out, size_t size) {
     else snprintf(out, size, "%s", extra[0] ? extra : main);
 }
 
+static int actionPickOff(int action) { return !keyPickCountsFor(netRoleNow(), actionFromPersonal[action]); }
 static int actionIsGame(int action) {
-    return actionKeys[action] == KEY_ACTION_INFO[action].gameKey && !actionExtraKeys[action];
+    return (actionKeys[action] == KEY_ACTION_INFO[action].gameKey && !actionExtraKeys[action]) || actionPickOff(action);
 }
 
 static void actionLogName(int action, char *out, size_t size) {
@@ -92,7 +94,7 @@ static void logBindingDropped(int screen, int id, int key, int action) {
 }
 
 static void rewriteShortcuts(int screen) {
-    if (!screenChanged[screen] || isNetworkGame()) return;
+    if (!screenChanged[screen]) return;
     HotkeyEntry *table = (HotkeyEntry *)GAME_PTR(RVA_HOTKEY_TABLE);
     int last = G32(RVA_HOTKEY_COUNT);
     if (last >= HOTKEY_TABLE_SIZE) last = HOTKEY_TABLE_SIZE - 1;
@@ -101,7 +103,7 @@ static void rewriteShortcuts(int screen) {
         if (!e->id) continue;
         int action = boundActionOf(screen, e->id, e->key);
         if (action) {
-            e->key = actionKeys[action] ? actionKeys[action] : KEY_UNBOUND;
+            if (!actionPickOff(action)) e->key = actionKeys[action] ? actionKeys[action] : KEY_UNBOUND;
             continue;
         }
         int taker = actionTakingKey(screen, e->key);
@@ -111,14 +113,33 @@ static void rewriteShortcuts(int screen) {
         }
     }
     for (int a = 1; a < KEY_ACTION_COUNT; a++)
-        if (KEY_ACTION_INFO[a].screen == screen && KEY_ACTION_INFO[a].readMode == KEY_BOUND && actionExtraKeys[a])
+        if (KEY_ACTION_INFO[a].screen == screen && KEY_ACTION_INFO[a].readMode == KEY_BOUND && actionExtraKeys[a] && !actionPickOff(a))
             bindHotkey(KEY_ACTION_INFO[a].id, actionExtraKeys[a]);
+}
+
+static int keySetterIsPersonal(const char *setBy) { return !strncmp(setBy, "mod=", 4) && modClassNow(setBy + 4) == LUA_CLASS_PERSONAL; }
+static void noteActionSetter(int a) {
+    actionFromPersonal[a] = (unsigned char)(keySetterIsPersonal(actionKeySetBy[a][0]) || keySetterIsPersonal(actionKeySetBy[a][1]));
+}
+
+static void followKeyRole(void) {
+    NetRole role = netRoleNow();
+    if (role == keyRole) return;
+    keyRole = role;
+    int kept = 0;
+    for (int a = 1; a < KEY_ACTION_COUNT; a++) {
+        noteActionSetter(a);
+        kept += actionFromPersonal[a];
+    }
+    for (int s = 1; s < KEY_SCREEN_COUNT; s++) markScreenChanged(s);
+    refreshShortcutsList();
+    writeLog("key_picks_followed", "role=%d personal_actions=%d", role, kept);
 }
 
 static int runKeyScreenWait(int screen, int (**next)(int, int), int a, int b) {
     int outer = keyScreen;
     keyScreen = screen;
-    if (isNetworkGame() != shortcutsListNetwork) refreshShortcutsList();
+    followKeyRole();
     rewriteShortcuts(screen);
     int id = (*next)(a, b);
     keyScreen = outer;
@@ -200,7 +221,7 @@ static void writeHeldKeys(void) {
     unsigned char want[KEY_STATE_SIZE], set[KEY_STATE_SIZE];
     memset(want, 0, sizeof want);
     memset(set, 0, sizeof set);
-    int screen = isNetworkGame() ? 0 : keyScreen;
+    int screen = keyScreen;
     if (screen && screenChanged[screen])
         for (int a = 1; a < KEY_ACTION_COUNT; a++) {
             const KeyActionInfo *k = &KEY_ACTION_INFO[a];
@@ -221,7 +242,8 @@ static void writeHeldKeys(void) {
 static unsigned long gameFrames;
 
 static int pollEventHook(void *event) {
-    int got = nextPollEvent(event);
+    int got;
+    do got = nextPollEvent(event); while (got && event && previewFieldTakesEvent(event));
     if (!got) {
         gameFrames++;
         writeHeldKeys();
@@ -303,7 +325,7 @@ static const char *formatKeyText(CallSite site, const char *fmt, va_list ap) {
     static char translated[TRANSLATED_SIZE], out[TRANSLATED_SIZE];
     static unsigned char logged[KEY_TEXT_COUNT];
     translateText(fmt ? fmt : "", translated, sizeof translated);
-    if (fmt && !isNetworkGame())
+    if (fmt)
         for (int i = 0; i < KEY_TEXT_COUNT; i++) {
             const KeyText *t = &KEY_TEXTS[i];
             if (t->site != site || strcmp(fmt, t->text)) continue;
@@ -400,15 +422,13 @@ static void refreshShortcutsList(void) {
         }
     }
     if (shortcutsTableReady != 1) return;
-    int network = isNetworkGame();
-    shortcutsListNetwork = network;
     for (int a = 1; a < KEY_ACTION_COUNT; a++) {
         int row = KEY_ACTION_INFO[a].row;
         if (!gameRowTexts[row]) continue;
         int game = 1;
         for (int b = 1; b < KEY_ACTION_COUNT; b++)
             if (KEY_ACTION_INFO[b].row == row && !actionIsGame(b)) game = 0;
-        if (game || network) {
+        if (game) {
             pairs[2 * row] = gameRowTexts[row];
             continue;
         }
@@ -442,21 +462,26 @@ static int setActionKeyFor(void *caller, const char *call, int action, int key, 
         refuseApiCall(caller, call, "bad_key", "action=%s key=%d", name, key);
         return 0;
     }
-    int *slot = extra ? &actionExtraKeys[action] : &actionKeys[action];
-    if (*slot == key) return 1;
-    *slot = key;
-    markScreenChanged(KEY_ACTION_INFO[action].screen);
-    keyValueName(key, keyName, sizeof keyName);
-    screensReadingKey(key, KEY_ACTION_INFO[action].screen, shared, sizeof shared);
     char who[64], by[sizeof actionKeySetBy[0][0]];
     const char *field = apiCallerName(caller, who, sizeof who);
     snprintf(by, sizeof by, "%s=%.63s", field, who);
+    if (netRoleNow() == NET_ROLE_CLIENT && !strcmp(field, "mod") && !keySetterIsPersonal(by)) {
+        refuseApiCall(caller, call, "not_personal_on_client", "action=%s key=%d", name, key);
+        return 0;
+    }
+    int *slot = extra ? &actionExtraKeys[action] : &actionKeys[action];
+    if (*slot == key) return 1;
+    *slot = key;
+    keyValueName(key, keyName, sizeof keyName);
+    screensReadingKey(key, KEY_ACTION_INFO[action].screen, shared, sizeof shared);
     writeLog("key_rebound", "%s action=%s key=%s second=%d game_key=%d also_read_on_screens=%s", by, name, keyName, extra,
              KEY_ACTION_INFO[action].gameKey, shared[0] ? shared : "none");
     char *setBy = actionKeySetBy[action][extra ? 1 : 0];
     if (setBy[0] && strcmp(setBy, by))
         writeLog("key_rebound_over", "%s action=%s second=%d over_%s", by, name, extra, setBy);
     snprintf(setBy, sizeof actionKeySetBy[0][0], "%s", by);
+    noteActionSetter(action);
+    markScreenChanged(KEY_ACTION_INFO[action].screen);
     if (shortcutsTableReady == 1) refreshShortcutsList();
     return 1;
 }

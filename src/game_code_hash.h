@@ -66,12 +66,3 @@ static int hashMemorySha256(const void *data, size_t size, char hex[GAME_CODE_SH
     size_t sizes[1] = {size};
     return hashPiecesSha256(pieces, sizes, 1, hex);
 }
-
-static int hashCodeWithBytes(const unsigned char *code, size_t size, const unsigned char *at, const unsigned char *bytes,
-                             size_t length, char hex[GAME_CODE_SHA256_HEX_LEN + 1]) {
-    if (at < code || length > size || (size_t)(at - code) > size - length) return 0;
-    size_t before = (size_t)(at - code);
-    const void *pieces[3] = {code, bytes, at + length};
-    size_t sizes[3] = {before, length, size - before - length};
-    return hashPiecesSha256(pieces, sizes, 3, hex);
-}

@@ -319,6 +319,13 @@ static BattleScatter *findBattleScatter(int terrain) {
     return NULL;
 }
 
+static void markScriptBattleMapsRestarting(const char *mod) {
+    for (int i = 0; i < battleMapCount; i++)
+        if (battleMaps[i].script && !battleMaps[i].from && !strcmp(battleMaps[i].mod, mod)) battleMaps[i].from = BATTLE_MAPS_EARLIER_PASS;
+    for (int i = 0; i < battleScatterCount; i++)
+        if (battleScatters[i].script && !battleScatters[i].from && !strcmp(battleScatters[i].mod, mod)) battleScatters[i].from = BATTLE_MAPS_EARLIER_PASS;
+}
+
 static const char *declareBattleScatter(const char *mod, const BattleScatterFields *f, int script, const char *file, int line) {
     if (f->terrain < 0 || f->terrain >= TERRAIN_TABLE_MAX) return "bad_terrain";
     if (findBattleScatter(f->terrain)) return "scatter_taken";
@@ -568,6 +575,20 @@ static void (*battleRemoveForTests)(int unit);
 
 static unsigned char *battleCell(int x, int y) {
     return GAME_PTR(RVA_BATTLE_GRID) + ((size_t)x * BATTLE_ROWS + (size_t)y) * BATTLE_CELL_SIZE;
+}
+
+static int unitBattleCell(int unit, int *x, int *y) {
+    if (unit < 0 || (!*(const unsigned char *)GAME_PTR(RVA_IN_BATTLE) && !testField.open)) return 0;
+    int width = G32(RVA_BATTLE_WIDTH);
+    if (width > BATTLE_COLUMNS_MAX) width = BATTLE_COLUMNS_MAX;
+    for (int row = 0; row < BATTLE_ROWS; row++)
+        for (int column = 0; column < width; column++)
+            if (*(const int *)battleCell(column, row) == unit) {
+                *x = column;
+                *y = row;
+                return 1;
+            }
+    return 0;
 }
 
 static void battleSeedTraceHook(const char *format, ...) {

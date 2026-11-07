@@ -163,7 +163,9 @@ static int pushLuaModCommand(lua_State *L, void *ctx) {
 static void runLuaModCommand(int callback, const char *args, int mod, int level) {
     if (callback < 0 || callback >= luaCallbackCount) return;
     LuaCallback c = luaCallbacks[callback];
-    if (!c.s || c.s->dead || isNetworkGame()) return;
+    if (!c.s || c.s->dead) return;
+    NetRole role = netRoleNow();
+    if (role != NET_ROLE_SINGLE && !luaModCommandOpenFor(role, modClassNow(c.s->mod), level)) return;
     LuaModCommandCall call = {c.ref, args, mod >= 0 && mod <= G32(RVA_MOD_LAST_INDEX) ? modName(mod) : NULL, level};
     callLuaProtected(c.s, pushLuaModCommand, &call, 0);
 }
@@ -217,6 +219,7 @@ static void readLuaPlaneLayout(lua_State *L, int piecesAt, int zonesAt, int unit
                                const char *script, int line);
 static void finishPlaneLayout(PlaneLayout *layout, int w, int h, const char *mod);
 static void notePlaneLayoutProblems(const PlaneLayout *layout, const char *mod);
+static void noteScriptRefusedPlane(const char *name, const char *mod, const char *reason, const char *source, int line);
 static int lAddPlane(lua_State *L) {
     static PlaneLayout layout;
     luaL_checktype(L, 1, LUA_TTABLE);
@@ -260,10 +263,15 @@ static int lAddPlane(lua_State *L) {
         finishPlaneLayout(&layout, (int)w, (int)h, mod ? mod : "?");
     }
     if (!reason) reason = declareCustomPlane(mod ? mod : "?", name, (int)w, (int)h, (int)fill, iconPath);
-    if (reason) refuseLuaCall(mod, "coe5.addPlane", reason, "name=%.40s w=%lld h=%lld fill=%lld icon=%.80s", name, (long long)w, (long long)h,
-                              (long long)fill, icon ? icon : "-");
-    else {
+    lua_Debug declaring;
+    int declaredLine = lua_getstack(L, 1, &declaring) && lua_getinfo(L, "l", &declaring) ? declaring.currentline : 0;
+    if (reason) {
+        refuseLuaCall(mod, "coe5.addPlane", reason, "name=%.40s w=%lld h=%lld fill=%lld icon=%.80s", name, (long long)w, (long long)h,
+                      (long long)fill, icon ? icon : "-");
+        noteScriptRefusedPlane(name, mod ? mod : "?", reason, luaRunning ? luaRunning->path : "?", declaredLine);
+    } else {
         CustomPlane *p = findCustomPlane(name);
+        p->declLine = declaredLine;
         p->recipe = f.recipe, p->populate = f.populate, p->swapCount = f.swapCount, p->sizeFromLike = sizeFromLike;
         memcpy(p->swapFrom, f.swapFrom, sizeof f.swapFrom);
         memcpy(p->swapTo, f.swapTo, sizeof f.swapTo);
@@ -273,6 +281,7 @@ static int lAddPlane(lua_State *L) {
             p->generateRef = luaL_ref(L, LUA_REGISTRYINDEX);
         }
         p->layout = layout;
+        dropPlaneLayoutLists(&layout);
         notePlaneLayoutProblems(&p->layout, p->mod);
         writeLog("plane_recipe", "mod=%s name=%s like=%s populate=%s swaps=%d generate=%d pieces=%d zones=%d units=%d", mod ? mod : "?", name,
                  f.recipe >= 0 ? VANILLA_PLANE_SHORT_NAMES[f.recipe] : "-", f.populate >= 0 ? VANILLA_PLANE_SHORT_NAMES[f.populate] : "-",
@@ -382,6 +391,21 @@ static int lRestartPhase(lua_State *L) {
 
 static int lTurn(lua_State *L) { lua_pushinteger(L, G32(RVA_TURN)); return 1; }
 
+static int lNetRole(lua_State *L) {
+    NetRole role = netRoleNow();
+    lua_pushinteger(L, role == NET_ROLE_HOST ? NET_ROLE_HOST : role == NET_ROLE_CLIENT ? NET_ROLE_CLIENT : NET_ROLE_SINGLE);
+    return 1;
+}
+
+static int lLocalPlayer(lua_State *L) {
+    int player = G32(RVA_ACTIVE_PLAYER);
+    NetRole role = netRoleNow();
+    if (role == NET_ROLE_HOST || (role == NET_ROLE_CLIENT && !netClientInTurn) || player < 0 || player >= playerSlotCount())
+        lua_pushnil(L);
+    else lua_pushinteger(L, player);
+    return 1;
+}
+
 static int lSetting(lua_State *L) {
     const char *name = luaL_checkstring(L, 1);
     LuaScript *s = luaScriptOf(L);
@@ -398,7 +422,7 @@ static int lSetting(lua_State *L) {
     return 1;
 }
 static int lSendMessage(lua_State *L) {
-    if (isNetworkGame()) {
+    if (netShutsGameCalls()) {
         refuseLuaCall(runningLuaMod(), "coe5.sendMessage", "network_game", "player=%lld", (long long)lua_tointeger(L, 1));
         lua_pushinteger(L, -1);
         return 1;
@@ -556,6 +580,14 @@ static int lSquareUnits(lua_State *L) {
 }
 
 #define SIGHT_REDRAW_CONTROLLERS 0x109
+static void revealMapForPlayer(int player, int plane) {
+    GAME_FN(void (*)(int, int), RVA_REVEAL_MAP_FOR)(player, plane);
+    int controller = (*(short *)playerSlotAddress(RVA_SLOT_CONTROLLER, player, 2));
+    if (controller >= -3 && controller < 29 && (SIGHT_REDRAW_CONTROLLERS >> (controller + 3) & 1))
+        for (int index = PLANE_ELYSIUM2 + 1; index <= lastCustomPlaneIndex(); index++)
+            if (plane < 0 || plane == index) GAME_FN(int (*)(int, int), RVA_MAP_BG_MARK)(index, player);
+}
+
 static int lRevealMap(lua_State *L) {
     lua_Integer player = luaCheckPlayer(L, 1), plane = luaL_optinteger(L, 2, -1);
     const char *problem = NULL;
@@ -567,11 +599,7 @@ static int lRevealMap(lua_State *L) {
         lua_pushboolean(L, 0);
         return 1;
     }
-    GAME_FN(void (*)(int, int), RVA_REVEAL_MAP_FOR)((int)player, (int)plane);
-    int controller = (*(short *)playerSlotAddress(RVA_SLOT_CONTROLLER, player, 2));
-    if (controller >= -3 && controller < 29 && (SIGHT_REDRAW_CONTROLLERS >> (controller + 3) & 1))
-        for (int index = PLANE_ELYSIUM2 + 1; index <= lastCustomPlaneIndex(); index++)
-            if (plane < 0 || plane == index) GAME_FN(int (*)(int, int), RVA_MAP_BG_MARK)(index, (int)player);
+    revealMapForPlayer((int)player, (int)plane);
     writeLog("lua_map_revealed", "mod=%s player=%lld plane=%lld", runningLuaMod(), (long long)player, (long long)plane);
     lua_pushboolean(L, 1);
     return 1;

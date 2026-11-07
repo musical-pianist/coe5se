@@ -9,7 +9,7 @@
 
 static void finishPlaneBlock(void);
 static void notePlaneName(const char *name, const char *mod);
-static void noteRefusedPlane(const char *name, const char *mod);
+static void noteRefusedPlane(const char *name, const char *mod, const char *reason, const char *source, int line);
 
 // ---- Reading the words ----------------------------------------------------------------------------
 static int readPlaneTerrain(const char **p, const char **why) {
@@ -70,10 +70,12 @@ static struct {
     int w, h, hasSize, fill, hasFill, recipe, populate, populateSet;
     int swapCount;
     short swapFrom[PLANE_SWAP_MAX], swapTo[PLANE_SWAP_MAX];
+    int swapLine[PLANE_SWAP_MAX];
     char icon[MAX_PATH], file[MAX_PATH];
     int fileW, fileH;
     PlaneLayout layout;
     int zoneOpen;
+    int lines;
 } planeBlock;
 
 static const char *const PLANE_BLOCK_WORDS[] = {
@@ -104,6 +106,10 @@ static PRINTF_FORMAT(4, 5) void refusePlaneLine(const char *word, int mod, const
     va_start(ap, fmt);
     vsnprintf(details, sizeof details, fmt, ap);
     va_end(ap);
+    if (previewLinesReading()) {
+        previewNoteLineRefused(reason);
+        return;
+    }
     refuseC5mLine(word, spellModName(mod), reason, "line=%d %s", G32(RVA_MOD_LINE), details);
 }
 
@@ -113,16 +119,18 @@ static int planeBlockTakes(const char *word, int mod, int level) {
         refusePlaneLine(word, mod, "no_plane_block", "plane=-");
         return 0;
     }
+    planeBlock.lines++;
     return !planeBlock.refused;
 }
 
 static void newplaneLine(const char *args, int mod, int level) {
     if (level != 2) return;
-    finishSpellBlock();
+    if (!previewLinesReading()) finishSpellBlock();
     finishPlaneBlock();
-    clearParserCurrentRecords();
+    if (!previewLinesReading()) clearParserCurrentRecords();
+    freePlaneLayout(&planeBlock.layout);
     memset(&planeBlock, 0, sizeof planeBlock);
-    planeBlock.open = 1, planeBlock.mod = mod, planeBlock.line = G32(RVA_MOD_LINE), planeBlock.fileId = modFileNow();
+    planeBlock.open = 1, planeBlock.mod = mod, planeBlock.line = G32(RVA_MOD_LINE), planeBlock.lines = 1, planeBlock.fileId = modFileNow();
     planeBlock.recipe = planeBlock.populate = -1;
     snprintf(planeBlock.layout.source, sizeof planeBlock.layout.source, "%s", (const char *)GAME_PTR(RVA_EVENT_FILE));
     const char *p = args;
@@ -197,6 +205,7 @@ static void planepopulateLine(const char *args, int mod, int level) {
 }
 
 static void planeswapBlockLine(const char *args, int mod) {
+    planeBlock.lines++;
     if (planeBlock.refused) return;
     const char *p = args, *why = NULL;
     int from = readPlaneTerrain(&p, &why), to = from >= 0 ? readPlaneTerrain(&p, &why) : -1;
@@ -209,6 +218,7 @@ static void planeswapBlockLine(const char *args, int mod) {
         return;
     }
     planeBlock.swapFrom[planeBlock.swapCount] = (short)from, planeBlock.swapTo[planeBlock.swapCount] = (short)to;
+    planeBlock.swapLine[planeBlock.swapCount] = G32(RVA_MOD_LINE);
     planeBlock.swapCount++;
 }
 
@@ -243,6 +253,12 @@ static void planefileLine(const char *args, int mod, int level) {
     planeBlock.fileW = fileW, planeBlock.fileH = fileH;
 }
 
+static const char *planeFileBaseName(const char *path) {
+    const char *slash = strrchr(path, '/'), *back = strrchr(path, '\\');
+    if (back && (!slash || back > slash)) slash = back;
+    return slash ? slash + 1 : path;
+}
+
 static void finishPlaneBlock(void) {
     if (!planeBlock.open) return;
     planeBlock.open = 0;
@@ -258,22 +274,30 @@ static void finishPlaneBlock(void) {
                        : !planeBlock.hasFill && planeBlock.recipe < 0 && !hasFile                 ? "no_fill"
                        : NULL;
     if (!reason) finishPlaneLayout(&planeBlock.layout, w, h, mod);
+    if (previewLinesReading()) {
+        previewNoteBlockEnded(reason);
+        return;
+    }
     if (!reason) reason = declareCustomPlane(mod, planeBlock.name, w, h, fill, planeBlock.icon);
     if (reason) {
         refuseC5mLine(NEWPLANE_WORD, mod, reason, "line=%d name=%s w=%d h=%d file_w=%d file_h=%d", planeBlock.line, planeBlock.name, w, h,
                       planeBlock.fileW, planeBlock.fileH);
-        noteRefusedPlane(planeBlock.name, mod);
+        noteRefusedPlane(planeBlock.name, mod, reason, planeBlock.layout.source, planeBlock.line);
+        freePlaneLayout(&planeBlock.layout);
         return;
     }
     CustomPlane *p = findCustomPlane(planeBlock.name);
     p->fromWords = PLANE_FROM_WORDS;
+    p->declLine = planeBlock.line, p->declLines = planeBlock.lines;
     p->recipe = planeBlock.recipe, p->sizeFromLike = sizeFromLike;
     p->populate = planeBlock.populateSet ? planeBlock.populate : planeBlock.recipe;
     p->swapCount = planeBlock.swapCount;
     memcpy(p->swapFrom, planeBlock.swapFrom, sizeof p->swapFrom);
     memcpy(p->swapTo, planeBlock.swapTo, sizeof p->swapTo);
+    memcpy(p->swapLine, planeBlock.swapLine, sizeof p->swapLine);
     snprintf(p->file, sizeof p->file, "%s", planeBlock.file);
     p->layout = planeBlock.layout;
+    dropPlaneLayoutLists(&planeBlock.layout);
     writeLog("plane_recipe", "mod=%s name=%s like=%s populate=%s swaps=%d generate=0 file=%s pieces=%d zones=%d units=%d", mod, p->name,
              p->recipe >= 0 ? VANILLA_PLANE_SHORT_NAMES[p->recipe] : "-", p->populate >= 0 ? VANILLA_PLANE_SHORT_NAMES[p->populate] : "-",
              p->swapCount, hasFile ? p->file : "-", p->layout.pieceCount, p->layout.zoneCount, p->layout.units.count);
@@ -532,12 +556,13 @@ static void noteScriptPlaneNames(void) {
 }
 
 typedef struct {
-    char name[PLANE_NAME_SIZE], mod[MOD_NAME_MAX];
+    char name[PLANE_NAME_SIZE], mod[MOD_NAME_MAX], reason[32], file[64];
+    int line;
 } RefusedPlane;
 static RefusedPlane *refusedPlanes;
 static int refusedPlaneCount, refusedPlaneCapacity;
 
-static void noteRefusedPlane(const char *name, const char *mod) {
+static void noteRefusedPlane(const char *name, const char *mod, const char *reason, const char *source, int line) {
     if (!name[0]) return;
     for (int i = 0; i < refusedPlaneCount; i++)
         if (!strcasecmp(refusedPlanes[i].name, name)) return;
@@ -545,7 +570,65 @@ static void noteRefusedPlane(const char *name, const char *mod) {
         return;
     snprintf(refusedPlanes[refusedPlaneCount].name, PLANE_NAME_SIZE, "%s", name);
     snprintf(refusedPlanes[refusedPlaneCount].mod, MOD_NAME_MAX, "%s", mod);
+    snprintf(refusedPlanes[refusedPlaneCount].reason, sizeof refusedPlanes[0].reason, "%.31s", reason);
+    snprintf(refusedPlanes[refusedPlaneCount].file, sizeof refusedPlanes[0].file, "%.63s", planeFileBaseName(source));
+    refusedPlanes[refusedPlaneCount].line = line;
     refusedPlaneCount++;
+}
+
+static RefusedPlane *scriptRefusedPlanes;
+static int scriptRefusedPlaneCount, scriptRefusedPlaneCapacity;
+
+static void noteScriptRefusedPlane(const char *name, const char *mod, const char *reason, const char *source, int line) {
+    for (int i = 0; i < scriptRefusedPlaneCount; i++)
+        if (!strcasecmp(scriptRefusedPlanes[i].name, name)) return;
+    if (!growList((void **)&scriptRefusedPlanes, &scriptRefusedPlaneCapacity, scriptRefusedPlaneCount + 1, sizeof *scriptRefusedPlanes))
+        return;
+    RefusedPlane *p = &scriptRefusedPlanes[scriptRefusedPlaneCount++];
+    snprintf(p->name, PLANE_NAME_SIZE, "%.*s", PLANE_NAME_SIZE - 1, name);
+    snprintf(p->mod, MOD_NAME_MAX, "%s", mod);
+    snprintf(p->reason, sizeof p->reason, "%.31s", reason);
+    snprintf(p->file, sizeof p->file, "%.63s", planeFileBaseName(source));
+    p->line = line;
+}
+
+static UNUSED void pushPlaneRowFields(lua_State *L, const char *name, const char *mod, const char *file, int line, int lines, int w, int h, const char *failed) {
+    lua_pushstring(L, name), lua_setfield(L, -2, "name");
+    lua_pushstring(L, mod), lua_setfield(L, -2, "mod");
+    lua_pushstring(L, file), lua_setfield(L, -2, "file");
+    lua_pushinteger(L, line), lua_setfield(L, -2, "line");
+    lua_pushinteger(L, lines), lua_setfield(L, -2, "lines");
+    lua_pushinteger(L, w), lua_setfield(L, -2, "w");
+    lua_pushinteger(L, h), lua_setfield(L, -2, "h");
+    if (failed) lua_pushstring(L, failed), lua_setfield(L, -2, "failed");
+}
+
+static UNUSED int lDeclaredPlanes(lua_State *L) {
+    lua_newtable(L);
+    int row = 0;
+    for (int i = 0; i < customPlaneCount; i++) {
+        const CustomPlane *p = &customPlanes[i];
+        if (p->fromWords == PLANE_FROM_EARLIER_PASS) continue;
+        lua_newtable(L);
+        pushPlaneRowFields(L, p->name, p->mod, planeFileBaseName(p->layout.source), p->declLine, p->declLines, p->w, p->h, p->skipped ? "no_room" : NULL);
+        lua_seti(L, -2, ++row);
+    }
+    for (int i = 0; i < refusedPlaneCount; i++) {
+        const RefusedPlane *p = &refusedPlanes[i];
+        lua_newtable(L);
+        pushPlaneRowFields(L, p->name, p->mod, p->file, p->line, 0, 0, 0, p->reason);
+        lua_seti(L, -2, ++row);
+    }
+    for (int i = 0; i < scriptRefusedPlaneCount; i++) {
+        const RefusedPlane *p = &scriptRefusedPlanes[i];
+        int runs = 0;
+        for (int k = 0; k < luaScriptCount; k++) runs |= !luaScripts[k]->retired && !strcmp(luaScripts[k]->mod, p->mod);
+        if (!runs) continue;
+        lua_newtable(L);
+        pushPlaneRowFields(L, p->name, p->mod, p->file, p->line, 0, 0, 0, p->reason);
+        lua_seti(L, -2, ++row);
+    }
+    return 1;
 }
 
 static const char *refusedPlaneMod(const char *name) {
@@ -654,6 +737,7 @@ static void planeWordsBeforePass(int level) {
 }
 
 static void planeWordsAfterPass(int level) {
+    previewTerrainAfterPass(level);
     if (level != 2) return;
     finishPlaneBlock();
     int kept = 0, dropped = 0;
@@ -661,6 +745,7 @@ static void planeWordsAfterPass(int level) {
         if (customPlanes[i].fromWords == PLANE_FROM_EARLIER_PASS) {
             writeLog("plane_dropped", "mod=%s name=%s reason=not_declared_this_pass", customPlanes[i].mod, customPlanes[i].name);
             dropped++;
+            freePlaneLayout(&customPlanes[i].layout);
             continue;
         }
         if (kept != i) customPlanes[kept] = customPlanes[i];

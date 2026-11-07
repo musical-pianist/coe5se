@@ -1,3 +1,5 @@
+#include "coe5se_version.h"
+
 #define SAVE_TAG(a, b, c, d)  ((int)((unsigned)(a) | (unsigned)(b) << 8 | (unsigned)(c) << 16 | (unsigned)(d) << 24))
 #define SAVE_LIST_MAGIC       SAVE_TAG('C', '5', 'S', 'L')
 #define SAVE_LIST_VERSION     1
@@ -128,9 +130,20 @@ static void addFactionIndexChunk(SaveList *list);
 static void useFactionDataChunks(const SaveList *list);
 #define SAVE_TAG_VERS SAVE_TAG('V', 'E', 'R', 'S')
 static void addCoe5seVersionChunk(SaveList *list);
+#define SAVE_TAG_MSET SAVE_TAG('M', 'S', 'E', 'T')
+static void addHostSettingsChunk(SaveList *list);
+static void useHostSettingsFromList(const SaveList *list);
 static const char *readCoe5seVersionChunk(const SaveChunk *chunk, char *version, size_t size);
 static void checkCoe5seVersion(SaveFile kind, const char *where, const char *result, const char *version);
 static int coe5seVersionCheckedAtOpen;
+static void checkTailModFiles(SaveFile kind, const SaveChunk *modc, const SaveChunk *modh);
+static void deleteClientTurnFile(void);
+static void keepPlayerModStatesAfterClientLoad(void);
+static void checkReportedBinary(const SaveChunk *vers, int platform);
+static int saveTailPlayer = -1;
+#define SAVE_TAG_GDAT SAVE_TAG('G', 'D', 'A', 'T')
+static void addGameDataChunk(SaveList *list);
+static void useGameDataChunk(const SaveChunk *chunk, SaveFile kind);
 
 static int saveVanillaLastIndex(int kind) {
     if (kind == 0) return VANILLA_SPELL_COUNT - 1;
@@ -149,6 +162,8 @@ static void buildSaveList(SaveList *list, SaveNamesWritten *written) {
     saveListAdd(list, SAVE_TAG_GAME, &game);
     addSaveNameChunks(list, written);
     addFactionDataChunks(list);
+    addGameDataChunk(list);
+    addHostSettingsChunk(list);
     addCoe5seVersionChunk(list);
     addFactionIndexChunk(list);
     addCustomPlanesChunk(list);
@@ -231,6 +246,7 @@ static void readSaveGameChunk(const SaveChunk *chunk, SaveListRead *read) {
 // ---- The tail -----------------------------------------------------------------------------------
 static void writeSaveTail(void *file, int onlyPlayer, SaveFile kind) {
     writeExtraCastCounts(file, onlyPlayer, SAVE_FILE_NAMES[kind]);
+    saveTailPlayer = onlyPlayer;
     SaveList list = {0};
     SaveNamesWritten written = {0};
     buildSaveList(&list, &written);
@@ -248,6 +264,7 @@ static void readSaveTail(void *file, int onlyPlayer, SaveFile kind) {
     SaveList list = {0};
     const char *versionResult = "none";
     char version[SAVE_STRING_MAX + 1] = "";
+    const SaveChunk *modc = NULL, *modh = NULL, *vers = NULL, *gameData = NULL;
     if (castCounts < 0) read->result = "bad_block", read->reason = "cast_counts_block";
     else if (castCounts > 0) {
         const char *failed = readSaveList(file, &list, &read->reason);
@@ -256,21 +273,31 @@ static void readSaveTail(void *file, int onlyPlayer, SaveFile kind) {
             read->chunks = list.count;
             for (int i = 0; i < list.count; i++) {
                 if (list.chunks[i].tag == SAVE_TAG_GAME) readSaveGameChunk(&list.chunks[i], read);
-                else if (list.chunks[i].tag == SAVE_TAG_VERS) versionResult = readCoe5seVersionChunk(&list.chunks[i], version, sizeof version);
-                else if (!isSaveNameTag(list.chunks[i].tag) && list.chunks[i].tag != SAVE_TAG_MODC && list.chunks[i].tag != SAVE_TAG_MODH &&
-                         list.chunks[i].tag != SAVE_TAG_PLNS && list.chunks[i].tag != SAVE_TAG_FCTN &&
-                         list.chunks[i].tag != SAVE_TAG_FCDT)
+                else if (list.chunks[i].tag == SAVE_TAG_VERS) versionResult = readCoe5seVersionChunk(vers = &list.chunks[i], version, sizeof version);
+                else if (list.chunks[i].tag == SAVE_TAG_MODC) modc = &list.chunks[i];
+                else if (list.chunks[i].tag == SAVE_TAG_MODH) modh = &list.chunks[i];
+                else if (list.chunks[i].tag == SAVE_TAG_GDAT) gameData = &list.chunks[i];
+                else if (!isSaveNameTag(list.chunks[i].tag) && list.chunks[i].tag != SAVE_TAG_PLNS && list.chunks[i].tag != SAVE_TAG_FCTN &&
+                         list.chunks[i].tag != SAVE_TAG_FCDT && list.chunks[i].tag != SAVE_TAG_MSET)
                     read->unknown++;
             }
             read->result = useSaveNameChunks(&list, kind);
             if (kind == SAVE_FILE_SAVE) useFactionDataChunks(&list);
+            if (kind == SAVE_FILE_SAVE) useHostSettingsFromList(&list);
         }
     }
+    useGameDataChunk(gameData, kind);
     writeLog("save_names_read", "file=%s result=%s reason=%s skipped=%s written_on=%s chunks=%d unknown=%d", SAVE_FILE_NAMES[kind],
              read->result, read->reason, read->skipped[0] ? read->skipped : "-", savePlatformName(read->writtenOn), read->chunks,
              read->unknown);
+    if (kind == SAVE_FILE_TURN || !coe5seVersionCheckedAtOpen) {
+        checkCoe5seVersion(kind, "tail", versionResult, version);
+        if (!strcmp(versionResult, "found") && !strcmp(version, COE5SE_VERSION)) {
+            checkTailModFiles(kind, modc, modh);
+            if (kind == SAVE_FILE_TURN) checkReportedBinary(vers, read->writtenOn);
+        }
+    }
     saveListFree(&list);
-    if (kind == SAVE_FILE_TURN || !coe5seVersionCheckedAtOpen) checkCoe5seVersion(kind, "tail", versionResult, version);
     if (kind == SAVE_FILE_SAVE) coe5seVersionCheckedAtOpen = 0;
 }
 
@@ -294,8 +321,11 @@ static int writeServerSaveEnd(int marker, void *file) {
 }
 
 static int closeSaveRead(void *file) {
+    keepPlayerModStatesAfterClientLoad();
     readSaveTail(file, -1, SAVE_FILE_SAVE);
-    return GAME_FN(GameFcloseFn, RVA_FCLOSE)(file);
+    int closed = GAME_FN(GameFcloseFn, RVA_FCLOSE)(file);
+    deleteClientTurnFile();
+    return closed;
 }
 
 static volatile int turnWriterPlayer;
@@ -359,8 +389,11 @@ static int closeSaveWritten(FILE *file) {
 }
 
 static int closeSaveRead(FILE *file) {
+    keepPlayerModStatesAfterClientLoad();
     readSaveTail(file, -1, SAVE_FILE_SAVE);
-    return fclose(file);
+    int closed = fclose(file);
+    deleteClientTurnFile();
+    return closed;
 }
 
 static int closeTurnRead(FILE *file) {

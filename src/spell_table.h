@@ -205,6 +205,7 @@ static const char *spellModName(int mod) {
 static void finishSpellBlock(void) {
     if (!spellBlock.open) return;
     spellBlock.open = 0;
+    if (!spellBlock.slot) healArmyDropPending();
     if (spellBlock.refused || spellBlock.slot) return;
     const char *missing = !spellBlock.hasPath ? "no_path" : !spellBlock.hasLevel ? "no_level" : "no_weapon";
     refuseC5mLine(NEWSPELL_WORD, spellModName(spellBlock.mod), missing, "line=%d name=%s", spellBlock.line, spellBlock.name);
@@ -218,6 +219,7 @@ static void restoreShippedSpells(const char *reason) {
     finishSpellBlock();
     resetSpellPaths(reason);
     spellProblemCount = 0;
+    healArmyReset();
     if (!spellTable.modSpells) return;
     *spellSlot(VANILLA_SPELL_COUNT) = spellTable.shippedEnd;
     memset(spellSlot(VANILLA_SPELL_COUNT + 1), 0, (size_t)spellTable.modSpells * sizeof(SpellRecord));
@@ -246,6 +248,7 @@ static void storeSpell(void) {
     *spellSlot(slot) = spellBlock.record;
     spellTable.spellMods[spellTable.modSpells++] = spellBlock.mod;
     spellBlock.slot = slot;
+    healArmyBlockStored(slot);
     writeLog("spell_added", "mod=%s slot=%d name=%s path=%d level=%d weapon=%d dmg=%lld flags=0x%llx line=%d", mod, slot,
              name, spellBlock.record.path, spellBlock.record.level, spellBlock.record.weapon, spellBlock.record.dmg,
              spellBlock.record.flags, spellBlock.line);
@@ -468,9 +471,10 @@ static int spellLineHook(const char *line, size_t len, int mod, int level) {
     }
     spellTable.lastLevel = level;
     spellTable.lastMod = mod;
-    if (!spellBlock.open) return 0;
     const char *args = line + len;
     while (*args == ' ' || *args == '\t') args++;
+    if (healArmyLineHook(line, len, args, mod, level)) return 1;
+    if (!spellBlock.open) return 0;
     if (spellWordIs(line, len, "level")) {
         spellLevelLine(args, mod, level);
         return 1;

@@ -31,7 +31,7 @@ static int isGameWord(const char *word) {
 
 static void noteWeaponMade(int mod);
 static int modCommandMod = -1, modCommandLevel = -1;
-static void modCommandHook(const char *line, int mod, int level) {
+static void runModCommandLine(const char *line, int mod, int level) {
     modCommandMod = mod;
     modCommandLevel = level;
     if (mod >= 0 && mod <= G32(RVA_MOD_LAST_INDEX)) noteModLine(modName(mod), level);
@@ -86,6 +86,10 @@ static void modCommandHook(const char *line, int mod, int level) {
             writeLog("mod_command_deferred", "word=%s mod=%d level=%d reason=%s", word, mod, level, waits);
             return;
         }
+        if (previewSkipsUnknownWords()) {
+            previewNoteSkippedWord(word, mod, level);
+            return;
+        }
     }
     int copySource = copystatsCarrySource(line, level);
     int copyItemSource = copystatsItemCarrySource(line, level), copyRitualSource = copyritualCarrySource(line, level);
@@ -94,6 +98,18 @@ static void modCommandHook(const char *line, int mod, int level) {
     if (copyItemSource >= 0) carryCopiedItemWords(copyItemSource, mod);
     if (copyRitualSource >= 0) carryCopiedRitualWords(copyRitualSource, mod);
     if (len == sizeof "newweapon" - 1 && !strncmp(line, "newweapon", len)) noteWeaponMade(mod);
+}
+
+// @platform-split preview_world: Windows only for now; on Mac coe5.setPreviewLineEdits doesn't exist, so nothing is ever armed
+static void modCommandHook(const char *line, int mod, int level) {
+    if (!previewEditsArmed(level)) {
+        runModCommandLine(line, mod, level);
+        return;
+    }
+    int off = 0, adds[PREVIEW_EDIT_ADDS_MAX], addCount = 0;
+    const char *runs = previewEditAtPass(line, mod, &off, adds, &addCount);
+    if (!off) runModCommandLine(runs, mod, level);
+    for (int i = 0; i < addCount; i++) previewRunAddedLine(adds[i], mod, level);
 }
 
 static void declinedModCommandHook(const char *line, int mod, int level) {

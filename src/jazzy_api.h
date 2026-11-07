@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define PLUGIN_API_VERSION 10
+#define PLUGIN_API_VERSION 11
 
 #define WRAP_PRIORITY_DEFAULT 0
 
@@ -29,6 +29,8 @@
 #define GAME_MENU_STAY             0
 #define GAME_MENU_CLOSE            1
 #define GAME_MENU_RESIGN           6
+#define GAME_MENU_SAVE             7
+#define GAME_MENU_SAVE_AND_QUIT    2
 #define GAME_MENU_SECTION_SAVING   0
 #define GAME_MENU_SECTION_SETTINGS 1
 #define MAP_ACTION_SPECIAL_POWER   5
@@ -73,6 +75,10 @@
 #define KEY_CTRL_SHIFT             300000
 #define MESSAGE_EVERY_HUMAN        (-2)
 #define MESSAGE_NOT_ADDED          (-1)
+
+#define NET_ROLE_SINGLE            0
+#define NET_ROLE_HOST              1
+#define NET_ROLE_CLIENT            2
 #define CONTROLLER_REMOVED         (-1)
 #define CONTROLLER_HUMAN           0
 #define CONTROLLER_AI              1
@@ -102,6 +108,15 @@
 #define MAP_SCREEN_OK              1
 #define MAP_SETTINGS_OK            9
 #define MAP_SETTINGS_SIZE_FIRST    100
+#define MAP_SETTINGS_SOCIETY_FIRST 200
+#define MAP_SIZE_SMALL             0
+#define MAP_SIZE_MEDIUM            1
+#define MAP_SIZE_LARGE             2
+#define MAP_SIZE_HUGE              3
+#define MAP_SIZE_ENORMOUS          4
+#define START_POSITIONS_RANDOM     0
+#define START_POSITIONS_CLUSTERED  1
+#define START_POSITIONS_WEST_EAST  2
 #define PARTICIPANTS_OK            1
 #define RITUAL_REASON_MIRROR       (-2)
 #define RITUAL_REASON_MAXCAST      (-3)
@@ -475,6 +490,8 @@ typedef enum {
     SITE_WILD_SPAWN,
     SITE_REVELS_SPAWN,
     SITE_HORROR_LORD_PICK,
+    SITE_CLIENT_TURN,
+    SITE_SETUP_SERVER,
     SITE_COUNT
 } CallSite;
 

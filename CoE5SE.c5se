@@ -10,6 +10,12 @@ default 0
 label "Enable copious logs"
 tip "Mods' own lines in coe5mod.log too. For a mod author's bug report."
 
+newsetting lan_rehearsal
+onoff
+default 0
+label "Rehearse LAN games in single player"
+tip "For mod authors. Content mods' scripts restart at each human turn's start and end, keeping only coe5.gameData and coe5.playerData. Writes a LAN client can't make are refused during the turn."
+
 newsettingheader "Mac only"
 
 newsetting mac_workshop_list

@@ -240,6 +240,7 @@ static int targetUsefulHook(int unit, unsigned long long type, int weapon, unsig
 
 static void weaponTextHook(int weapon, unsigned long long dmg, int chained) {
     GAME_FN(WeaponTextFn, RVA_WEAPON_TEXT)(weapon, dmg, chained);
+    beamWidthTextLine(weapon);
     if (weapon < 0 || weapon >= weaponTraits.namedSize || !weaponTraits.named[weapon]) return;
     char line[80];
     for (int i = 0; i < weaponTraits.count; i++)

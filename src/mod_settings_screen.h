@@ -586,6 +586,8 @@ static void popupSettingErrors(void) {
 static void (*nextModsRun)(int);
 static void syncLuaScriptsBeforePass(int level);
 static void syncLuaScriptsAfterPass(int level);
+static void syncLuaScriptsBeforeSaveApplied(int level);
+static void finishStartupWithoutMenu(int level);
 static void modsRunHook(int level) {
     loadLuaCommandsFiles();
     syncLuaScriptsBeforePass(level);
@@ -598,12 +600,14 @@ static void modsRunHook(int level) {
     battleMapsBeforePass(level);
     weaponTraitsBeforePass(level);
     noExplodeBeforePass(level);
+    beamWidthBeforePass(level);
     recBonusBeforePass(level);
     corpseWordsBeforePass(level);
     aiClassBeforePass(level);
     nextModsRun(level);
     finishReading();
     spellsAfterPass(level, spellPasses);
+    syncLuaScriptsBeforeSaveApplied(level);
     applyLoadedSavePlanes(level);
     planeWordsAfterPass(level);
     factionWordsAfterPass(level);
@@ -616,5 +620,6 @@ static void modsRunHook(int level) {
     terrainLooksAfterPass(level);
     battleMapsAfterPass(level);
     syncLuaScriptsAfterPass(level);
+    finishStartupWithoutMenu(level);
     if (level != 3) popupSettingErrors();
 }

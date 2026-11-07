@@ -417,9 +417,7 @@ static void *coe5seExport(void *module, const char *name) {
 #endif
 }
 
-static void *coe5seModule;
 static void connectCoe5se(void *module) {
-    coe5seModule = module;
     void (*start)(void) = (void (*)(void))coe5seExport(module, "coe5seStart");
     writeLog("loader_coe5se_start", "export=%d", start != NULL);
     if (start) start();
@@ -506,86 +504,25 @@ static void loadAllPlugins(const char *modDir, const char *source, const char *l
 static OfficialModList officialEnabled, officialDrop;
 static char officialConfigPath[MAX_PATH], officialSessionPath[MAX_PATH], officialDonePath[MAX_PATH];
 
-static void addModsNeedingCoe5se(const OfficialModList *enabled, OfficialModList *drop) {
-    char pattern[MAX_PATH], sub[MAX_PATH], c5m[MAX_PATH];
-    officialListAdd(drop, COE5SE_MOD);
-    for (int r = 0; r < 2; r++) {
-        if (!modRoots[r][0] || !buildPath(pattern, sizeof pattern, __func__, "%s" USER_DIR_SEP "*", modRoots[r])) continue;
-        WIN32_FIND_DATAA fd;
-        HANDLE h = FindFirstFileA(pattern, &fd);
-        if (h == INVALID_HANDLE_VALUE) continue;
-        do {
-            if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) || fd.cFileName[0] == '.') continue;
-            if (!buildPath(sub, sizeof sub, __func__, "%s" USER_DIR_SEP "%s", modRoots[r], fd.cFileName)) continue;
-            for (int i = 0; i < enabled->count; i++) {
-                if (officialListHas(drop, enabled->names[i])) continue;
-                if (!buildPath(c5m, sizeof c5m, __func__, "%s" USER_DIR_SEP "%s.c5m", sub, enabled->names[i])) continue;
-                if (GetFileAttributesA(c5m) == INVALID_FILE_ATTRIBUTES) continue;
-                if (officialFolderNeedsCoe5se(sub, enabled->names[i])) officialListAdd(drop, enabled->names[i]);
-            }
-        } while (FindNextFileA(h, &fd));
-        FindClose(h);
-    }
-}
-
-static void restoreOfficialMods(void) {
-    const char *reason = officialSessionRestore(officialConfigPath, officialSessionPath, officialDonePath, AUTO_ENABLE_DONE_TEXT, &officialEnabled);
-    writeLog("official_mods_restored", "ok=%d at=exit mods=%d reason=%s", reason == NULL, officialEnabled.count, reason ? reason : "-");
-}
-
 static void stepOfficialMods(void) {
-    char state[32] = "", notice[MAX_PATH], backup[MAX_PATH];
-    static unsigned char data[CONFIG_MAX];
-    size_t len;
+    char state[32] = "", notice[MAX_PATH];
     if (!buildPath(officialConfigPath, sizeof officialConfigPath, __func__, "%s" USER_DIR_SEP CONFIG_FILE, userDir()) ||
         !coe5seUserFile(OFFICIAL_SESSION_FILE, officialSessionPath, sizeof officialSessionPath) ||
         !coe5seUserFile(AUTO_ENABLE_DONE_FILE, officialDonePath, sizeof officialDonePath) ||
-        !coe5seUserFile(AUTO_ENABLE_NOTICE_FILE, notice, sizeof notice) || !coe5seUserFile(OFFICIAL_CONFIG_BACKUP_FILE, backup, sizeof backup)) {
+        !coe5seUserFile(AUTO_ENABLE_NOTICE_FILE, notice, sizeof notice)) {
         writeLogError("official_mods", "ok=0 reason=path_too_long");
         return;
     }
-    int session = officialReadSession(officialSessionPath, state, sizeof state, &officialEnabled, &officialDrop);
-    if (!officialLaunch) {
-        if (!session) return;
-        if (strcmp(state, "active")) {
-            remove(officialSessionPath);
-            writeLog("official_session_cleared", "state=%s", state);
-            return;
-        }
-        const char *reason = officialSessionRestore(officialConfigPath, officialSessionPath, officialDonePath, AUTO_ENABLE_DONE_TEXT, &officialEnabled);
-        remove(notice);
-        if (reason) writeLogError("official_mods_restored", "ok=0 at=next_launch reason=%s", reason);
-        else writeLog("official_mods_restored", "ok=1 at=next_launch mods=%d", officialEnabled.count);
+    if (!officialReadSession(officialSessionPath, state, sizeof state, &officialEnabled, &officialDrop)) return;
+    if (strcmp(state, "active")) {
+        remove(officialSessionPath);
+        writeLog("official_session_cleared", "state=%s", state);
         return;
     }
-    int (*allowed)(void) = coe5seModule ? (int (*)(void))coe5seExport(coe5seModule, "coe5seOfficialModsAllowed") : NULL;
-    if (!allowed || !allowed()) {
-        writeLogWarning("official_mods_unticked", "ok=0 reason=%s", allowed ? "not_official_games_build" : "coe5se_not_loaded");
-        return;
-    }
-    if (!session || !strcmp(state, "active")) {
-        const char *reason = officialReadFile(officialConfigPath, data, sizeof data, &len);
-        static OfficialModList now;
-        if (!reason && !officialConfigList(data, len, &now)) reason = "config_unreadable";
-        if (reason) {
-            writeLogError("official_mods_unticked", "ok=0 reason=%s", reason);
-            return;
-        }
-        if (!session) officialEnabled = now;
-    }
-    addModsNeedingCoe5se(&officialEnabled, &officialDrop);
-    const char *reason = officialSessionApply(officialConfigPath, backup, officialSessionPath, officialDonePath, &officialEnabled, &officialDrop);
-    if (reason) {
-        writeLogError("official_mods_unticked", "ok=0 reason=%s", reason);
-        return;
-    }
-    atexit(restoreOfficialMods);
-    int off = 0;
-    for (int i = 0; i < officialEnabled.count; i++) off += officialListHas(&officialDrop, officialEnabled.names[i]);
-    writeLog("official_mods_unticked", "ok=1 unticked=%d of %d session=%s backup=" OFFICIAL_CONFIG_BACKUP_FILE " done_file_removed=1", off,
-             officialEnabled.count, session ? state : "none");
-    for (int i = 0; i < officialEnabled.count; i++)
-        if (officialListHas(&officialDrop, officialEnabled.names[i])) writeLog("official_mod_unticked", "mod=%s", officialEnabled.names[i]);
+    const char *reason = officialSessionRestore(officialConfigPath, officialSessionPath, officialDonePath, AUTO_ENABLE_DONE_TEXT, &officialEnabled);
+    remove(notice);
+    if (reason) writeLogError("official_mods_restored", "ok=0 at=next_launch reason=%s", reason);
+    else writeLog("official_mods_restored", "ok=1 at=next_launch mods=%d", officialEnabled.count);
 }
 
 #ifdef __APPLE__
@@ -663,6 +600,5 @@ __declspec(dllexport) int coe5seLoaderStart(const LoaderStart *start) {
     if (!officialLaunch && isOfficialWatchStart()) runOfficialWatch();
     if (!officialLaunch) stepOfficialMods();
     loadAllPlugins(modDir, source, layout[0] ? layout : NULL);
-    if (officialLaunch) stepOfficialMods();
     return foundCount > 0 && found[0].state == PLUGIN_LOADED && !_stricmp(found[0].name, COE5SE_FILE);
 }

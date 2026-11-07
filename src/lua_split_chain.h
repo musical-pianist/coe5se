@@ -82,6 +82,7 @@ static void stopSplitScript(LuaScript *s, lua_State *co) {
     if (type == LUA_TSTRING) snprintf(line, sizeof line, "%s", lua_tostring(co, -1));
     else snprintf(line, sizeof line, "(error object is a %s value)", lua_typename(co, type));
     writeLogError("lua_error", "mod=%s error=%s", s->mod, line);
+    previewScriptNote(s->mod, "", 0, "", "", PREVIEW_SCRIPT_ERROR, line);
     lua_settop(co, 0);
     s->dead = 1;
     if (!s->stopLogged) writeLogError("lua_script_stopped", "mod=%s reason=script_error", s->mod);
@@ -157,7 +158,7 @@ static void releaseSplitCall(SplitCall *c) {
 }
 
 static SplitCall *startSplitChain(CallSite site, const LuaArgs *in, LuaArgs *out) {
-    if (isNetworkGame()) return NULL;
+    if (netShutsGameCalls()) return NULL;
     int luaSite = -1;
     for (int i = 0; i < LUA_SITE_COUNT && luaSite < 0; i++)
         if (luaSites[i].site == site) luaSite = i;
@@ -195,7 +196,7 @@ static SplitCall *startSplitChain(CallSite site, const LuaArgs *in, LuaArgs *out
         level->in = args;
         level->f = (LuaFrame){luaFrames, w, &level->in, 0, 0, ++luaFrameSerial, 0, 0, 0, luaChangeCount};
         LuaScript *s = w->s;
-        if (!s || s->dead) continue;
+        if (!s || s->dead || !luaSiteOpenNow(s, site)) continue;
         if (!s->depth++) startLuaSteps(s);
         if (!callLuaProtected(s, pushMakeSplitThread, level, 1)) {
             s->depth--;

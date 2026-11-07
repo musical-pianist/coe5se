@@ -7,24 +7,12 @@
 #define LOBBY_CLIENT_SWITCH "--lobbyclient"
 #define OFFICIAL_WATCH_ENV "COE5SE_OFFICIAL_WATCH"
 #define OFFICIAL_MOD_CHECK_GL_ENV "COE5SE_MOD_CHECK_GL"
-#define OFFICIAL_GAMES_BUILD "5.42"
 
 typedef struct {
     int (*ask)(const char *text);
     void (*tell)(const char *text);
     void (*draw)(void);
 } OfficialModCheckUi;
-
-__attribute__((unused)) static const char *officialGamesRefusal(int codeMatches, const char *gameVersion) {
-    if (!gameVersion) return "unknown_game_build";
-    if (!codeMatches) return "game_code_differs";
-    if (strcmp(gameVersion, OFFICIAL_GAMES_BUILD)) return "not_official_games_build";
-    return NULL;
-}
-
-__attribute__((unused)) static int officialGamesBlocked(const char *gameVersion) {
-    return !gameVersion || strcmp(gameVersion, OFFICIAL_GAMES_BUILD) != 0;
-}
 
 __attribute__((unused)) static int commandLineHasArg(const char *line, const char *word) {
     char arg[64];

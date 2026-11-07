@@ -425,6 +425,10 @@ static int installMacFactionSites(void) {
     return ok == MAC_FACTION_SITE_COUNT;
 }
 
+#define MAC_REDIRECTED_MAX 64
+static struct { unsigned int rva; void *hook; } macRedirected[MAC_REDIRECTED_MAX];
+static int macRedirectedCount;
+
 static int macRedirectCalls(unsigned int rva, void *hook, const char *name) {
     const struct mach_header_64 *mh = (const struct mach_header_64 *)gameBase;
     unsigned long size;
@@ -443,7 +447,17 @@ static int macRedirectCalls(unsigned int rva, void *hook, const char *name) {
         pointed += writeGameCode(text + i, &nw, 4);
     }
     writeLog("mac_calls_redirected", "function=%s found=%d pointed=%d", name, found, pointed);
+    if (pointed && macRedirectedCount < MAC_REDIRECTED_MAX) {
+        macRedirected[macRedirectedCount].rva = rva;
+        macRedirected[macRedirectedCount++].hook = hook;
+    }
     return pointed;
+}
+
+static void *macRedirectedHook(unsigned int rva) {
+    for (int i = 0; i < macRedirectedCount; i++)
+        if (macRedirected[i].rva == rva) return macRedirected[i].hook;
+    return NULL;
 }
 
 #endif
