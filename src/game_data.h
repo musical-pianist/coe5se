@@ -677,6 +677,7 @@ static LuaScript *gameDataScriptOf(const char *mod) {
 }
 
 static int gameDataTurnPlayer = -1;
+static int turnFileReadPlayer(void) { return gameDataTurnPlayer; }
 
 static void useGameDataChunk(const SaveChunk *chunk, SaveFile kind) {
     int version = 0, player = -1, mods = 0;

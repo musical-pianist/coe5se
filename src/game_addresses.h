@@ -433,6 +433,8 @@
 #define RVA_TUNNEL_DIG                         ADDR(        0x127a90,          0x1004849f0)
 #define RVA_METEOR_STRIKE                      ADDR(        0x12d730,          MAC_INLINED)
 #define RVA_NET_RECEIVE_SQUARE                 ADDR(        0x1eb3a0,          0x100505fa8)
+#define RVA_NET_EVENTS_RECV_SQUARE_CALL        ADDR(        0x1e837b,          0x10050d41c)
+#define RVA_NET_CLIENT_RECV_SQUARE_CALL        ADDR(        0x1ea665,          0x100509d3c)
 #define RVA_GROUP_MOVE_STEP_CALL               ADDR(        0x1de68c,          0x10059b88c)
 #define RVA_INDEP_EXIT_CALL                    ADDR(        0x16d1f4,          0x10054706c)
 #define RVA_SPREAD_EXIT_CHECK_CALL             ADDR(        0x1dbcf6,          0x10059ccfc)
@@ -2903,6 +2905,8 @@
 #define RVA_SAVE_PART_STATS                    ADDR(        0x0ba7d0,          0x1003df3c0)
 #define RVA_SAVE_BATTLE_REPLAY                 ADDR(        0x0f1780,          MAC_NOT_FOUND)
 #define RVA_NET_SEND_SQUARE                    ADDR(        0x1f2ea0,          0x10050c9bc)
+#define RVA_NET_SQUARE_CLAMP                   ADDR(        0x1f0a40,          0x1004f8184)
+#define RVA_SERVER_SQUARE_CLAMP_CALL           ADDR(        0x1f5914,          0x1004fd6b4)
 #define RVA_NET_SEND_UNIT                      ADDR(        0x1f22a0,          0x10050e540)
 #define RVA_NET_SEND_MEMORIZED                 ADDR(        0x1f0c20,          0x100510d94)
 #define RVA_NET_SEND_AUTO_RECRUIT              ADDR(        0x1f2870,          0x100510a80)
@@ -3012,6 +3016,9 @@
 #define RVA_RITUAL_RAISE_DEAD_CALL             ADDR(        0x2c8479,          0x100561ca8)
 #define RVA_RITUAL_RAISE_ANIMALS_CALL          ADDR(        0x2c848d,          0x1005620dc)
 #define RVA_RITUAL_PUT_CORPSES_TEXT_CALL       ADDR(        0x2c942e,          0x100562b7c)
+#define RVA_PANEL_SENSEDEAD_TEXT_CALL          ADDR(        0x09a9da,          0x10037ef78)
+#define RVA_RITUAL_SENSEDEAD_TEXT_CALL         ADDR(        0x2aea0a,          0x10035f8ec)
+#define SENSEDEAD_TEXT_SIZE                    0xc8
 #define RVA_INSANITY_ADD                       ADDR(        0x115a70,          MAC_INLINED)
 #define SQUARE_CORPSES                         0x2a
 #define SQUARE_CORPSE_KINDS                    8
