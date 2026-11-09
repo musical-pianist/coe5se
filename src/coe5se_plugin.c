@@ -1752,6 +1752,9 @@ static u64 modErrorDialogWrapper(u64 title, u64 text, u64 a3, u64 a4, u64 a5, u6
 #include "lua_sites.h"
 #include "lua_split_chain.h"
 #include "lua_coe5_table.h"
+#include "game_code_claims.h"
+#include "random_events.h"
+#include "mod_events.h"
 #include "trait_lines.h"
 #include "portal_crossing.h"
 #include "lua_ai.h"
@@ -1904,6 +1907,7 @@ static void startCoe5se(const char *via) {
     if (featureOn(FEATURE_WEAPON_TRAITS)) beamWidthInit();
     if (featureOn(FEATURE_WEAPON_TRAITS)) traitLinesInit();
     if (featureOn(FEATURE_NO_EXPLODE)) noExplodeInit();
+    if (featureOn(FEATURE_RANDOM_EVENTS)) randomEventsInit();
     if (featureOn(FEATURE_NAME_LISTS)) nameListsInit();
     if (featureOn(FEATURE_AI_CLASS)) aiClassInit();
     if (featureOn(FEATURE_MAXDATA)) maxdataWordInit();

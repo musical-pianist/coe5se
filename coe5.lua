@@ -82,6 +82,7 @@
 --   A square's plane and portal    coe5.get("squarePlane", x, y), coe5.get("squarePortal", x, y), coe5.portalExits(x, y)
 --   Seal a portal                  coe5.onPortalCrossing(function(c) if c.portal == 1234 then return false end end)   (humans, the AI and its routes)
 --   Tint a plane's map             coe5.setPlaneTint("Inferno", 1, 0.5, 0, 0.2), coe5.clearPlaneTint("Inferno"); local r, g, b, s = coe5.get("planeTint", 4)
+--   No meteors or droughts this game   coe5.setRandomEventsOff{"meteor", "drought"}; local off = coe5.randomEventsOff()
 --   Draw a mod terrain like a game one  coe5.setTerrainLooks{terrain = "Dungeon Wall", ground = "Cave Wall", picture = "./wall.tga"}   (at load)
 --   A battle map for a terrain     coe5.addBattleMap{file = "./maps/moria_halls.coem", terrains = {"Moria Deeps"}, weight = 20}   (at load)
 --   A terrain's battle plants      coe5.setBattleScatter{terrain = "Moria Deeps", objects = {{"Mithril Vein", 20}}}   (at load)
@@ -91,6 +92,7 @@
 --   A commander's square           local u = coe5.get("commanderUnit", c); coe5.get("unitX", u), coe5.get("unitY", u)
 --   Can an AI commander get there  coe5.route(c, x, y)   (nil for no route; only inside an AI site's wrap)
 --   Reveal the map for a turn      coe5.revealMap(coe5.get("activePlayer"))   (one plane: coe5.revealMap(p, coe5.planeIndex("Inferno")))
+--   Run a mod's event, no triggers  local e = coe5.modEvents()[1]; coe5.runModEvent(1)   (a squareevent: coe5.runModEvent(i, x, y))
 --   A square's army, unit by unit  for _, u in ipairs(coe5.squareUnits(x, y)) do local s = coe5.get("unitStrength", coe5.get("unitOwner", u), u) end
 --   Does a player see a unit        coe5.get("unitVisibleTo", u, p)   (stealth, invisibility, spiritsight; squareSeen for the fog)
 --   Write the AI's trace lines only  coe5.set("traceLevel", 2); coe5.keepTraceLines({"ailog", "aiship"})
@@ -1418,6 +1420,27 @@ function coe5.squareUnits(x, y) end
 ---@param plane? integer a plane's index (coe5.planeIndex), 0 to the last plane; left out, every plane
 ---@return boolean revealed false when refused: outside a game (reason=no_game), a player past the slots (bad_player), a plane past the last (bad_plane), each logged as lua_refused
 function coe5.revealMap(player, plane) end
+
+---Every enabled mod's events, as the last full reading of the mods saw them (at startup, after the
+---Mods screen, at a load, at a game's end), in the order the game runs them. Each entry is
+---`{mod = , line = , kind = , message = , needs = }`: the mod's name, the line of its `playerevent`
+---or `squareevent` in the mod's file, the kind (`"playerevent"` or `"squareevent"`), the text of its
+---first `message` line ("" for none), and each trigger line (`+` or `-`) as the mod writes it. A
+---map file's events aren't listed. The index in this list is what coe5.runModEvent takes.
+---@return {mod: string, line: integer, kind: string, message: string, needs: string[]}[] events
+function coe5.modEvents() end
+
+---Runs event `index` of coe5.modEvents() now, for the player whose turn it is, with every trigger
+---line left out: its actions run through the game's own event runner, as at a turn start, whatever
+---the event needs. A playerevent's target is the player's home citadel, as the game sets it; a
+---squareevent runs on square (x, y) alone. With its triggers gone, an `if`'s first branch runs. A
+---bad action line stops the game with its Mod Error box, naming the event's file and line, as it
+---would at a turn start.
+---@param index integer the event's place in coe5.modEvents(), from 1
+---@param x? integer a squareevent's square
+---@param y? integer
+---@return boolean ran false when refused: outside a game (reason=no_game), while the game reads a mod or runs an event (event_running), no such event (bad_event), a squareevent with no square (needs_square), a square off the map (off_map), each logged as lua_refused; on a LAN client, client_write_lost
+function coe5.runModEvent(index, x, y) end
 
 ---Every army on the world map: each square of the world (x below mapDepth, y below mapH) with an
 ---army (squareArmy not 0), by x, then y. With viewer, only the squares that player sees now
@@ -3790,6 +3813,26 @@ function coe5.setPlaneTint(plane, r, g, b, strength) end
 ---@param plane integer|string
 ---@return boolean cleared false when refused (lua_refused reason=no_such_plane)
 function coe5.clearPlaneTint(plane) end
+
+---Switches off the game's dice-rolled events for the game being played: each listed event's roll is
+---still thrown, and a roll that would start it does nothing, as a failed roll does. Every event not
+---listed is on again, so {} turns them all back on. An event already under way runs to its end. The
+---set is saved with the game and comes back with each load; a new game starts with every event on, so
+---call it at "Creating World" (a NEW_WORLD_CREATING_WORLD wrap) or later. Names, in the game's
+---monthly order: "hadesshift", "monument" (Monument of Hades), "foretelling", "taintedmagic",
+---"elementalanomaly", "heatwave", "bumperharvest", "fungusyear", "meteor", "insanefisherman",
+---"drought", "strangemist", "eviltimes", "infernogate", "primalgate", "goldmine" (a gold mine
+---invaded), "youngdvala", "merchant", then "hero" (A Hero), "unexpectedhero", "weaponmaster" (Old
+---Weapon Master; each of the three may bring a class hero) and "antspawn" (the Giant Ant Hills'
+---monthly spawns). In a LAN game the host's set counts: a call on a client is refused
+---(client_write_lost).
+---@param names string[]
+---@return boolean set false when a name was refused (lua_refused reason=not_a_table, unknown_event, not_a_string; the other names still go in) or an event's gate couldn't be switched on this game build (code_toggle_refused in coe5mod.log)
+function coe5.setRandomEventsOff(names) end
+
+---The events coe5.setRandomEventsOff switched off for this game, by name, in the game's order.
+---@return string[]
+function coe5.randomEventsOff() end
 
 ---Draws a mod's terrain (a number past 355) on the world map with a game terrain's looks, at script
 ---load only, as a terrainlooks block does. `ground`: the game terrain whose ground it takes (its

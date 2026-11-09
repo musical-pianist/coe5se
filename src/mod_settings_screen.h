@@ -588,6 +588,7 @@ static void syncLuaScriptsBeforePass(int level);
 static void syncLuaScriptsAfterPass(int level);
 static void syncLuaScriptsBeforeSaveApplied(int level);
 static void finishStartupWithoutMenu(int level);
+static void modEventsBeforePass(int level);
 static void modsRunHook(int level) {
     loadLuaCommandsFiles();
     syncLuaScriptsBeforePass(level);
@@ -605,6 +606,7 @@ static void modsRunHook(int level) {
     corpseWordsBeforePass(level);
     killWordsBeforePass(level);
     aiClassBeforePass(level);
+    modEventsBeforePass(level);
     nextModsRun(level);
     finishReading();
     spellsAfterPass(level, spellPasses);

@@ -506,6 +506,7 @@ static const ReadRow READ_CALL_ROWS[] = {
     {"coe5.playerRitualFlags", READ_FREE, 0, READ_FREE, 0, UNSEEN_NIL},
     {"coe5.portalExits", READ_SQUARE_LIST, 1, READ_FREE, 0, UNSEEN_EMPTY_LIST},
     {"coe5.portalsLinkedTo", READ_FREE, 0, READ_FREE, 0, UNSEEN_NIL},
+    {"coe5.randomEventsOff", READ_FREE, 0, READ_FREE, 0, UNSEEN_NIL},
     {"coe5.readIni", READ_FREE, 0, READ_FREE, 0, UNSEEN_NIL},
     {"coe5.rebindKey", READ_FREE, 0, READ_FREE, 0, UNSEEN_NIL},
     {"coe5.recruitSquares", READ_VIEWER, 1, READ_FREE, 0, UNSEEN_EMPTY_LIST},

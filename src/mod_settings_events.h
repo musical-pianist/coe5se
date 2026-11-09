@@ -16,6 +16,7 @@ static int settingValueNow(const ModSetting *s) {
     return hostSettingPickOr(s->mod, s->name, s->defaultValue);
 }
 
+static void noteModEventLine(const char *line, int level, const char *mod, const char *file);
 static void eventLineHook(const char *line, int level) {
     const char *file = (const char *)(gameBase + RVA_EVENT_FILE), *slash = strrchr(file, '/'), *back = strrchr(file, '\\');
     if (back > slash) slash = back;
@@ -26,6 +27,7 @@ static void eventLineHook(const char *line, int level) {
     else if (len > c5m && !_stricmp(base + len - c5m, MOD_FILE_SUFFIX)) snprintf(mod, sizeof mod, "%.*s", (int)(len - c5m), base);
     else if (len > side && !_stricmp(base + len - side, SIDECAR_SUFFIX)) snprintf(mod, sizeof mod, "%.*s", (int)(len - side), base);
     noteModLine(mod, level);
+    noteModEventLine(line, level, mod, file);
     line = planeNameEventLine(line, level, mod);
     if (!line) return;
     line = factionNameEventLine(line, level, mod);

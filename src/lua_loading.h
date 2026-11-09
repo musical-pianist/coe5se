@@ -24,7 +24,7 @@ static const luaL_Reg LUA_COE5[] = {
     {"addActionKey", lAddActionKey}, {"actionKey", lActionKey}, {"findMonster", lFindMonster},
     {"dataFolder", lDataFolder}, {"readIni", lReadIni}, {"writeIni", lWriteIni}, {"listIni", lListIni},
     {"deleteIni", lDeleteIni}, {"copyText", lCopyText}, {"testBattle", lTestBattle}, {"openTestField", lOpenTestField}, {"drawTestField", lDrawTestField}, {"fireTestField", lFireTestField}, {"fightTestField", lFightTestField}, {"closeTestField", lCloseTestField}, {"addTestFieldUnits", lAddTestFieldUnits}, {"moveTestFieldUnit", lMoveTestFieldUnit}, {"stopTestFight", lStopTestFight}, {"spellInfo", lSpellInfo}, {"lookName", lLookName}, {"saveNewMod", lSaveNewMod}, {"spawnUnit", lSpawnUnit}, {"spawnCommander", lSpawnCommander}, {"newUnits", lNewUnits},
-    {"monsterVariant", lMonsterVariant}, {"portalExits", lPortalExits}, {"onPortalCrossing", lOnPortalCrossing}, {"squareUnits", lSquareUnits}, {"revealMap", lRevealMap}, {"centerMap", lCenterMap}, {"viewArmy", lViewArmy}, {"armies", lArmies}, {"route", lRoute},
+    {"monsterVariant", lMonsterVariant}, {"portalExits", lPortalExits}, {"onPortalCrossing", lOnPortalCrossing}, {"squareUnits", lSquareUnits}, {"revealMap", lRevealMap}, {"modEvents", lModEvents}, {"runModEvent", lRunModEvent}, {"centerMap", lCenterMap}, {"viewArmy", lViewArmy}, {"armies", lArmies}, {"route", lRoute},
     {"scrapRitualPlan", lScrapRitualPlan}, {"planRitual", lPlanRitual}, {"aiRitualBad", lAiRitualBad}, {"aiRitualBadTime", lAiRitualBadTime}, {"aiItemValue", lAiItemValue}, {"aiItemUseRating", lAiItemUseRating}, {"aiRandomEnemy", lAiRandomEnemy}, {"terrainMatch", lTerrainMatch},
     {"releaseFollower", lReleaseFollower}, {"transferFollower", lTransferFollower},
     {"shopOffers", lShopOffers}, {"classRecruits", lClassRecruits}, {"recruitSquares", lRecruitSquares},
@@ -34,6 +34,7 @@ static const luaL_Reg LUA_COE5[] = {
     {"addCommanderLine", lAddCommanderLine}, {"addTraitLine", lAddTraitLine}, {"teleportCommander", lTeleportCommander}, {"mayEnterSquare", lMayEnterSquare},
     {"keepTraceLines", lKeepTraceLines}, {"addPlane", lAddPlane}, {"setPlaneShape", lSetPlaneShape}, {"planeIndex", lPlaneIndex}, {"factionSlot", lFactionSlot}, {"addFaction", lAddFaction},
     {"setPlaneTint", lSetPlaneTint}, {"clearPlaneTint", lClearPlaneTint}, {"setTerrainLooks", lSetTerrainLooks},
+    {"setRandomEventsOff", lSetRandomEventsOff}, {"randomEventsOff", lRandomEventsOff},
     {"addBattleMap", lAddBattleMap}, {"setBattleScatter", lSetBattleScatter},
     {"addModCommand", lAddModCommand}, {"chooseLocation", lChooseLocation}, {"netRole", lNetRole}, {"localPlayer", lLocalPlayer}, LUA_GAME_CALLS(GAME_CALL_REG) COE5SE_EXTRA_LUA_FUNCTIONS {NULL, NULL},
 };
@@ -185,7 +186,7 @@ static const char *const PREVIEW_WORLD_CALLS[] = {
     "aiMakeGuardsAt", "aiMakeDefenders", "conscription", "priestFreespawn", "inquisitionSpawn", "trollForestSpawn", "stormSpawn", "wildSpawn", "revelsSpawn", "forestShepherdSpawn",
     "alterTerrain", "ruinSquare", "digTunnelSquare", "illusionTerrain", "destroyGateway", "putRareSquare", "groveReversion", "swapSquares", "teleportSquare", "swapLocations", "moveEnchants",
     "moveGems", "removeEnchant", "destroyEnchantsAt", "setSquareOwner", "cleanSquare", "initSquareGems", "initSquareCorpses", "runHatreds", "sandstormCloudUpdate", "useSpecialSite",
-    "orderBurnForest", "orderChopForest", "orderSlaveHunt", "orderEatVillage", "newPortalPair", "fixPortals", "planeRiseToElysium",
+    "orderBurnForest", "orderChopForest", "orderSlaveHunt", "orderEatVillage", "newPortalPair", "fixPortals", "planeRiseToElysium", "runModEvent",
     "gen.setTerrain", "gen.setGround", "gen.marksToTerrain", "gen.marksToTerrainChance", "gen.spreadTerrain", "gen.specBlob", "gen.terrainBlob", "gen.drawRiver", "gen.decorateSquare",
     "gen.addGroundItems", "gen.setPortalPair", "gen.linkNewPortal", "gen.stampPiece", "gen.setFixedTemperature", "gen.setTemperatures", "gen.heatBlob", "gen.floodPlane", "gen.updateMoistWalls", "gen.fixDiagonals",
 };
