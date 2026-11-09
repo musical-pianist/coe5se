@@ -36,7 +36,7 @@ static const struct {
 };
 
 enum { CORPSE_RULE_PUT, CORPSE_RULE_RAISE_DEAD, CORPSE_RULE_RAISE_ANIMALS, CORPSE_RULE_RAISE_CORPSES, CORPSE_RULE_DROPPED, CORPSE_RULE_NEED,
-       CORPSE_RULE_EXCLUDE };
+       CORPSE_RULE_EXCLUDE, CORPSE_RULE_MAX_RAISE };
 
 typedef struct {
     int ritual, type, occurrence, mask, custom, line;
@@ -51,6 +51,7 @@ static int monsterCorpseKindCount;
 
 typedef struct {
     int ritual, unit, human, percent, puts, raiseDeads, raiseAnimals, holdsFailures, heldFailure, raisedAny, raiseCorpsesDone;
+    int maxRaise, raisedTotal;
 } CorpseCast;
 
 static CorpseCast corpseCasts[CORPSE_CASTS_MAX];
@@ -337,6 +338,12 @@ static int ritualNamesCorpseKind(int ritual) {
     return 0;
 }
 
+static int ritualMaxRaise(int ritual) {
+    for (int i = 0; i < corpseRuleCount; i++)
+        if (corpseRules[i].ritual == ritual && corpseRules[i].type == CORPSE_RULE_MAX_RAISE) return corpseRules[i].cap;
+    return 0;
+}
+
 static int ritualHasCorpseRule(int ritual, int type) {
     for (int i = 0; i < corpseRuleCount; i++)
         if (corpseRules[i].ritual == ritual && corpseRules[i].type == type) return 1;
@@ -541,6 +548,32 @@ static void needcorpsesLine(const char *args, int mod, int level) {
     }
     if (currentCorpseRitual("needcorpses", mod) < 0) return;
     addCorpseRule("needcorpses", mod, CORPSE_RULE_NEED, 0, 0, -1, NULL);
+}
+
+static void maxraiseLine(const char *args, int mod, int level) {
+    if (level != 2) return;
+    const char *p = args;
+    long long n = 0;
+    skipSpaces(&p);
+    int read = readSpellNumber(&p, &n);
+    skipSpaces(&p);
+    if (!read || !isLineEnd(p)) {
+        refuseC5mLine("maxraise", spellModName(mod), "bad_value", "line=%d text=%.60s", G32(RVA_MOD_LINE), args);
+        return;
+    }
+    if (n < 1 || n > CORPSE_RAISE_CAP_MAX) {
+        refuseC5mLine("maxraise", spellModName(mod), "bad_value", "line=%d value=%lld min=1 max=%d", G32(RVA_MOD_LINE), n, CORPSE_RAISE_CAP_MAX);
+        return;
+    }
+    int ritual = currentCorpseRitual("maxraise", mod);
+    if (ritual < 0) return;
+    for (int i = 0; i < corpseRuleCount; i++)
+        if (corpseRules[i].ritual == ritual && corpseRules[i].type == CORPSE_RULE_MAX_RAISE) {
+            corpseRules[i].cap = (int)n;
+            return;
+        }
+    if (!addCorpseRule("maxraise", mod, CORPSE_RULE_MAX_RAISE, 0, 0, -1, NULL)) return;
+    corpseRules[corpseRuleCount - 1].cap = (int)n;
 }
 
 static void excludecorpsesLine(const char *args, int mod, int level) {
@@ -917,12 +950,20 @@ static void capCorpses(short *corpses, int mask, int cap, short aside[SQUARE_COR
         if (mask & 1 << k) aside[k] = (short)(aside[k] + corpses[k] - keep[k]), corpses[k] = keep[k];
 }
 
+static int castRaiseCap(const CorpseCast *cast, int cap) {
+    if (!cast || !cast->maxRaise) return cap;
+    int room = cast->maxRaise - cast->raisedTotal;
+    if (room <= 0) return -1;
+    return cap > 0 && cap < room ? cap : room;
+}
+
 static void runRaiseCorpsesLine(CorpseCast *cast, const CorpseRule *r) {
     int unit = cast->unit;
     if (unit < 0 || unit >= UNIT_TABLE_MAX) return;
     int x = G32(RVA_UNIT_X + (size_t)unit * UNIT_SIZE), y = G32(RVA_UNIT_X + 4 + (size_t)unit * UNIT_SIZE);
     short *corpses = squareCorpses(x, y);
-    int mask = cast->human ? r->mask : CORPSE_MASK_ALL, custom = cast->human ? r->custom : -1, cap = r->cap;
+    int mask = cast->human ? r->mask : CORPSE_MASK_ALL, custom = cast->human ? r->custom : -1, cap = castRaiseCap(cast, r->cap);
+    if (cap < 0) return;
     CorpsesAside excluded;
     setExcludedCorpsesAside(custom < 0 ? cast : NULL, corpses, &excluded);
     int n = corpses ? countSelectedCorpses(corpses, mask, custom) : 0;
@@ -935,6 +976,7 @@ static void runRaiseCorpsesLine(CorpseCast *cast, const CorpseRule *r) {
     int raised = corpseRandom(n + 1);
     if (n - raised > 0) raised += corpseRandom(n - raised) + 1;
     if (cap > 0 && raised > cap) raised = cap;
+    cast->raisedTotal += raised;
     takeSelectedCorpses(corpses, mask, custom, raised);
     putExcludedCorpsesBack(corpses, &excluded);
     corpseSendSquare((short)G16(RVA_UNIT_PLAYER + (size_t)unit * UNIT_SIZE), x, y);
@@ -969,7 +1011,8 @@ static long long corpseExecuteRitual(int unit, int ritual, int x, int y, int per
     if (!corpseRuleCount) return executeRitualNext(unit, ritual, x, y, percent, pay);
     int depth = corpseCastDepth++;
     if (depth < CORPSE_CASTS_MAX)
-        corpseCasts[depth] = (CorpseCast){ritual, unit, unitOwnerIsHuman(unit), percent, 0, 0, 0, ritualNamesCorpseKind(ritual), 0, 0, 0};
+        corpseCasts[depth] = (CorpseCast){.ritual = ritual, .unit = unit, .human = unitOwnerIsHuman(unit), .percent = percent,
+                                          .holdsFailures = ritualNamesCorpseKind(ritual), .maxRaise = ritualMaxRaise(ritual)};
     long long result = executeRitualNext(unit, ritual, x, y, percent, pay);
     corpseCastDepth--;
     if (depth < CORPSE_CASTS_MAX) {
@@ -979,7 +1022,8 @@ static long long corpseExecuteRitual(int unit, int ritual, int x, int y, int per
     return result;
 }
 
-static int raiseWithKinds(RaiseFn game, int commander, int mask, int cap, const CorpseCast *cast) {
+static int raiseWithKinds(RaiseFn game, int commander, int mask, int cap, const CorpseCast *cast, int *taken) {
+    *taken = 0;
     if (commander < 0 || commander > G32(RVA_LAST_COMMANDER) || commander >= COMMANDER_TABLE_MAX) return game(commander);
     int unit = G32(RVA_COMMANDERS + (size_t)commander * COMMANDER_SIZE);
     if (unit < 0 || unit >= UNIT_TABLE_MAX) return game(commander);
@@ -992,7 +1036,8 @@ static int raiseWithKinds(RaiseFn game, int commander, int mask, int cap, const 
     for (int k = 0; k < SQUARE_CORPSE_KINDS; k++)
         if (!(mask & 1 << k)) aside[k] = corpses[k], corpses[k] = 0;
     if (cap > 0) capCorpses(corpses, mask, cap, aside);
-    int raised = game(commander), anyAside = excluded.any;
+    int seen = countCorpses(corpses, mask), raised = game(commander), anyAside = excluded.any;
+    *taken = seen - countCorpses(corpses, mask);
     for (int k = 0; k < SQUARE_CORPSE_KINDS; k++) anyAside |= aside[k], addCorpses(corpses, k, aside[k]);
     fitCustomCorpses(corpses);
     putExcludedCorpsesBack(corpses, &excluded);
@@ -1013,7 +1058,8 @@ static int corpseRaise(RaiseFn game, int commander, int type, int *seen) {
     if (cast) runWaitingRaiseCorpses(cast, type, occurrence);
     const CorpseRule *rule = cast ? corpseRuleFor(cast->ritual, type, occurrence) : NULL, *r = cast && cast->human ? rule : NULL;
     int mask = (r ? r->mask : CORPSE_MASK_ALL) & (type == CORPSE_RULE_RAISE_DEAD ? CORPSE_MASK_HUMANOID : CORPSE_MASK_ANIMAL);
-    int cap = rule ? rule->cap : 0, excludes = cast && cast->human && ritualHasCorpseRule(cast->ritual, CORPSE_RULE_EXCLUDE);
+    int cap = castRaiseCap(cast, rule ? rule->cap : 0), excludes = cast && cast->human && ritualHasCorpseRule(cast->ritual, CORPSE_RULE_EXCLUDE);
+    if (cap < 0) return 0;
     short *corpses = commanderCorpses(commander);
     if (cast && cast->holdsFailures && corpses) {
         if (!corpsesRaiseSees(cast, corpses, mask, -1)) {
@@ -1022,7 +1068,11 @@ static int corpseRaise(RaiseFn game, int commander, int type, int *seen) {
         }
         cast->raisedAny = 1;
     }
-    if (r || excludes || cap) return raiseWithKinds(game, commander, mask, cap, cast);
+    if (r || excludes || cap) {
+        int taken, raised = raiseWithKinds(game, commander, mask, cap, cast, &taken);
+        if (cast) cast->raisedTotal += taken;
+        return raised;
+    }
     fitCustomCorpses(corpses);
     int raised = game(commander);
     fitCustomCorpses(corpses);
@@ -1065,7 +1115,7 @@ static int ritualRaiseFindsCorpses(int unit, int ritual) {
     if (unit < 0 || unit >= UNIT_TABLE_MAX) return 1;
     short *corpses = squareCorpses(G32(RVA_UNIT_X + (size_t)unit * UNIT_SIZE), G32(RVA_UNIT_X + 4 + (size_t)unit * UNIT_SIZE));
     if (!corpses) return 1;
-    CorpseCast cast = {ritual, unit, 1, 100, 0, 0, 0, 0, 0, 0, 0};
+    CorpseCast cast = {.ritual = ritual, .unit = unit, .human = 1, .percent = 100};
     int raises = 0;
     for (int t = 0; t < 2; t++) {
         int type = t ? CORPSE_RULE_RAISE_ANIMALS : CORPSE_RULE_RAISE_DEAD, group = t ? CORPSE_MASK_ANIMAL : CORPSE_MASK_HUMANOID;
@@ -1090,6 +1140,8 @@ static int corpseScreenCanCast(int unit, int ritual) {
     return ritualRaiseFindsCorpses(unit, ritual) ? result : RITUAL_REASON_NOT_NOW;
 }
 
+static int lastCorpseUnit = -1, lastCorpseLeft = CORPSE_KIND_LEAVES_NONE;
+
 static void corpseLeave(int unit) {
     int monster = unit >= 0 && unit < UNIT_TABLE_MAX ? (short)G16(RVA_UNIT_MONSTER + (size_t)unit * UNIT_SIZE) : -1;
     int kind = monster >= 0 && monster < monsterCorpseKindCount ? monsterCorpseKinds[monster] - 1 : -1;
@@ -1097,8 +1149,13 @@ static void corpseLeave(int unit) {
                          ? squareCorpses(G32(RVA_UNIT_X + (size_t)unit * UNIT_SIZE), G32(RVA_UNIT_X + 4 + (size_t)unit * UNIT_SIZE))
                          : NULL;
     fitCustomCorpses(corpses);
+    lastCorpseUnit = unit, lastCorpseLeft = kind < 0 ? CORPSE_KIND_LEAVES_NONE : kind;
     if (kind < 0) {
+        short before[SQUARE_CORPSE_KINDS] = {0};
+        if (corpses) memcpy(before, corpses, sizeof before);
         leaveCorpseGame(unit);
+        for (int k = 0; corpses && k < SQUARE_CORPSE_KINDS; k++)
+            if (corpses[k] > before[k]) lastCorpseLeft = k;
         return;
     }
     if (kind == CORPSE_KIND_LEAVES_NONE) return;
@@ -1201,7 +1258,7 @@ static void corpseKindsInit(void) {
     int words = apiAddModCommand("corpsetype", corpsetypeLine) + apiAddModCommand("corpsekind", corpsekindLine) +
                 apiAddModCommand("raisecorpses", raisecorpsesLine) + apiAddModCommand("newcorpsetype", newcorpsetypeLine) +
                 apiAddModCommand("newcorpsekind", newcorpsekindLine) + apiAddModCommand("needcorpses", needcorpsesLine) +
-                apiAddModCommand("excludecorpses", excludecorpsesLine);
+                apiAddModCommand("excludecorpses", excludecorpsesLine) + apiAddModCommand("maxraise", maxraiseLine);
     static const CorpseCall CALLS[] = {
         {RVA_DAMAGE_LEAVE_CORPSE_CALL, RVA_UNIT_LEAVE_CORPSE, (void *)corpseLeave, "damage_leave_corpse"},
         {RVA_HP_LOSS_LEAVE_CORPSE_CALL, RVA_UNIT_LEAVE_CORPSE, (void *)corpseLeave, "hp_loss_leave_corpse"},
@@ -1218,6 +1275,6 @@ static void corpseKindsInit(void) {
         cast = wrapSite(SITE_EXECUTE_RITUAL, (void *)corpseExecuteRitual, (void **)&nextCorpseExecute);
         canCast = wrapSite(SITE_RITUAL_SCREEN_CAN_CAST, (void *)corpseScreenCanCast, (void **)&nextCorpseCanCast);
     }
-    writeResultLog(words == 7 && calls == count && cast && newWorld && canCast, "corpse_kinds_installed",
-                   "words=%d of 7 calls=%d of %d cast=%d new_world=%d can_cast=%d", words, calls, count, cast, newWorld, canCast);
+    writeResultLog(words == 8 && calls == count && cast && newWorld && canCast, "corpse_kinds_installed",
+                   "words=%d of 8 calls=%d of %d cast=%d new_world=%d can_cast=%d", words, calls, count, cast, newWorld, canCast);
 }

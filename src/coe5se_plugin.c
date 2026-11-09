@@ -200,6 +200,9 @@ static const char *corpseWordLineHook(const char *line, size_t len, int mod, int
 static int corpseEventLine(const char *line, int level);
 static void corpseWordsBeforePass(int level);
 static void corpseWordsAfterPass(int level);
+static const char *killWordLineHook(const char *line, size_t len, int mod, int level);
+static void killWordsBeforePass(int level);
+static void killWordsAfterPass(int level);
 static void noExplodeLineHook(const char *line, size_t len, int mod, int level);
 static void aiClassLineHook(const char *line, size_t len, int mod, int level);
 static void aiClassBeforePass(int level);
@@ -1730,6 +1733,7 @@ static u64 modErrorDialogWrapper(u64 title, u64 text, u64 a3, u64 a4, u64 a5, u6
 #include "spells_changed.h"
 #include "code_check.h"
 #include "corpse_kinds.h"
+#include "kill_transforms.h"
 #include "weapon_traits.h"
 #include "heal_army.h"
 #include "beam_width.h"
@@ -1894,6 +1898,7 @@ static void startCoe5se(const char *via) {
     if (featureOn(FEATURE_HATES)) hatesWordsInit();
     if (featureOn(FEATURE_RITUAL_WORDS)) ritualWordsInit();
     if (featureOn(FEATURE_CORPSE_KINDS)) corpseKindsInit();
+    if (featureOn(FEATURE_CORPSE_KINDS)) killTransformsInit();
     if (featureOn(FEATURE_WEAPON_TRAITS)) weaponTraitsInit();
     if (featureOn(FEATURE_SPELL_WORDS)) healArmyInit();
     if (featureOn(FEATURE_WEAPON_TRAITS)) beamWidthInit();

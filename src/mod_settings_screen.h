@@ -603,6 +603,7 @@ static void modsRunHook(int level) {
     beamWidthBeforePass(level);
     recBonusBeforePass(level);
     corpseWordsBeforePass(level);
+    killWordsBeforePass(level);
     aiClassBeforePass(level);
     nextModsRun(level);
     finishReading();
@@ -615,6 +616,7 @@ static void modsRunHook(int level) {
     resolveFactionNames(level);
     ritualWordsAfterPass(level);
     corpseWordsAfterPass(level);
+    killWordsAfterPass(level);
     aiClassAfterPass(level);
     noExplodeAfterPass(level);
     terrainLooksAfterPass(level);

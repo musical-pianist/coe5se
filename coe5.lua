@@ -352,7 +352,7 @@ function require(name) end
 ---| "COMMANDER_LEARN_RITUAL"     # (commander, ritual): A commander learns a ritual. Windows only for now. The result is nil.
 ---| "BOLSTER_BLESSING"           # (player, kind, show): A player gets a new blessing effect: Bolster Devotion among others. The result is nil.
 ---| "ADD_PLAYER_BLESSING"        # (player, ability, add, cap): A player's blessing of an ability rises. The result is nil.
----| "REMOVE_ENCHANT"             # (caster, kind, x, y): An active ritual effect ends.
+---| "REMOVE_ENCHANT"             # (caster, type, x, y): An active ritual effect ends.
 ---| "RITUAL_PAY_COSTS"           # (player, commander, ritual, percent, show): A ritual's costs are paid. The result is nil.
 ---| "RITUAL_FAR_SUMMON_UNITS"    # (caster, monster, count, player, x, y): A ritual summons units on a far square; the result is the first unit.
 ---| "PRIEST_FREESPAWN"           # (player): A Voice of El player's chance of free units by the seals broken. Windows only for now. The result is nil.
@@ -780,7 +780,7 @@ function require(name) end
 ---| "commanderGarrisonLeft" # index 0-9989, integer: the strength that stays on the commander's square when the commander leaves as the AI moves it: its army, the free troops the AI's gather adds to it there, less the units the gather leaves behind, by the game's own rule, measured as squareStrength measures the owner's units (the fort and ranged raise worked out on the staying units). The gather's one random drop (a follower with unit flag 8 that is a tenth to a quarter of the army, 50%) counts as leaving. Nil for a commander with no living unit on a square. Read-only.
 ---| "slotHomeX"             # per slot, integer: the player's home citadel's x, -1 for none. Read-only.
 ---| "slotHomeY"             # per slot, integer: the player's home citadel's y. Read-only.
----| "squareGems"            # index: x 0-999, then y 0-159, then a gem kind 0-3, integer: the square's gem income of that kind; the game lets a player with a gem gatherer own a square with any above 0. Read-only.
+---| "squareGems"            # index: x 0-999, then y 0-159, then a gem type 0-3, integer: the square's gem income of that type; the game lets a player with a gem gatherer own a square with any above 0. Read-only.
 ---| "squareCorpses"         # index: x 0-999, then y 0-159, then a corpse kind 0-7 (coe5.corpseKind), integer: the square's corpses of that kind, what Raise Dead, Raise Animals, reanimate, the ritual corpse costs and the corpse event triggers use. Set 0 to 32767.
 ---| "squareStrength"        # index: a slot (or -1 for every player), then x 0-999, then y 0-159, integer: the strength of the units on the square of that player and its teammates, now, as the game measures it for the AI: each living unit's strength as that player sees it, the sum raised by (100 + 60 x the square's fort level)% when over a tenth of the units are ranged. Sees through fog. Read-only.
 ---| "squareArmyStationary"  # index: x 0-999, then y 0-159, boolean: true when the game never moves the army on the square on the world map: every living unit there is stationary ("Cannot move on world map"), as the independents' moves check it. Also true for a square with no living unit. Sees through fog. Read-only.
@@ -818,7 +818,8 @@ function require(name) end
 ---| "mapCameraY"            # number: the y, in squares; the square at the centre row is mapCameraY + 1. Read-only.
 ---| "mapViewPlane"          # integer: the plane the map view shows (planeName takes it). Read-only.
 ---| "enchantLastIndex"      # integer: the last record of the active ritual effects in use, at most 999. Read-only.
----| "enchantKind"           # index 0-999, integer: the effect's kind, 0 for a free record. Read-only.
+---| "enchantType"           # index 0-999, integer: the effect's type, 0 for a free record. Read-only.
+---| "enchantKind"           # index 0-999, integer: the first name of enchantType, which still works. Read-only.
 ---| "enchantCaster"         # index 0-999, integer: the unit that cast the effect. Read-only.
 ---| "enchantOwner"          # index 0-999, integer: the caster's player. Read-only.
 ---| "enchantRitual"         # index 0-999, integer: the ritual that made the effect (ritualName takes it), 0 or below for none. Read-only.
@@ -2043,6 +2044,10 @@ function coe5.unitSpeedClass(unit) end
 ---2 for a unit with flying and float, 1 for flying, 0 for neither.
 ---@param unit integer a living unit
 ---@return integer|nil result nil when refused (lua_refused)
+function coe5.unitFlightType(unit) end
+
+---The first name of coe5.unitFlightType, which still works.
+---@deprecated
 function coe5.unitFlightKind(unit) end
 
 ---Whether a unit's move flags, its items' counted, let it move on water.
@@ -2281,13 +2286,13 @@ function coe5.giveItem(unit, item) end
 ---@return boolean|nil result nil when refused (lua_refused)
 function coe5.takeItem(unit, item) end
 
----At a percent chance gives a unit a random item, as the event words randitem (kind -1) and randmisc (kind 7) do.
+---At a percent chance gives a unit a random item, as the event words randitem (type -1) and randmisc (type 7) do.
 ---@param unit integer a living unit
----@param kind integer integer
+---@param type integer the item type, as the manual's Magic Item Types
 ---@param percent integer integer
 ---@param level integer integer
 ---@return boolean|nil result nil when refused (lua_refused)
-function coe5.giveRandomItem(unit, kind, percent, level) end
+function coe5.giveRandomItem(unit, type, percent, level) end
 
 ---A ritual's first value of an effect, 0 for none, as the AI reads its ai words.
 ---Windows only for now.
@@ -2325,6 +2330,10 @@ function coe5.slotBlessingOf(player, ability) end
 ---What a spell attack of a magic path weighs in a unit's strength.
 ---@param path integer integer
 ---@return integer|nil result nil when refused (lua_refused)
+function coe5.magicPathWeight(path) end
+
+---The first name of coe5.magicPathWeight, which still works.
+---@deprecated
 function coe5.spellPathWeight(path) end
 
 ---A unit's boost to a magic path: its magic boost and its path boosts.
@@ -2394,6 +2403,10 @@ function coe5.countSpells(path, level) end
 ---The magic path of a monster's first spell attack, -1 for none; items and boosts don't count.
 ---@param unit integer a living unit
 ---@return integer|nil result nil when refused (lua_refused)
+function coe5.unitFirstMagicPath(unit) end
+
+---The first name of coe5.unitFirstMagicPath, which still works.
+---@deprecated
 function coe5.unitFirstSpellPath(unit) end
 
 ---A random memorized spell of a magic path, -1 for none.
@@ -2503,13 +2516,13 @@ function coe5.learnLevelRituals(commander, ritpow, level) end
 ---@return integer|boolean|nil result nil when refused (lua_refused)
 function coe5.getStartRituals(commander) end
 
----Ends an active ritual effect by caster, kind and square, the game's only way to free one.
+---Ends an active ritual effect by caster, type and square, the game's only way to free one.
 ---@param caster integer integer
----@param kind integer integer
+---@param type integer the effect's type
 ---@param x integer a square's x
 ---@param y integer a square's y
 ---@return integer|nil result nil when refused (lua_refused)
-function coe5.removeEnchant(caster, kind, x, y) end
+function coe5.removeEnchant(caster, type, x, y) end
 
 ---Adds a random blessing effect to a player, as Bolster Devotion does.
 ---@param player integer a player slot

@@ -454,6 +454,7 @@ static const GameVar GAME_VARS[] = {
     {"mapCameraY",     RVA_MAP_CAMERA_Y,                  T_F32, 1, 0, 0, 0, 0, 0, 0},
     {"mapViewPlane",   RVA_MAP_VIEW_PLANE,                T_I32, 1, 0, 0, 0, 0, 0, 0},
     {"enchantLastIndex", RVA_LAST_ENCHANT,                T_I32, 1, 0, 0, 0, 0, 0, 0},
+    {"enchantType",    RVA_ENCHANTS + ENCHANT_KIND,       T_I32, ENCHANTS_MAX, ENCHANT_SIZE, 0, 0, 0, 0, 0},
     {"enchantKind",    RVA_ENCHANTS + ENCHANT_KIND,       T_I32, ENCHANTS_MAX, ENCHANT_SIZE, 0, 0, 0, 0, 0},
     {"enchantCaster",  RVA_ENCHANTS + ENCHANT_CASTER,     T_I32, ENCHANTS_MAX, ENCHANT_SIZE, 0, 0, 0, 0, 0},
     {"enchantOwner",   RVA_ENCHANTS + ENCHANT_OWNER,      T_I32, ENCHANTS_MAX, ENCHANT_SIZE, 0, 0, 0, 0, 0},

@@ -31,6 +31,7 @@
     X(unitBattleFast, MAC_COPY_CALL(RVA_UNIT_BATTLE_FAST, unitBattleFastCopy), "u", 'B') \
     X(unitIncapacitated, MAC_COPY_CALL(RVA_UNIT_INCAPACITATED, unitIncapacitatedCopy), "u", 'B') \
     X(unitSpeedClass, BOTH_BUILDS_CALL(RVA_UNIT_SPEED_CLASS), "u", 'i') \
+    X(unitFlightType, BOTH_BUILDS_CALL(RVA_UNIT_FLIGHT_KIND), "u", 'k') \
     X(unitFlightKind, BOTH_BUILDS_CALL(RVA_UNIT_FLIGHT_KIND), "u", 'k') \
     X(unitHasWaterMove, BOTH_BUILDS_CALL(RVA_UNIT_HAS_WATER_MOVE), "u", 'B') \
     X(unitNoLand, WINDOWS_ONLY_CALL(RVA_UNIT_NOLAND), "u", 'B') \
@@ -79,6 +80,7 @@
     X(ritualPointless, BOTH_BUILDS_CALL(RVA_RITUAL_POINTLESS), "cr", 'B') \
     X(ritualCastableAnywhere, BOTH_BUILDS_CALL(RVA_RITUAL_CASTABLE_ANYWHERE), "cr", 'B') \
     X(slotBlessingOf, MAC_COPY_CALL(RVA_PLAYER_BLESSING_VALUE, slotBlessingOfCopy), "pa", 'i') \
+    X(magicPathWeight, MAC_COPY_CALL(RVA_PATH_STRENGTH_WEIGHT, spellPathWeightCopy), "i", 'i') \
     X(spellPathWeight, MAC_COPY_CALL(RVA_PATH_STRENGTH_WEIGHT, spellPathWeightCopy), "i", 'i') \
     X(unitPathBonus, BOTH_BUILDS_CALL(RVA_UNIT_PATH_BONUS), "ui", 'i') \
     X(unitSpellWeaponLevel, BOTH_BUILDS_CALL(RVA_UNIT_SPELL_WEAPON_LEVEL), "ui", 'i') \
@@ -90,6 +92,7 @@
     X(countMemorizedSpells, BOTH_BUILDS_CALL(RVA_COUNT_MEMORIZED_SPELLS), "ui", 'i') \
     X(countMemorizedOfType, MAC_COPY_CALL(RVA_COUNT_MEMORIZED_OF_TYPE, countMemorizedOfTypeCopy), "uii", 'i') \
     X(countSpells, MAC_COPY_CALL(RVA_COUNT_SPELLS, countSpellsCopy), "ii", 'i') \
+    X(unitFirstMagicPath, BOTH_BUILDS_CALL(RVA_UNIT_FIRST_SPELL_PATH), "u", 'i') \
     X(unitFirstSpellPath, BOTH_BUILDS_CALL(RVA_UNIT_FIRST_SPELL_PATH), "u", 'i') \
     X(randomMemorizedSpell, BOTH_BUILDS_CALL(RVA_RANDOM_MEMORIZED_SPELL), "ui", 'i') \
     X(itemCastableSpell, BOTH_BUILDS_CALL(RVA_ITEM_CASTABLE_SPELL), "u", 'i') \

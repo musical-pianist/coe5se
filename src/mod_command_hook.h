@@ -60,6 +60,8 @@ static void runModCommandLine(const char *line, int mod, int level) {
     if (!line) return;
     if (featureOn(FEATURE_CORPSE_KINDS)) line = corpseWordLineHook(line, len, mod, level);
     if (!line) return;
+    if (featureOn(FEATURE_CORPSE_KINDS)) line = killWordLineHook(line, len, mod, level);
+    if (!line) return;
     if (featureOn(FEATURE_MOD_SETTINGS) && settingLineHook(line, len, mod, level)) return;
     if (featureOn(FEATURE_MONSTER_FLAGS) && flagOffLineHook(line, len, mod, level)) return;
     if (featureOn(FEATURE_WEAPON_TRAITS)) weaponTraitLineHook(line, len, level);
