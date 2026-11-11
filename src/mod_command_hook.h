@@ -39,6 +39,7 @@ static void runModCommandLine(const char *line, int mod, int level) {
     if (featureOn(FEATURE_RITUAL_EXPANSION) && refusedRitualLine(line, len, mod, level)) return;
     if (featureOn(FEATURE_TABLE_MOVES) && refusedTableLine(line, len, mod, level)) return;
     if (featureOn(FEATURE_SPELL_WORDS) && spellLineHook(line, len, mod, level)) return;
+    if (featureOn(FEATURE_MONSTER_FLAGS) && refusedItemSpellPathLine(line, len, mod, level)) return;
     if (featureOn(FEATURE_SPELL_PATH_WORDS)) line = spellPathLineHook(line, len, mod, level);
     if (!line) return;
     line = offsetNameLineHook(line, len, mod, level);
@@ -64,6 +65,7 @@ static void runModCommandLine(const char *line, int mod, int level) {
     if (!line) return;
     if (featureOn(FEATURE_MOD_SETTINGS) && settingLineHook(line, len, mod, level)) return;
     if (featureOn(FEATURE_MONSTER_FLAGS) && flagOffLineHook(line, len, mod, level)) return;
+    if (featureOn(FEATURE_MONSTER_FLAGS) && itemWordLineHook(line, len, mod, level)) return;
     if (featureOn(FEATURE_WEAPON_TRAITS)) weaponTraitLineHook(line, len, level);
     if (featureOn(FEATURE_NO_EXPLODE)) noExplodeLineHook(line, len, mod, level);
     clearspecLineHook(line, level);
@@ -120,7 +122,7 @@ static void declinedModCommandHook(const char *line, int mod, int level) {
     snprintf(word, sizeof word, "%.*s", (int)(len < sizeof word ? len : sizeof word - 1), line);
     int pathName = declinedSpellPathLine(word, mod, level);
     int planeLine = declinedPlaneLine(line, len, mod, level) | declinedTerrainLooksLine(line, len, mod, level) | declinedBattleMapLine(line, len, mod, level);
-    if (word[0] && (!isGameWord(word) || declinedSpellLine(word, mod, level) || pathName || planeLine || declinedOffsetNameLine(line, len, level) || declinedNameListLine(line, len, level) || declinedFlagOffLine(line) || declinedFactionNameLine(line, len))) {
+    if (word[0] && (!isGameWord(word) || declinedSpellLine(word, mod, level) || pathName || planeLine || declinedOffsetNameLine(line, len, level) || declinedNameListLine(line, len, level) || declinedFlagOffLine(line) || declinedItemWordLine(line, len, mod, level) || declinedFactionNameLine(line, len))) {
         writeLog("mod_command_skipped", "word=%s mod=%d level=%d reason=plugins_declined", word, mod, level);
         return;
     }

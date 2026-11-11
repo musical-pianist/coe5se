@@ -195,6 +195,9 @@ static int copyMonsterFactionRefs(int source, int target);
 static int copyritualCarrySource(const char *line, int level);
 static void carryCopiedRitualWords(int source, int mod);
 static void clearspecLineHook(const char *line, int level);
+static int itemWordLineHook(const char *line, size_t len, int mod, int level);
+static int declinedItemWordLine(const char *line, size_t len, int mod, int level);
+static int refusedItemSpellPathLine(const char *line, size_t len, int mod, int level);
 static void ritualWordsAfterPass(int level);
 static const char *corpseWordLineHook(const char *line, size_t len, int mod, int level);
 static int corpseEventLine(const char *line, int level);
@@ -499,8 +502,22 @@ static void drawMenuColumn(MenuColumn *col) {
 #ifdef __APPLE__
 static long paddingLeft(void);
 #endif
+static void takeStubLogTail(void) {
+    char dir[MAX_PATH], gameLog[MAX_PATH];
+    GetModuleFileNameA(NULL, dir, sizeof dir);
+    char *slash = strrchr(dir, PATH_SEP[0]);
+    if (!slash || !logPath[0]) return;
+    *slash = '\0';
+    if (!buildPath(gameLog, sizeof gameLog, __func__, "%s" PATH_SEP LOG_FILE, dir)) return;
+    if (!strcmp(gameLog, logPath)) return;
+    int moved = appendLogFileTo(gameLog, logPath);
+    if (moved > 0) writeLog("stub_log_tail_moved", "from=game_folder to=" LOG_FOLDER);
+    else if (moved < 0) writeLogWarning("stub_log_tail_left", "reason=move_failed path=%s", gameLog);
+}
+
 static void finishStartup(void) {
     if (startupFinished) return;
+    takeStubLogTail();
     takeCodeModSnapshot();
     readLoadOrder(1);
     readUnreadSettingsFiles();

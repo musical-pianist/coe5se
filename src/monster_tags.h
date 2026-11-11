@@ -251,6 +251,96 @@ static void clearspecLineHook(const char *line, int level) {
     storeMonsterCorpseKind(monster, 0);
 }
 
+enum { ITEM_WORD_CLEARSPEC = 1, ITEM_WORD_CLEARMOVE, ITEM_WORD_CLEARWEAPONS, ITEM_WORD_MAKEAFF, ITEM_WORD_MAKEBEN, ITEM_WORD_USEABLE,
+       ITEM_WORD_CONSUMABLE, ITEM_WORD_EXTRALIFE, ITEM_WORD_EYE, ITEM_WORD_HEART,
+       ITEM_WORD_USEBEANSTALK, ITEM_WORD_USEPIT, ITEM_WORD_USEBREAKSEAL, ITEM_WORD_CUREONEAFF, ITEM_WORD_NEWSPELL1, ITEM_WORD_NEWSPELL2, ITEM_WORD_NEWSPELL3,
+       ITEM_WORD_USEREVEAL, ITEM_WORD_USETELEPORT, ITEM_WORD_USEPLANETRAVEL, ITEM_WORD_USEONLYIN };
+static const char *const itemBlockWords[] = {"clearspec", "clearmove", "clearweapons", "makeaff", "makeben", "useableitem",
+                                              "consumableitem", "extralife", "eyeitem", "heartitem",
+                                              "usebeanstalk", "usepit", "usebreakseal", "cureoneaff", "newspell1", "newspell2",
+                                              "newspell3", "usereveal", "useteleport", "useplanetravel",
+                                              "useonlyin"};
+static int itemBlockWord(const char *line, size_t len) {
+    for (int i = 0; i < (int)(sizeof itemBlockWords / sizeof *itemBlockWords); i++) {
+        if (len == strlen(itemBlockWords[i]) && !strncmp(line, itemBlockWords[i], len)) return i + 1;
+    }
+    return 0;
+}
+
+static int itemWordLineHook(const char *line, size_t len, int mod, int level) {
+    int word = level == 2 ? itemBlockWord(line, len) : 0;
+    if (!word) return 0;
+    if (G32(RVA_MONSTER_CURRENT) >= 0 || (word == ITEM_WORD_CLEARSPEC && G32(RVA_TERRAIN_CURRENT) >= 0)) return 0;
+    int item = G32(RVA_ITEM_CURRENT);
+    if (item < 0 || item >= tableRecords(TABLE_ITEM)) return 0;
+    unsigned char *record = tableAddress(TABLE_ITEM) + (size_t)item * ITEM_SIZE;
+    if (word == ITEM_WORD_MAKEAFF || word == ITEM_WORD_MAKEBEN) {
+        unsigned long long bits = (unsigned long long)gameFirstNumber(line + len), have;
+        unsigned char *field = record + (word == ITEM_WORD_MAKEAFF ? ITEM_AFFLICTIONS : ITEM_BLESSINGS);
+        memcpy(&have, field, sizeof have);
+        have |= bits;
+        memcpy(field, &have, sizeof have);
+        writeLog("item_word_added", "word=%.7s bits=0x%llx item=%d mod=%d", line, bits, item, mod);
+        return 1;
+    }
+    if (word >= ITEM_WORD_USEABLE) {
+        static const int abilities[] = {ITEM_ABILITY_USEABLE, ITEM_ABILITY_CONSUMABLE, ITEM_ABILITY_EXTRA_LIFE, ITEM_ABILITY_EYE,
+                                        ITEM_ABILITY_HEART, ITEM_ABILITY_BEANSTALK, ITEM_ABILITY_PIT, ITEM_ABILITY_BREAK_SEAL,
+                                        ITEM_ABILITY_CURE_AFFLICTION,
+                                        ITEM_ABILITY_NEW_SPELL1, ITEM_ABILITY_NEW_SPELL2, ITEM_ABILITY_NEW_SPELL3,
+                                        ITEM_ABILITY_REVEAL, ITEM_ABILITY_TELEPORT, ITEM_ABILITY_PLANE_TRAVEL,
+                                        ITEM_ABILITY_USE_ONLY_IN};
+        int ability = abilities[word - ITEM_WORD_USEABLE];
+        int value = word >= ITEM_WORD_CUREONEAFF ? (int)gameFirstNumber(line + len) : !isFlagOff(line + len);
+        if (word == ITEM_WORD_HEART && value) {
+            long long n = gameFirstNumber(line + len);
+            value = n > 0 ? (int)n : 1;
+        }
+        if (!setAbilityPair((int *)(record + ITEM_ABILITIES), ITEM_ABILITY_PAIRS, ability, value, 0)) {
+            refuseC5mLine(itemBlockWords[word - 1], spellModName(mod), "too_many_abilities",
+                          "line=%d item=%.48s max=%d", G32(RVA_MOD_LINE), (const char *)record, ITEM_ABILITY_PAIRS);
+            return 1;
+        }
+        writeLog("item_word_added", "word=%.*s value=%d item=%d mod=%d", (int)len, line, value, item, mod);
+        return 1;
+    }
+    if (word == ITEM_WORD_CLEARMOVE) {
+        memset(record + ITEM_MOVE_FLAGS, 0, sizeof(unsigned long long));
+    } else if (word == ITEM_WORD_CLEARWEAPONS) {
+        int none = -1;
+        memcpy(record + ITEM_WEAPON, &none, sizeof none);
+    } else {
+        memset(record + (RVA_ITEM_FLAGS - RVA_ITEM_TABLE), 0, sizeof(unsigned long long));
+        memset(record + ITEM_AFFLICTIONS, 0, sizeof(unsigned long long));
+        memset(record + ITEM_BLESSINGS, 0, sizeof(unsigned long long));
+        memset(record + ITEM_ABILITIES, 0, sizeof(int));
+        memset(record + ITEM_COMBAT_WORDS, 0, ITEM_COMBAT_WORDS_SIZE);
+        if (item < monsterTags.itemResSize) monsterTags.itemRes[item] = 0;
+    }
+    writeLog("item_words_cleared", "word=%.*s item=%d mod=%d", (int)len, line, item, mod);
+    return 1;
+}
+
+static int refusedItemSpellPathLine(const char *line, size_t len, int mod, int level) {
+    int word = level == 2 ? itemBlockWord(line, len) : 0;
+    if (word < ITEM_WORD_NEWSPELL1 || word > ITEM_WORD_NEWSPELL3 || !strchr(line + len, '"')) return 0;
+    int item = G32(RVA_ITEM_CURRENT);
+    if (G32(RVA_MONSTER_CURRENT) >= 0 || item < 0 || item >= tableRecords(TABLE_ITEM)) return 0;
+    refuseC5mLine(itemBlockWords[word - 1], spellModName(mod), "path_on_item", "line=%d item=%d text=%.40s", G32(RVA_MOD_LINE), item, line + len);
+    return 1;
+}
+
+static int declinedItemWordLine(const char *line, size_t len, int mod, int level) {
+    static int inItem, blockMod = -1, blockLevel = -1;
+    if (mod != blockMod || level != blockLevel) inItem = 0;
+    blockMod = mod;
+    blockLevel = level;
+    if ((len == 7 && !strncmp(line, "newitem", len)) || (len == 10 && !strncmp(line, "selectitem", len))) inItem = 1;
+    else if (isSpellBlockEnder(line, len)) inItem = 0;
+    int word = itemBlockWord(line, len);
+    return inItem && level == 2 && word && word < ITEM_WORD_CUREONEAFF;
+}
+
 static void monsterTagsBeforePass(int level) {
     if (level != 2) return;
     monsterTags.nameCount = 0;

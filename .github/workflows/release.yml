@@ -3,7 +3,7 @@
 #   1. downloads the two pinned compilers (the same files, checked by the same SHA-256, as mac-verify.command),
 #   2. rebuilds the three DLLs and three dylibs from src/ (src/build.sh, src/build_mac.sh),
 #   3. stops unless every rebuilt file matches its line in SHA256.txt, byte for byte,
-#   4. zips the release (every file here but README.md, LICENSE.txt, .github/, .clusterfuzzlite/ and fuzz/, plus the six it built),
+#   4. zips the release (every file here but README.md, LICENSE.txt, CONTRIBUTING.md, .gitignore, .github/, .clusterfuzzlite/ and fuzz/, plus the six it built),
 #   5. signs a build provenance attestation for the six files and the zip,
 #   6. creates the GitHub Release from the tag's message, with the zip and that attestation's bundle (CoE5SE-<version>.intoto.jsonl) attached.
 # Check a download with: gh attestation verify <file> -R musical-pianist/coe5se
@@ -74,7 +74,7 @@ jobs:
           python3 - "CoE5SE-$version.zip" <<'PY'
           import sys, zipfile
           from pathlib import Path
-          skip = {"README.md", "LICENSE.txt"}
+          skip = {"README.md", "LICENSE.txt", "CONTRIBUTING.md", ".gitignore"}
           files = sorted(p for p in Path(".").rglob("*") if p.is_file() and p.parts[0] not in (".git", ".github", ".clusterfuzzlite", "fuzz")
                          and p.as_posix() not in skip and p.name != ".DS_Store")
           with zipfile.ZipFile(sys.argv[1], "w", zipfile.ZIP_DEFLATED) as z:

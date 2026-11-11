@@ -1,0 +1,61 @@
+# Builds the DLLs and dylibs from src/ for each pull request to dev, with release.yml's pinned compilers.
+name: build
+
+on:
+  pull_request:
+    branches: [dev]
+
+permissions: read-all
+
+jobs:
+  build:
+    runs-on: macos-15
+    permissions:
+      contents: read
+    env:
+      TC_URL: https://github.com/mstorsjo/llvm-mingw/releases/download/20260922/llvm-mingw-20260922-ucrt-macos-universal.tar.xz
+      TC_SHA256: 52e5f5a7b131021d0c39a37a38fa380a1da7885cd04bd61afd0cd4ecfb8bc1f3
+      TC_DIR: llvm-mingw-20260922-ucrt-macos-universal
+      ZIG_URL: https://ziglang.org/download/0.16.0/zig-aarch64-macos-0.16.0.tar.xz
+      ZIG_SHA256: b23d70deaa879b5c2d486ed3316f7eaa53e84acf6fc9cc747de152450d401489
+      ZIG_DIR: zig-aarch64-macos-0.16.0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Refuse executables
+        run: |
+          git diff -z --name-only --diff-filter=AM HEAD^1 HEAD > "$RUNNER_TEMP/changed"
+          python3 - "$RUNNER_TEMP/changed" <<'PY'
+          import sys
+          OTHERS = (b"\x7fELF", b"\xfe\xed\xfa\xce", b"\xfe\xed\xfa\xcf", b"\xce\xfa\xed\xfe", b"\xcf\xfa\xed\xfe", b"\xca\xfe\xba\xbe")
+          def is_executable(data):
+              if data[:2] == b"MZ" and len(data) >= 0x40:
+                  pe = int.from_bytes(data[0x3c:0x40], "little")
+                  return data[pe:pe + 4] == b"PE\0\0"
+              return data[:4].startswith(OTHERS)
+          paths = [x for x in open(sys.argv[1], "rb").read().decode().split("\0") if x]
+          found = [x for x in paths if is_executable(open(x, "rb").read())]
+          if found:
+              sys.exit("This pull request adds executables, which CONTRIBUTING.md doesn't take: " + ", ".join(found))
+          PY
+      - name: Download the pinned compilers
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fL --retry 3 -sS -o tc.tar.xz "$TC_URL"
+          curl -fL --retry 3 -sS -o zig.tar.xz "$ZIG_URL"
+          echo "$TC_SHA256  tc.tar.xz" | shasum -a 256 -c
+          echo "$ZIG_SHA256  zig.tar.xz" | shasum -a 256 -c
+          tar -xf tc.tar.xz
+          tar -xf zig.tar.xz
+      - name: Build the DLLs and dylibs from src/
+        run: |
+          export CC="$RUNNER_TEMP/$TC_DIR/bin/x86_64-w64-mingw32-clang"
+          export WINDRES="$RUNNER_TEMP/$TC_DIR/bin/x86_64-w64-mingw32-windres"
+          export ZIG="$RUNNER_TEMP/$ZIG_DIR/zig"
+          export ZIG_GLOBAL_CACHE_DIR="$RUNNER_TEMP/zig-cache" ZIG_LOCAL_CACHE_DIR="$RUNNER_TEMP/zig-cache"
+          "$CC" --version | head -1
+          echo "zig $("$ZIG" version)"
+          src/build.sh
+          src/build_mac.sh

@@ -1,0 +1,8 @@
+# The DLLs and dylibs src/build.sh and src/build_mac.sh build. The release builds its own, so they're never committed.
+/glu32.dll
+/coe5se_loader.dll
+/coe5se.c5plugin.dll
+/coe5se.dylib
+/coe5se_loader.dylib
+/coe5se.c5plugin.dylib
+.DS_Store

@@ -30,6 +30,12 @@ Their SHA-256 hashes are in `SHA256.txt`, in the format `shasum -a 256 -c SHA256
 
 If any step fails, the stub or loader writes `loader_inactive` with the reason to the log and the game runs unmodified.
 
+### Who the hash check protects
+
+Today, no one. Auto-approve is on by default (CoE5SE's Mod Settings, "Approve new and changed DLLs automatically"): a new or changed hash is added to `approved.txt` and the plugin loads. With it off, the loader asks Yes or No first. Either way the check can't stop an attacker. A file in CoE5SE's mod folder changes only when you install it or a program running as you writes it, and a program running as you can put its code anywhere else you can write, with no need to go through CoE5SE. The loader isn't hash-checked either (step 4), so a swapped plugin could come with a swapped loader. Any native mod works the same way: installing it means trusting its files. CoE5SE isn't on the Steam Workshop, and its two old item ids belong to its author, so no one else can publish under them.
+
+The check stays for when other mods' plugin DLLs come back. Then, with auto-approve off, a mod's new or changed DLL waits for your Yes before it loads.
+
 ## What it changes in the game's process
 
 - **The game code check.** Before its first change, CoE5SE takes the SHA-256 of the game's code section in memory (Windows `.text`, Mac `__TEXT,__text`) and compares it with the hash built in for that game build (`src/game_code_hash.h`, `KNOWN_BUILDS` in `src/coe5se_plugin.c`; logged as `game_code_check`). It only reads. Every patch below but the call-site patches runs only when the hash matches; otherwise it changes nothing and logs `reason=game_code_differs`. CoE5SE carries no copy of the game's code to compare with: each write is built from the instruction in memory.
@@ -50,7 +56,7 @@ If any step fails, the stub or loader writes `loader_inactive` with the reason t
 
 | Where | File | Written when | Source |
 |---|---|---|---|
-| Game folder | `coe5mod.log`, `coe5mod.1.log` to `coe5mod.4.log` (100 MB each at most) | every launch | `src/log_files.h`, `src/startup_log.h` |
+| Game folder | `coe5se_logs/coe5mod.log`, `coe5se_logs/coe5mod.1.log` to `coe5mod.4.log` (100 MB each at most); beside the game only until the loader has moved the launch's first lines into the folder | every launch | `src/log_files.h`, `src/startup_log.h` |
 | Game folder | `glu32.dll` (Windows) or `coe5se.dylib` (Mac) | only when the player answers Yes to the main-menu offer of a newer stub. Only a file whose SHA-256 is built into CoE5SE (`src/stub_hash.h`) is copied. On Windows the running stub is renamed `glu32.dll.old` first and deleted at the next launch. | `src/stub_update.h` |
 | User folder | `coe5config` (the game's own settings file) | once per player, to enable CoE5SE (step 3 above); a copy of the original is kept as `coe5se/coe5config_before_auto_enable` | `src/frozen_stub/auto_enable.h`, `src/coe5config.h` |
 | User folder | `coe5config`, `coe5se/coe5config_before_official`, `coe5se/official_session.txt` | at Enter Game Lobby: CoE5SE and the mods with a Mod Error are off while the player is in the lobby, a copy of the list is kept, and the list goes back at the end or at the next launch | `src/official_session.h`, `src/official_watch.h` |

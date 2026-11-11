@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #ifdef _WIN32
 #include <io.h>
 #else
@@ -13,7 +14,14 @@
 #define LOG_FILE_MAX (100L * 1024 * 1024)
 #endif
 #define LOG_FILES 5
+#define LOG_FILE "coe5mod.log"
+#define LOG_FOLDER "coe5se_logs"
 #define LOG_STUB_OLD_FILE "coe5mod.old.log"
+#ifdef _WIN32
+#define LOG_PATH_SEP "\\"
+#else
+#define LOG_PATH_SEP "/"
+#endif
 #define LOG_HEADER_END_EVENT "log_header_end"
 
 static __attribute__((unused)) int logFilePath(const char *path, int n, char *out, size_t size) {
@@ -138,4 +146,66 @@ static __attribute__((unused)) LogRotation rotateLogAtLaunch(const char *path, u
     }
     free(text);
     return r;
+}
+
+static __attribute__((unused)) int logPathFor(const char *gameDir, char *out, size_t size) {
+    char folder[1024];
+    struct stat st;
+    int n = snprintf(folder, sizeof folder, "%s" LOG_PATH_SEP LOG_FOLDER, gameDir);
+    int inFolder = n > 0 && (size_t)n < sizeof folder && !stat(folder, &st) && (st.st_mode & S_IFMT) == S_IFDIR;
+    int wrote = snprintf(out, size, "%s" LOG_PATH_SEP LOG_FILE, inFolder ? folder : gameDir);
+    return wrote > 0 && (size_t)wrote < size;
+}
+
+static __attribute__((unused)) int appendLogFileTo(const char *from, const char *to) {
+    FILE *in = fopen(from, "rb");
+    if (!in) return 0;
+    FILE *out = fopen(to, "ab");
+    int ok = out != NULL;
+    char buffer[16384];
+    while (ok) {
+        size_t n = fread(buffer, 1, sizeof buffer, in);
+        if (n && fwrite(buffer, 1, n, out) != n) ok = 0;
+        if (n < sizeof buffer) {
+            if (ferror(in)) ok = 0;
+            break;
+        }
+    }
+    fclose(in);
+    if (out && fclose(out)) ok = 0;
+    return ok && remove(from) == 0 ? 1 : -1;
+}
+
+typedef struct {
+    int moved;
+    int removed;
+    int failed;
+} LogFolderMove;
+
+static __attribute__((unused)) LogFolderMove moveGameFolderLogs(const char *gameLog, const char *log) {
+    LogFolderMove m = {0, 0, 0};
+    char from[1024], to[1024];
+    for (int n = LOG_FILES - 1; n >= -1; n--) {
+        if (!logFilePath(gameLog, n, from, sizeof from) || !logFilePath(log, n, to, sizeof to)) continue;
+        if (n <= 0) {
+            int r = appendLogFileTo(from, to);
+            m.moved += r == 1;
+            m.failed += r < 0;
+            continue;
+        }
+        FILE *probe = fopen(from, "rb");
+        if (!probe) continue;
+        fclose(probe);
+        FILE *taken = fopen(to, "rb");
+        if (taken) {
+            fclose(taken);
+            if (remove(from) == 0) m.removed++;
+            else m.failed++;
+        } else if (rename(from, to) == 0) {
+            m.moved++;
+        } else {
+            m.failed++;
+        }
+    }
+    return m;
 }

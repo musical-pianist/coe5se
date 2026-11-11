@@ -1,10 +1,10 @@
 # ClusterFuzzLite: fuzzes the parsers under fuzz/ (libFuzzer, with AddressSanitizer and UndefinedBehaviorSanitizer)
-# for 10 minutes each, on each push to main and weekly. A crash fails the run and attaches the input that caused it.
+# for 10 minutes each, on each push to main or dev, and weekly. A crash fails the run and attaches the input that caused it.
 name: ClusterFuzzLite
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   schedule:
     - cron: "0 4 * * 6"
   workflow_dispatch:

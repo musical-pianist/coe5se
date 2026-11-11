@@ -544,9 +544,10 @@ static void setLogPath(void) {
     GetModuleFileNameA(NULL, gameDir, sizeof gameDir);
     char *slash = strrchr(gameDir, USER_DIR_SEP[0]);
     if (slash) *slash = '\0';
-    char path[MAX_PATH];
-    if (buildPath(path, sizeof path, __func__, "%s" USER_DIR_SEP "coe5mod.log", gameDir))
-        memcpy(logPath, path, sizeof logPath);
+    char folder[MAX_PATH], path[MAX_PATH];
+    if (buildPath(folder, sizeof folder, __func__, "%s" USER_DIR_SEP LOG_FOLDER, gameDir))
+        CreateDirectoryA(folder, NULL);
+    if (logPathFor(gameDir, path, sizeof path)) memcpy(logPath, path, sizeof logPath);
 }
 
 #define START_HAS(start, field) ((start)->size >= offsetof(LoaderStart, field) + sizeof (start)->field)
@@ -569,9 +570,14 @@ __declspec(dllexport) int coe5seUserDirFollowsGame(void) {
 __declspec(dllexport) int coe5seLoaderStart(const LoaderStart *start) {
     setLogPath();
     if (logPath[0]) {
+        char gameLog[MAX_PATH];
+        LogFolderMove m = {0, 0, 0};
+        int inFolder = buildPath(gameLog, sizeof gameLog, __func__, "%s" USER_DIR_SEP LOG_FILE, gameDir) && strcmp(gameLog, logPath);
+        if (inFolder) m = moveGameFolderLogs(gameLog, logPath);
         LogRotation r = rotateLogAtLaunch(logPath, (unsigned long)GetCurrentProcessId());
-        writeLog("log_rotated", "found_launch=%d earlier_bytes=%ld from_stub_old=%d move_error=%d files=%d max_bytes=%ld", r.found,
-                 r.earlier, r.fromOld, r.error, LOG_FILES, (long)LOG_FILE_MAX);
+        writeLog("log_rotated", "found_launch=%d earlier_bytes=%ld from_stub_old=%d move_error=%d files=%d max_bytes=%ld folder=%s from_game_folder=%d game_folder_removed=%d",
+                 r.found, r.earlier, r.fromOld, r.error, LOG_FILES, (long)LOG_FILE_MAX, inFolder ? LOG_FOLDER : "game_folder", m.moved, m.removed);
+        if (m.failed) writeLogWarning("log_files_left_in_game_folder", "reason=move_failed files=%d", m.failed);
     }
     uint32_t version = start && START_HAS(start, version) ? start->version : 0;
     uint32_t glu32Version = version && START_HAS(start, glu32Version) ? start->glu32Version : 0;

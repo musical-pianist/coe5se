@@ -1,10 +1,10 @@
-# Snyk Code (static analysis of the C sources): runs on each push to main and weekly.
+# Snyk Code (static analysis of the C sources): runs on each push to main or dev, and weekly.
 # The findings go to the run's "Snyk Code results" artifact (SARIF); the job fails only when the scan itself fails.
 name: Snyk Code
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   schedule:
     - cron: "0 3 * * 6"
   workflow_dispatch:

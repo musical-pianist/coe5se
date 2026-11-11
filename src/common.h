@@ -288,11 +288,12 @@ static UNUSED void writeInstallLog(const char *event, int ok, int parts) { write
 static UNUSED void commonInit(const char *name) {
     pluginName = name;
     gameBase = (unsigned char *)GetModuleHandleA(NULL);
-    GetModuleFileNameA(NULL, logPath, sizeof logPath);
-    char *slash = strrchr(logPath, PATH_SEP[0]);
-    char *file = slash ? slash + 1 : logPath;
-    if ((size_t)(file - logPath) + sizeof "coe5mod.log" > sizeof logPath) logPath[0] = '\0';
-    else memcpy(file, "coe5mod.log", sizeof "coe5mod.log");
+    char dir[MAX_PATH];
+    GetModuleFileNameA(NULL, dir, sizeof dir);
+    char *slash = strrchr(dir, PATH_SEP[0]);
+    if (slash) *slash = '\0';
+    else snprintf(dir, sizeof dir, ".");
+    if (!logPathFor(dir, logPath, sizeof logPath)) logPath[0] = '\0';
     writeLog("plugin_attached", "pid=%lu base=%p", (unsigned long)GetCurrentProcessId(), gameBase);
 }
 

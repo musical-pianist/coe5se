@@ -1963,6 +1963,7 @@
 #define RVA_LOBBY_MODS_CLOSEDIR_CALL           ADDR(        WIN_NO_CALL,       0x1003327c8)
 #define RVA_CLOSEDIR                           ADDR(        0x05c170,          0x1005ae2a8)
 #define RVA_PARSER_WORD                        ADDR(        0x9e9df60,         0x10c127a1c)
+#define RVA_PARSER_ARGS                        ADDR(        0x582f800,         0x10c127aa0)
 #define RVA_SQUARE_EVENT_A                     ADDR(        0x9e76e60,         0x10c063d48)
 #define SQUARE_EVENT_A_SIZE                    160000
 #define RVA_SQUARE_EVENT_B                     ADDR(        0x9e9e7a0,         0x10c08ae48)
@@ -2138,6 +2139,27 @@
 #define ITEM_MOVE_FLAGS                        0x58
 #define ITEM_ABILITIES                         0x60
 #define ITEM_ABILITY_PAIRS                     20
+#define ITEM_WEAPON                            0x38
+#define ITEM_AFFLICTIONS                       0x48
+#define ITEM_BLESSINGS                         0x50
+#define ITEM_COMBAT_WORDS                      0x100
+#define ITEM_COMBAT_WORDS_SIZE                 0x88
+#define ITEM_ABILITY_USEABLE                   0x16
+#define ITEM_ABILITY_CONSUMABLE                0xaf
+#define ITEM_ABILITY_EXTRA_LIFE                0x197
+#define ITEM_ABILITY_EYE                       0x1be
+#define ITEM_ABILITY_HEART                     0x1bf
+#define ITEM_ABILITY_REVEAL                    0x1a
+#define ITEM_ABILITY_TELEPORT                  0x19f
+#define ITEM_ABILITY_PLANE_TRAVEL              0x1e3
+#define ITEM_ABILITY_BEANSTALK                 0x1e5
+#define ITEM_ABILITY_USE_ONLY_IN               0x1e6
+#define ITEM_ABILITY_PIT                       0x1e7
+#define ITEM_ABILITY_BREAK_SEAL                0x4d0
+#define ITEM_ABILITY_CURE_AFFLICTION           0x1f3
+#define ITEM_ABILITY_NEW_SPELL1                0x17
+#define ITEM_ABILITY_NEW_SPELL2                0x18
+#define ITEM_ABILITY_NEW_SPELL3                0x19
 #define ITEM_FLAG_CURSED                       0x400000000000
 #define RVA_PARSER_MOVE_WORD                   ADDR(        0x1c82e0,          0x100539480)
 #define RVA_PARSER_FLAG_WORD                   ADDR(        0x1c8670,          0x100538c20)
@@ -2580,6 +2602,13 @@
 #define RVA_SAVE_COMMANDER                     ADDR(        0x18c370,          0x1004f0de0)
 #define RVA_LOAD_COMMANDER                     ADDR(        0x18b260,          0x1004ef68c)
 #define RVA_NET_PUT_FULL_UNIT                  ADDR(        0x1e71d0,          0x100500494)
+#define RVA_NET_PUT_UNIT_RECORD                ADDR(        0x1e7990,          MAC_INLINED)
+#define RVA_NET_PUT_UNIT_ITEMS_LOOP            ADDR(        0x1e7a4a,          0x100500ca0)
+#define RVA_NET_RECV_UNITS                     ADDR(        0x1eb020,          0x10050686c)
+#define RVA_NET_GET_FULL_UNIT                  ADDR(        0x1e7070,          0x1004ff138)
+#define RVA_NET_GET_UNIT_RECORD                ADDR(        0x1e7390,          0x1005013dc)
+#define RVA_NET_GET_CMDR_RECORD                ADDR(        0x1e7d90,          MAC_INLINED)
+#define RVA_NET_GET_UNIT_ITEMS                 ADDR(        0x069480,          MAC_INLINED)
 #define RVA_SEND_ALL_ENABLED_MODS              ADDR(        0x1e4b40,          MAC_INLINED)
 
 #define RVA_SPELL_TABLE                        ADDR(        0x569f590,         0x100839030)
