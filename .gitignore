@@ -6,3 +6,4 @@
 /coe5se_loader.dylib
 /coe5se.c5plugin.dylib
 .DS_Store
+/src/graphics/tests/build/

@@ -24,3 +24,11 @@ default 1
 restart
 label "List subscribed Workshop mods on the Mods screen"
 tip "Mac only. CoE5SE lists Workshop mods for the game, which can't ask Steam. Off: only mods in ~/.coe5/mods."
+
+newsettingheader "Windows only"
+
+newsetting smoother_map_rendering
+onoff
+default 1
+label "Smoother map rendering"
+tip "Batches map decorations at every graphics quality while retaining original detail and order. Unsupported graphics states use original drawing. Windows CoE5 5.43 only."

@@ -50,6 +50,7 @@ CoE5SE makes all of this possible:
 - Various UI improvements. Delete saves from Load Game, and see ritual needs at a glance. Useful for when modders forget part of the description.
 - Each mod can have its own settings to customize your experience.
 - More and better error reports. Know when potentially save-breaking changes occur, like mods moving or replacing spells.
+- Smoother map drawing at every graphics quality on Windows CoE5 5.43, plus bounded high-refresh FPS choices and optional precise frame pacing. Original map detail and draw order are retained; unsupported graphics states use the original renderer. See [graphics controls and validation](src/graphics/README.md).
 
 Presets, restarts, keys and UI changes come from the [Jazzy mods](https://github.com/musical-pianist/coe5se-mods-suite). I'm a pianist ok? Aren't we all weird?
 
