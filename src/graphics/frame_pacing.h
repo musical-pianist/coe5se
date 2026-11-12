@@ -12,8 +12,9 @@ static _Thread_local int fps_pacing_owns_wait;
 static DWORD (WINAPI *fps_pacing_original_clock)(void);
 static void (WINAPI *fps_pacing_original_sleep)(DWORD);
 static int fps_pacing_interval_target(int interval){
+    if(interval<=0)return 0;
     switch(interval){case 50:return 20;case 33:return 30;case 16:return 60;case 8:return 120;case 7:return 144;case 6:return 165;case 4:return 240;case 3:return 360;}
-    int target=interval>0?1000/interval:360;
+    int target=1000/interval;
     return target<5?5:(target>1000?1000:target);
 }
 static int fps_pacing_argument(int argc,wchar_t **argv){
@@ -56,6 +57,7 @@ static int fps_pacing_wait(long long deadline){
     return 0;
 }
 static void fps_pacing_frame(uintptr_t route){
+    if(!fps_frame_interval || *fps_frame_interval<=0){fps_pacing_reset();return;}
     int target=fps_pacing_launch_target?fps_pacing_launch_target:fps_pacing_interval_target(*fps_frame_interval);
     DWORD owner=0;HWND foreground=GetForegroundWindow();
     if(!foreground || !GetWindowThreadProcessId(foreground,&owner) || owner!=GetCurrentProcessId())if(target>30)target=30;

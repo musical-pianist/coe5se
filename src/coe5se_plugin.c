@@ -1936,7 +1936,7 @@ static void startCoe5se(const char *via) {
     if (featureOn(FEATURE_PLUGIN_CHECKS)) pluginStartInit();
     if (featureOn(FEATURE_MOD_SETTINGS)) modSettingsInit();
     if (featureOn(FEATURE_LOAD_ORDER)) loadOrderInit();
-    if (featureOn(FEATURE_MAP_RENDERING)) coe5seGraphicsInit(&API);
+    if (featureOn(FEATURE_MAP_RENDERING)) coe5seGraphicsInit(&API, userDir());
 #ifdef COE5SE_EXTRA_START
     COE5SE_EXTRA_START();
 #endif

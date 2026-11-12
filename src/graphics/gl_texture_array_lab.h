@@ -116,17 +116,6 @@ static int ta_build_program(void) {
         "else if(samplePage==4)t=texture(page4,c);else if(samplePage==5)t=texture(page5,c);"
         "else if(samplePage==6)t=texture(page6,c);else t=texture(page7,c);gl_FragColor=t*sampleColor;}\n";
     if(ta_multi_page){vertex_source=multi_vertex;fragment_source=multi_fragment;}
-#ifndef FPS_SE_MOD
-    char variant[8];int selected=0;
-    if(GetEnvironmentVariableA("FPS_SHADER_VARIANT",variant,sizeof(variant)))selected=atoi(variant);
-    if(selected==1) {
-        vertex_source="#version 130\nout vec2 sampleUV;flat out int sampleLayer;\nvoid main(){gl_Position=ftransform();sampleUV=gl_MultiTexCoord0.xy;sampleLayer=int(gl_MultiTexCoord0.z+0.5);gl_FrontColor=clamp(gl_Color,0.0,1.0);gl_BackColor=gl_FrontColor;}\n";
-        fragment_source="#version 130\nuniform sampler2DArray sourceImages;in vec2 sampleUV;flat in int sampleLayer;\nvoid main(){gl_FragColor=texture(sourceImages,vec3(sampleUV,float(sampleLayer)))*gl_Color;}\n";
-    } else if(selected==2) {
-        vertex_source="#version 130\nout vec2 sampleUV;flat out vec4 sampleColor;flat out int sampleLayer;\nvoid main(){gl_Position=ftransform();sampleUV=gl_MultiTexCoord0.xy;sampleLayer=int(gl_MultiTexCoord0.z+0.5);sampleColor=clamp(gl_Color,0.0,1.0);}\n";
-        fragment_source="#version 130\nuniform sampler2DArray sourceImages;in vec2 sampleUV;flat in vec4 sampleColor;flat in int sampleLayer;\nvoid main(){gl_FragColor=texture(sourceImages,vec3(sampleUV,float(sampleLayer)))*sampleColor;}\n";
-    }
-#endif
     unsigned vs=ta_shader(0x8b31,vertex_source);if(!vs)return 0;
     unsigned fs=ta_shader(0x8b30,fragment_source);if(!fs){ta_delete_shader(vs);return 0;}
     unsigned program=ta_create_program();
@@ -398,13 +387,7 @@ static void array_texture_end_draw(void) {
     ta_active_texture((unsigned)ta_saved_unit);ta_drawing=0;
 }
 static int install_texture_array(void) {
-    char env[16];texture_array_enabled=GetEnvironmentVariableA("FPS_TEXTURE_ARRAY",env,sizeof(env))>0;
-    ta_multi_page=GetEnvironmentVariableA("FPS_MULTI_PAGE",env,sizeof(env))>0;
-    ta_track_state=GetEnvironmentVariableA("FPS_TRACK_STATE",env,sizeof(env))>0;
-#ifdef FPS_SE_MOD
     texture_array_enabled=1;ta_multi_page=1;ta_track_state=1;
-#endif
-    if(!texture_array_enabled)return 1;
     ta_gl=GetModuleHandleA("opengl32.dll");if(!ta_gl)return 0;
 #define TA_CORE(var,name) do {*(void **)&var=(void *)GetProcAddress(ta_gl,name);if(!var)return 0;}while(0)
     TA_CORE(ta_current_context,"wglGetCurrentContext");TA_CORE(ta_wgl_proc,"wglGetProcAddress");

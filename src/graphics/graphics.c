@@ -1,8 +1,5 @@
 // @platform-split graphics: Windows uses pinned 5.43 calls; Mac keeps native drawing and timing.
 #ifdef _WIN32
-#define FPS_SE_MOD
-// FPSofElysiumSE: map rendering and optional pacing, pinned to CoE5 5.43 / API 11.
-// No camera, quality, turn, sorter or worker-pool changes. Pacing is optional.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <bcrypt.h>
@@ -28,7 +25,6 @@ static long long now_ticks(void) {return 0;}
 #include "game_guard.h"
 #include "patch_calls.h"
 #include "gl_batch_lab.h"
-#include "gl_atlas_lab.h"
 #include "gl_texture_array_lab.h"
 #include "gl_arrays_lab.h"
 #include "gl_hook_guard.h"
@@ -40,7 +36,6 @@ typedef void (*ModDecorFn)(int,int,uintptr_t,float,float,float,float,float);
 static void (*mod_original_highest)(void);
 static void (*mod_original_high)(void);
 static ModDecorFn mod_original_decor;
-static const int *mod_setting_enabled;
 static int mod_operational,mod_reported_ready,mod_reported_graphics;
 static unsigned mod_reported_reasons;
 static int mod_reported_setting=-1;
@@ -103,9 +98,7 @@ static void mod_decor(int file,int sprite,uintptr_t unused,float x,float y,float
 }
 static void mod_render_pass(void (*draw)(void),const char *path) {
     mod_log_graphics();
-    if(!mod_setting_enabled && plugin_api && plugin_api->setting)
-        mod_setting_enabled=plugin_api->setting("smoother_map_rendering");
-    int enabled=mod_setting_enabled && *mod_setting_enabled;
+    int enabled=mod_operational;
     if(mod_reported_setting!=enabled) {
         mod_reported_setting=enabled;
         mod_log(enabled?"fps_mod setting enabled=1":"fps_mod setting enabled=0");
@@ -118,14 +111,14 @@ static void mod_render_pass(void (*draw)(void),const char *path) {
     if(bit && !(mod_reported_qualities&bit)){
         char line[200];snprintf(line,sizeof(line),"fps_mod map_renderer quality=%d path=%s batching_requested=1 quality_unchanged=1",quality,path);mod_log(line);mod_reported_qualities|=bit;
     }
-    atlas_begin_frame();array_texture_begin_frame();arrays_begin_frame();
+    array_texture_begin_frame();arrays_begin_frame();
     in_highest=1;
 #ifdef COE5SE_GRAPHICS_ORACLE
     graphics_test_render_pass(draw);
 #else
     draw();
 #endif
-    arrays_end_frame();batch_flush();in_highest=0;decor_scope=0;
+    arrays_end_frame();in_highest=0;decor_scope=0;
     if(!mod_reported_ready && ta_context_ok && ta_uploads) {
         char line[384];mod_reported_ready=1;
         snprintf(line,sizeof(line),"fps_mod renderer_ready version=" FPS_MOD_VERSION " game=5.43 api=11 quality=%d path=%s original_uv=1 original_mips=1 quality_unchanged=1 multi_page=%d state_tracking=%d uploads=%lld cache_mib=%.2f",quality,path,ta_multi_page,ta_track_state,ta_uploads,(double)ta_bytes/(1024.0*1024.0));
@@ -137,24 +130,28 @@ static void mod_highest(void){mod_render_pass(mod_original_highest,"highest_ultr
 static void mod_high(void){mod_render_pass(mod_original_high,"low_medium_high");}
 
 typedef struct {
+    unsigned group;
     uintptr_t site,target;
     void (*hook)(void);
     unsigned char original[5];
 } ModCall;
 typedef struct { unsigned char *page;SIZE_T size;DWORD original; } ModCodePage;
+enum { MOD_RENDERING=1, MOD_FRAME_CONTROLS=2 };
+static unsigned mod_features;
 static ModCall mod_calls[]={
-    {RVA_FPS_HIGH_DECOR_CALL,RVA_FPS_HIGH_DECOR_DRAW,mod_highest,{0}},
-    {RVA_DECOR_DRAW_CALL,RVA_DECOR_DRAW,mod_high,{0}},
-    {RVA_FPS_HIGH_DECOR_SPRITE_CALL_A,RVA_DRAW_SPRITE_SHEARED,(void (*)(void))mod_decor,{0}},
-    {RVA_FPS_HIGH_DECOR_SPRITE_CALL_B,RVA_DRAW_SPRITE_SHEARED,(void (*)(void))mod_decor,{0}},
-    {RVA_FPS_LOW_DECOR_SPRITE_CALL,RVA_DRAW_SPRITE_SHEARED,(void (*)(void))mod_decor,{0}},
-    {RVA_FPS_GRAPHICS_SECTION_END_CALL,RVA_SECTION_END,fps_graphics_section_end,{0}},
-    {RVA_FPS_PREFERENCES_WAIT_CALL,RVA_WAIT_FOR_CLICK,(void (*)(void))fps_preferences_wait,{0}},
-    {RVA_FPS_FRAME_CHOICES_CALL,RVA_RADIO_OPTION,(void (*)(void))fps_frame_rate_choices,{0}}
+    {MOD_RENDERING,RVA_FPS_HIGH_DECOR_CALL,RVA_FPS_HIGH_DECOR_DRAW,mod_highest,{0}},
+    {MOD_RENDERING,RVA_DECOR_DRAW_CALL,RVA_DECOR_DRAW,mod_high,{0}},
+    {MOD_RENDERING,RVA_FPS_HIGH_DECOR_SPRITE_CALL_A,RVA_DRAW_SPRITE_SHEARED,(void (*)(void))mod_decor,{0}},
+    {MOD_RENDERING,RVA_FPS_HIGH_DECOR_SPRITE_CALL_B,RVA_DRAW_SPRITE_SHEARED,(void (*)(void))mod_decor,{0}},
+    {MOD_RENDERING,RVA_FPS_LOW_DECOR_SPRITE_CALL,RVA_DRAW_SPRITE_SHEARED,(void (*)(void))mod_decor,{0}},
+    {MOD_FRAME_CONTROLS,RVA_FPS_GRAPHICS_SECTION_END_CALL,RVA_SECTION_END,fps_graphics_section_end,{0}},
+    {MOD_FRAME_CONTROLS,RVA_FPS_PREFERENCES_WAIT_CALL,RVA_WAIT_FOR_CLICK,(void (*)(void))fps_preferences_wait,{0}},
+    {MOD_FRAME_CONTROLS,RVA_FPS_FRAME_CHOICES_CALL,RVA_RADIO_OPTION,(void (*)(void))fps_frame_rate_choices,{0}}
 };
 static int mod_verify_calls(void) {
     for(size_t i=0;i<sizeof(mod_calls)/sizeof(mod_calls[0]);i++) {
-        ModCall *c=&mod_calls[i];unsigned char *site=detail_base+c->site;int32_t rel=0;
+        ModCall *c=&mod_calls[i];if(!(c->group&mod_features))continue;
+        unsigned char *site=detail_base+c->site;int32_t rel=0;
         memcpy(&rel,site+1,4);
         if(site[0]!=0xe8 || site+5+rel!=detail_base+c->target) {
             char line[256];snprintf(line,sizeof(line),"fps_mod disabled reason=game_callsite_changed site_rva=0x%llx expected_target_rva=0x%llx",(unsigned long long)c->site,(unsigned long long)c->target);mod_log(line);return 0;
@@ -173,6 +170,7 @@ static int mod_rollback_calls(ModCodePage *pages,size_t count) {
     for(size_t i=0;i<count;i++)if(!VirtualProtect(pages[i].page,pages[i].size,PAGE_EXECUTE_READWRITE,&ignored))writable=0;
     if(writable) {
         for(size_t i=0;i<sizeof(mod_calls)/sizeof(mod_calls[0]);i++) {
+            if(!(mod_calls[i].group&mod_features))continue;
             unsigned char *site=detail_base+mod_calls[i].site;memcpy(site,mod_calls[i].original,5);
             FlushInstructionCache(GetCurrentProcess(),site,5);
         }
@@ -182,11 +180,13 @@ static int mod_rollback_calls(ModCodePage *pages,size_t count) {
     return writable;
 }
 static int mod_install_calls(void) {
+    if(!mod_features)return 1;
     // Every callsite is verified before any page or instruction changes.
     if(!mod_verify_calls())return 0;
     unsigned char *stubs=allocate_near((uintptr_t)(detail_base+mod_calls[0].site));if(!stubs)return 0;
     const size_t count=sizeof(mod_calls)/sizeof(mod_calls[0]);
     for(size_t i=0;i<count;i++) {
+        if(!(mod_calls[i].group&mod_features))continue;
         intptr_t delta=(intptr_t)(stubs+i*16)-(intptr_t)(detail_base+mod_calls[i].site+5);
         if(delta<INT32_MIN || delta>INT32_MAX){VirtualFree(stubs,0,MEM_RELEASE);return 0;}
         write_jump(stubs+i*16,mod_calls[i].hook);
@@ -197,6 +197,7 @@ static int mod_install_calls(void) {
     SYSTEM_INFO system;GetSystemInfo(&system);
     ModCodePage pages[sizeof(mod_calls)/sizeof(mod_calls[0])];size_t page_count=0,opened=0;
     for(size_t i=0;i<count;i++) {
+        if(!(mod_calls[i].group&mod_features))continue;
         unsigned char *page=(unsigned char *)((uintptr_t)(detail_base+mod_calls[i].site)&~((uintptr_t)system.dwPageSize-1));
         size_t j=0;while(j<page_count && pages[j].page!=page)j++;
         if(j==page_count)pages[page_count++]=(ModCodePage){page,system.dwPageSize,0};
@@ -209,6 +210,7 @@ static int mod_install_calls(void) {
     }
     int ok=1;
     for(size_t i=0;i<count;i++) {
+        if(!(mod_calls[i].group&mod_features))continue;
         unsigned char *site=detail_base+mod_calls[i].site;
         if(!write_relative_call(site,stubs+i*16)){ok=0;break;}
         FlushInstructionCache(GetCurrentProcess(),site,5);
@@ -232,43 +234,61 @@ static int mod_initialize_original_gl(void) {
     return 1;
 }
 static void mod_disable(void) {
-    mod_operational=0;arrays_enabled=0;texture_array_enabled=0;atlas_enabled=0;
-    batch_enabled=0;color_cache_enabled=0;pixel_oracle=0;in_highest=0;decor_scope=0;
+    mod_operational=0;arrays_enabled=0;texture_array_enabled=0;in_highest=0;decor_scope=0;
+}
+// Snapshots the master and independent child switches for this launch.
+static unsigned mod_requested_features(const PluginApi *api) {
+    const int *enabled=api->setting("graphics_changes");
+    if(!enabled || !*enabled)return 0;
+    const int *render=api->setting("smoother_map_rendering"),*frames=api->setting("frame_controls");
+    return (render && *render?MOD_RENDERING:0)|(frames && *frames?MOD_FRAME_CONTROLS:0);
 }
 // Installs the built-in graphics module after game, callsite and import checks.
-int coe5seGraphicsInit(const PluginApi *api) {
+int coe5seGraphicsInit(const PluginApi *api,const char *userFolder) {
     if(!api || api->version!=PLUGIN_API_VERSION || !api->logLine || !api->setting)return 0;
     plugin_api=api;detail_base=(unsigned char *)GetModuleHandleW(NULL);
     mod_log("fps_mod startup version=" FPS_MOD_VERSION " required_game=5.43 api=11 diagnostics=once_per_category");
+    mod_features=mod_requested_features(api);
+    if(mod_features&MOD_FRAME_CONTROLS){
+        int argc=0;wchar_t **argv=CommandLineToArgvW(GetCommandLineW(),&argc);
+        fps_benchmark_mode=argv && fps_benchmark_argument(argc,argv);
+        if(!argv || fps_benchmark_mode || !api->ui || !api->ui->checkbox || !api->ui->tooltip || !api->ui->choice){
+            mod_features&=~MOD_FRAME_CONTROLS;
+            mod_log(fps_benchmark_mode?"fps_mod frame_controls skipped reason=native_benchmark":"fps_mod frame_controls skipped reason=required_api_unavailable");
+        }
+        if(argv)LocalFree(argv);
+    }
+    if(!mod_features){mod_log("fps_mod disabled reason=launch_settings hooks_installed=0");return 1;}
     mod_original_highest=(void (*)(void))(detail_base+RVA_FPS_HIGH_DECOR_DRAW);
     mod_original_high=(void (*)(void))(detail_base+RVA_DECOR_DRAW);
     mod_original_decor=(ModDecorFn)(detail_base+RVA_DRAW_SPRITE_SHEARED);
-    // Silence unused aggregate profiler declarations; no timing code is included.
-    (void)skipped_sum;(void)end_sum;(void)bind_sum;(void)color_sum;
     if(!game_hash_matches()) {mod_disable();mod_log("fps_mod disabled reason=unsupported_game_hash graphics_imports_unchanged=1");return 1;}
     if(!mod_verify_calls()){mod_disable();mod_log("fps_mod hook_check status=blocked graphics_imports_unchanged=1");return 1;}
-    if(!mod_initialize_original_gl()) {mod_disable();mod_log("fps_mod disabled reason=original_gl_exports_unavailable");return 1;}
-    if(!fps_check_gl_imports(detail_base,GetModuleHandleA("opengl32.dll"),fps_expected_glu(),mod_import_problem)) {mod_disable();return 1;}
-    {
-        char line[180];snprintf(line,sizeof(line),"fps_mod hook_check status=passed imports=%u callsites=%u",(unsigned)(sizeof(arrays_imports)/sizeof(arrays_imports[0]))+1,(unsigned)(sizeof(mod_calls)/sizeof(mod_calls[0])));mod_log(line);
+    if(mod_features&MOD_RENDERING){
+        if(!mod_initialize_original_gl()) {mod_disable();mod_log("fps_mod disabled reason=original_gl_exports_unavailable");return 1;}
+        if(!fps_check_gl_imports(detail_base,GetModuleHandleA("opengl32.dll"),fps_expected_glu(),mod_import_problem)) {mod_disable();return 1;}
     }
-    if(!install_gl_batch() || !install_gl_atlas() || !install_texture_array() || !install_gl_arrays()) {
+    {
+        unsigned imports=mod_features&MOD_RENDERING?(unsigned)(sizeof(arrays_imports)/sizeof(arrays_imports[0]))+1:0;
+        unsigned calls=(mod_features&MOD_RENDERING?5u:0u)+(mod_features&MOD_FRAME_CONTROLS?3u:0u);
+        char line[180];snprintf(line,sizeof(line),"fps_mod hook_check status=passed imports=%u callsites=%u rendering=%d frame_controls=%d",imports,calls,!!(mod_features&MOD_RENDERING),!!(mod_features&MOD_FRAME_CONTROLS));mod_log(line);
+    }
+    if((mod_features&MOD_RENDERING) && (!install_texture_array() || !install_gl_arrays())) {
         mod_disable();mod_log("fps_mod disabled reason=gl_hook_installation_failed module_retained=1");return 1;
     }
     if(!mod_install_calls()) {
         mod_disable();mod_log("fps_mod disabled reason=call_patch_transaction_failed module_retained=1");return 1;
     }
-#ifdef COE5SE_GRAPHICS_ORACLE
-    pixel_oracle=1;
-#endif
-    fps_next_graphics_section_end=(void (*)(void))(detail_base+RVA_SECTION_END);
-    fps_next_preferences_wait=(int (*)(int,int))(detail_base+RVA_WAIT_FOR_CLICK);
-    fps_next_frame_rate_choice=(int (*)(int,int,const char *,...))(detail_base+RVA_RADIO_OPTION);
-    fps_initialize_graphics_settings();
-    if(!api->wrap || !api->wrap(SITE_MAP_DRAW,(void *)fps_frame_preference_map_draw,(void **)&fps_next_map_draw))mod_log("fps_mod graphics_menu map_start_callback=unavailable preference_applies_at_menu");
-    mod_operational=1;
-    if(!api->wrap || !api->wrap(SITE_MAIN_MENU_WAIT,(void *)mod_main_menu_wait,(void **)&mod_next_main_menu_wait))mod_log("fps_mod diagnostics main_menu_callback=unavailable graphics_report=first_map");
-    mod_log("fps_mod initialized version=" FPS_MOD_VERSION " game=5.43 api=11 runtime_setting=enabled quality_unchanged=1 graphics_report=first_current_context");
+    if(mod_features&MOD_FRAME_CONTROLS){
+        fps_next_graphics_section_end=(void (*)(void))(detail_base+RVA_SECTION_END);
+        fps_next_preferences_wait=(int (*)(int,int))(detail_base+RVA_WAIT_FOR_CLICK);
+        fps_next_frame_rate_choice=(int (*)(int,int,const char *,...))(detail_base+RVA_RADIO_OPTION);
+        fps_initialize_graphics_settings(userFolder);
+        if(!api->wrap || !api->wrap(SITE_MAP_DRAW,(void *)fps_frame_preference_map_draw,(void **)&fps_next_map_draw))mod_log("fps_mod graphics_menu map_start_callback=unavailable preference_applies_at_menu");
+        if(!api->wrap || !api->wrap(SITE_MAIN_MENU_WAIT,(void *)mod_main_menu_wait,(void **)&mod_next_main_menu_wait))mod_log("fps_mod diagnostics main_menu_callback=unavailable graphics_report=first_map");
+    }
+    mod_operational=!!(mod_features&MOD_RENDERING);
+    mod_log("fps_mod initialized version=" FPS_MOD_VERSION " game=5.43 api=11 launch_settings_fixed=1 quality_unchanged=1 graphics_report=first_current_context");
     mod_log_graphics();return 1;
 }
 
@@ -276,5 +296,5 @@ int coe5seGraphicsInit(const PluginApi *api) {
 #include "graphics.h"
 
 // Keeps the existing Mac renderer until its native callsites are mapped.
-int coe5seGraphicsInit(const PluginApi *api) { (void)api; return 1; }
+int coe5seGraphicsInit(const PluginApi *api,const char *userFolder) { (void)api; (void)userFolder; return 1; }
 #endif

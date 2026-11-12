@@ -1,4 +1,3 @@
-#define FPS_SE_MOD
 #include "../graphics.c"
 #define CHECK(x) do {if(!(x)){printf("FAIL line %d: %s\n",__LINE__,#x);return 1;}}while(0)
 static int problems,lines;
@@ -49,6 +48,7 @@ int main(void) {
     mod_import_problem("glBegin",0x33a3e0,(void *)(uintptr_t)1,(void *)GetProcAddress(gl,"glBegin"));
     CHECK(strstr(last_line,"graphics_import_conflict") && strstr(last_line,"glBegin") && strstr(last_line,"imports_unchanged=1"));
     detail_base=base;
+    mod_features=MOD_RENDERING|MOD_FRAME_CONTROLS;
     for(size_t i=0;i<sizeof(mod_calls)/sizeof(mod_calls[0]);i++) {
         int32_t relative=(int32_t)(mod_calls[i].target-mod_calls[i].site-5);
         base[mod_calls[i].site]=0xe8;memcpy(base+mod_calls[i].site+1,&relative,4);
@@ -59,6 +59,20 @@ int main(void) {
         CHECK(!mod_verify_calls() && !memcmp(snapshot,base,bytes));CHECK(strstr(last_line,"game_callsite_changed"));
         site[0]=0xe8;site[1]^=1;CHECK(!mod_verify_calls());site[1]^=1;CHECK(mod_verify_calls());
     }
+    for(unsigned mask=0;mask<=3;mask++){
+        mod_features=mask;memcpy(snapshot,base,bytes);
+        for(size_t i=0;i<sizeof(mod_calls)/sizeof(mod_calls[0]);i++)if(!(mask&mod_calls[i].group)){
+            base[mod_calls[i].site]=0xe9;CHECK(mod_verify_calls());base[mod_calls[i].site]=0xe8;
+        }
+        CHECK(mod_install_calls());
+        for(size_t i=0;i<sizeof(mod_calls)/sizeof(mod_calls[0]);i++){
+            unsigned char *site=base+mod_calls[i].site;
+            CHECK((memcmp(site,snapshot+mod_calls[i].site,5)!=0)==!!(mask&mod_calls[i].group));
+            memcpy(site,snapshot+mod_calls[i].site,5);
+        }
+        CHECK(!memcmp(base,snapshot,bytes));
+    }
+    mod_features=MOD_RENDERING|MOD_FRAME_CONTROLS;
     lines=0;fps_fallback_reasons=0;mod_reported_reasons=0;
     fps_note_fallback(FPS_TEXTURE_SIZE);fps_note_fallback(FPS_VAO_BOUND);mod_log_fallbacks();CHECK(lines==2);
     mod_log_fallbacks();CHECK(lines==2);
@@ -73,14 +87,17 @@ int main(void) {
     CHECK(fps_gpu_wait_preference(L"")==-1 && fps_gpu_wait_preference(L"2")==-1 && fps_gpu_wait_preference(L"01")==-1);
     CHECK(fps_frame_argument(2,arguments) && !fps_frame_argument(1,arguments));
     wchar_t *unrelated[]={L"CoE5.exe",L"--maxfps",L"prefix--maxfps=240"};CHECK(!fps_frame_argument(3,unrelated));
-    CHECK(fps_frame_preference(L"0")==0 && fps_frame_preference(L"4")==4 && fps_frame_preference(L"200")==200);
+    CHECK(fps_frame_preference(L"0")==-1 && fps_frame_preference(L"4")==4 && fps_frame_preference(L"200")==200);
+    wchar_t *benchmark[]={L"CoE5.exe",L"--benchmark",L"--maxfps=240"};
+    CHECK(fps_benchmark_argument(3,benchmark) && !fps_benchmark_argument(1,benchmark));
+    wchar_t *not_benchmark[]={L"CoE5.exe",L"prefix--benchmark",L"--benchmarking"};CHECK(!fps_benchmark_argument(3,not_benchmark));
     CHECK(fps_frame_preference(L"")==-1 && fps_frame_preference(L"01")==-1 && fps_frame_preference(L"201")==-1);
     CHECK(fps_frame_preference(L"-1")==-1 && fps_frame_preference(L"4x")==-1 && fps_frame_preference(L"999999999999999999999")==-1);
     UiApi ui={0};ui.checkbox=fake_checkbox;ui.tooltip=fake_tooltip;ui.choice=fake_choice;api.ui=&ui;
     int gpu_wait=0;fps_gpu_wait=&gpu_wait;fps_graphics_settings_active=1;
     int frame_interval=4;fps_frame_interval=&frame_interval;
-    fps_next_map_draw=fake_map_draw;fps_pending_frame_interval=0;
-    fps_frame_preference_map_draw();CHECK(frame_interval==3 && fps_pending_frame_interval==-1 && map_forward_calls==1);
+    fps_next_map_draw=fake_map_draw;fps_pending_frame_interval=7;
+    fps_frame_preference_map_draw();CHECK(frame_interval==7 && fps_pending_frame_interval==-1 && map_forward_calls==1);
     frame_interval=4;fps_frame_preference_map_draw();CHECK(frame_interval==4 && map_forward_calls==2);
     fps_next_frame_rate_choice=fake_original_choice;
     CHECK(fps_frame_rate_choices(408,0,"120 Frames per second")==731);
@@ -88,12 +105,23 @@ int main(void) {
     for(size_t i=0;i<sizeof(fps_frame_options)/sizeof(fps_frame_options[0]);i++)CHECK(fps_frame_options[i].interval>=3);
     fps_next_graphics_section_end=fake_section_end;fps_next_preferences_wait=fake_preferences_wait;
     fps_graphics_section_end();CHECK(section_calls==1 && checkbox_calls==1 && tip_calls==1 && gpu_wait==0);
-    wchar_t temporary[MAX_PATH],readback[8];CHECK(GetTempFileNameW(L".",L"fps",0,temporary));
-    CHECK(GetFullPathNameW(temporary,MAX_PATH,fps_graphics_ini,NULL));
-    frame_interval=0;fps_apply_frame_preference();CHECK(frame_interval==3);
-    CHECK(GetPrivateProfileStringW(L"Graphics",L"FrameIntervalMs",L"",readback,8,fps_graphics_ini)==1 && !wcscmp(readback,L"3"));
-    CHECK(strstr(last_line,"legacy_unlimited_migrated"));
-    frame_interval=0;fps_apply_frame_preference();CHECK(frame_interval==3);
+    wchar_t temporary[MAX_PATH],user_folder[MAX_PATH],settings_folder[MAX_PATH],readback[8];
+    CHECK(GetTempFileNameW(L".",L"fps",0,temporary));CHECK(DeleteFileW(temporary));CHECK(CreateDirectoryW(temporary,NULL));
+    CHECK(GetFullPathNameW(temporary,MAX_PATH,user_folder,NULL));
+    char user_path[MAX_PATH];CHECK(WideCharToMultiByte(CP_ACP,0,user_folder,-1,user_path,MAX_PATH,NULL,NULL));
+    CHECK(!fps_graphics_user_path(NULL) && !fps_graphics_ini[0]);
+    CHECK(fps_graphics_user_path(user_path));
+    CHECK(swprintf(settings_folder,MAX_PATH,L"%ls\\coe5seModMenu",user_folder)>0);
+    CHECK(wcsstr(fps_graphics_ini,L"\\coe5seModMenu\\CoE5SE-Graphics.ini"));
+    CHECK(fps_store_frame_limit(4));
+    frame_interval=0;fps_pending_frame_interval=7;fps_apply_frame_preference();
+    CHECK(frame_interval==0 && fps_pending_frame_interval==-1 && !fps_store_frame_limit(0));
+    CHECK(GetPrivateProfileStringW(L"Graphics",L"FrameIntervalMs",L"",readback,8,fps_graphics_ini)==1 && !wcscmp(readback,L"4"));
+    fps_benchmark_mode=1;CHECK(!fps_store_frame_limit(7));
+    fps_save_frame_limit(7);
+    CHECK(GetPrivateProfileStringW(L"Graphics",L"FrameIntervalMs",L"",readback,8,fps_graphics_ini)==1 && !wcscmp(readback,L"4"));
+    fps_benchmark_mode=0;
+    frame_interval=16;fps_apply_frame_preference();CHECK(frame_interval==16);
     frame_interval=4;
     lines=0;CHECK(fps_preferences_wait(7,11)==46 && lines==0 && gpu_wait==0);
     wait_toggle=1;CHECK(fps_preferences_wait(7,11)==46 && gpu_wait==1 && lines==1);
@@ -117,7 +145,9 @@ int main(void) {
     memcpy(base+0x33a268,&clock_export,sizeof(clock_export));memcpy(base+0x33a278,&foreign_clock,sizeof(foreign_clock));
     CHECK(!fps_pacing_enable(1) && !fps_pacing_enabled);memcpy(base+0x33a278,&sleep_export,sizeof(sleep_export));
     CHECK(fps_pacing_interval_target(4)==240 && fps_pacing_interval_target(3)==360 && fps_pacing_interval_target(8)==120 && fps_pacing_interval_target(16)==60);
-    CHECK(fps_pacing_interval_target(0)>0 && fps_pacing_interval_target(-1)>0 && fps_pacing_interval_target(200)==5);
+    CHECK(fps_pacing_interval_target(0)==0 && fps_pacing_interval_target(-1)==0 && fps_pacing_interval_target(200)==5);
+    frame_interval=0;fps_pacing_owns_wait=1;fps_pacing_deadline=100;fps_pacing_frame(1);
+    CHECK(!fps_pacing_owns_wait && !fps_pacing_deadline);frame_interval=4;
     wchar_t *targets[]={L"CoE5.exe",L"--maxfps=333",L"--maxfps=240",L"--maxfps=99999999999999999999999"};
     CHECK(fps_pacing_argument(2,targets)==333 && fps_pacing_argument(3,targets)==240 && fps_pacing_argument(4,targets)==1000);
     CHECK(fps_pacing_argument(1,targets)==0);
@@ -139,8 +169,8 @@ int main(void) {
     frame_wait_id=416;CHECK(fps_preferences_wait(7,11)==416);
     CHECK(GetPrivateProfileStringW(L"Graphics",L"FrameIntervalMs",L"",readback,8,fps_graphics_ini)==2 && !wcscmp(readback,L"16"));
     int previous_lines=lines;frame_wait_id=500;CHECK(fps_preferences_wait(7,11)==500 && lines==previous_lines);
-    frame_wait_id=400;CHECK(fps_preferences_wait(7,11)==403);
-    CHECK(GetPrivateProfileStringW(L"Graphics",L"FrameIntervalMs",L"",readback,8,fps_graphics_ini)==1 && !wcscmp(readback,L"3"));
+    frame_wait_id=400;CHECK(fps_preferences_wait(7,11)==400);
+    CHECK(GetPrivateProfileStringW(L"Graphics",L"FrameIntervalMs",L"",readback,8,fps_graphics_ini)==2 && !wcscmp(readback,L"16"));
     {
         wchar_t before[32],after[32];
         CHECK(GetPrivateProfileStringW(L"Graphics",L"FrameIntervalMs",L"",before,32,fps_graphics_ini));
@@ -152,6 +182,7 @@ int main(void) {
         CHECK(GetPrivateProfileStringW(L"Graphics",L"FrameIntervalMs",L"",after,32,fps_graphics_ini) && !wcscmp(before,after));
     }
     CHECK(DeleteFileW(fps_graphics_ini));fps_graphics_ini[0]=0;
+    CHECK(RemoveDirectoryW(settings_folder));CHECK(RemoveDirectoryW(user_folder));
     fps_graphics_settings_active=0;fps_graphics_section_end();CHECK(section_calls==2 && checkbox_calls==1);
     CHECK(fps_frame_rate_choices(408,0,"120 Frames per second")==731 && choice_calls==4 && original_choice_calls==2);
     ta_forbidden=0;ta_texture_on=1;ta_modulate=1;
@@ -164,10 +195,10 @@ int main(void) {
     ta_note_cap(0x0de1,0);CHECK(!ta_switches_allowed());ta_note_cap(0x0de1,1);CHECK(ta_switches_allowed());
     ta_track_state=1;ta_state_checked=1;arrays_matrix_mode=0x1702;arrays_matrix_changed();CHECK(!ta_state_checked);
     ta_state_checked=1;arrays_matrix_mode=0x1700;arrays_matrix_changed();CHECK(ta_state_checked);
-    int disabled_setting=0;mod_setting_enabled=&disabled_setting;mod_operational=0;mod_reported_graphics=1;
+    mod_operational=0;mod_reported_graphics=1;
     mod_original_high=fake_low_draw;mod_original_highest=fake_highest_draw;
     mod_high();mod_highest();CHECK(low_forward_calls==1 && highest_forward_calls==1);
     HeapFree(GetProcessHeap(),0,snapshot);HeapFree(GetProcessHeap(),0,base);FreeLibrary(glu);FreeLibrary(gl);
-    printf("PASS: %u GL/GLU import conflicts and 8 changed callsites rejected without writes; both quality branches forward correctly; bounded frame choices, migration and persistence; precise pacing guards, passthrough, targets and live toggles.\n",(unsigned)count+1);
+    printf("PASS: %u GL/GLU conflicts and 8 changed calls refused; four switch masks patch only their own calls; both quality branches forward; vanilla zero/benchmark/default behavior preserved; user-folder preferences and atomic failure checked; precise pacing guards and passthrough pass.\n",(unsigned)count+1);
     return 0;
 }

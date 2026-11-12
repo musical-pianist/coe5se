@@ -30,25 +30,12 @@ static int oracle_draw_state(OracleDrawState *out) {
     }
     ta_active_texture((unsigned)out->server_unit);return 1;
 }
-static void oracle_bitmap(const char *name,const unsigned char *rgba,int w,int h) {
-    char dir[30000],path[32768];
-    if(!GetEnvironmentVariableA("FPS_CAPTURE_DIR",dir,sizeof(dir))) return;
-    if(snprintf(path,sizeof(path),"%s\\%s.bmp",dir,name)<0)return;
-    FILE *file=fopen(path,"wb");if(!file)return;
-    BITMAPFILEHEADER header={0};BITMAPINFOHEADER info={0};
-    header.bfType=0x4d42;header.bfOffBits=sizeof(header)+sizeof(info);header.bfSize=header.bfOffBits+(DWORD)((size_t)w*h*4);
-    info.biSize=sizeof(info);info.biWidth=w;info.biHeight=h;info.biPlanes=1;info.biBitCount=32;
-    fwrite(&header,sizeof(header),1,file);fwrite(&info,sizeof(info),1,file);
-    for(size_t i=0;i<(size_t)w*h;i++) { unsigned char bgra[4]={rgba[i*4+2],rgba[i*4+1],rgba[i*4],rgba[i*4+3]};fwrite(bgra,4,1,file); }
-    fclose(file);
-}
 // One-frame lab oracle: restore the exact background, render the same prepared
 // lists twice, compare RGBA bytes. Refuse depth-tested or unusual viewports.
 static void graphics_test_render_pass(void (*original)(void)) {
     static unsigned rendered;
     rendered++;
-    char cycle_env[8];int cycle=GetEnvironmentVariableA("FPS_QUALITY_CYCLE",cycle_env,sizeof(cycle_env))>0;
-    if(!pixel_oracle || (cycle?rendered%300!=180:(rendered!=180 && rendered!=480 && rendered!=780))) { original();return; }
+    if(rendered!=180 && rendered!=480 && rendered!=780) { original();return; }
     HMODULE lib=GetModuleHandleA("opengl32.dll");
 #define GL_FN(name,ret,args) typedef ret (*Fn_##name) args; Fn_##name name=(Fn_##name)GetProcAddress(lib,#name); if(!name) goto unavailable
     GL_FN(glGetIntegerv,void,(unsigned,int *));
@@ -70,12 +57,12 @@ static void graphics_test_render_pass(void (*original)(void)) {
     unsigned char *mem=HeapAlloc(GetProcessHeap(),0,bytes*3);
     if(!mem) goto unavailable;
     unsigned char *background=mem,*baseline=mem+bytes,*candidate=mem+2*bytes;
-    int selected_batch=batch_enabled,selected_cache=color_cache_enabled,selected_arrays=arrays_enabled,selected_layered=texture_array_enabled;
-    arrays_end_frame();batch_flush();color_valid=0;batch_enabled=0;color_cache_enabled=0;arrays_enabled=0;texture_array_enabled=0;
+    int selected_arrays=arrays_enabled,selected_layered=texture_array_enabled;
+    arrays_end_frame();arrays_enabled=0;texture_array_enabled=0;
     while(glGetError()) { }
     glPushClientAttrib(0xffffffffu);glPixelStorei(0x0d05,1);glPixelStorei(0x0cf5,1);
     glReadPixels(0,0,viewport[2],viewport[3],0x1908,0x1401,background);
-    original();arrays_end_frame();batch_flush();
+    original();arrays_end_frame();
     OracleDrawState baseline_state,candidate_state;
     int have_baseline_state=oracle_draw_state(&baseline_state);
     glReadPixels(0,0,viewport[2],viewport[3],0x1908,0x1401,baseline);
@@ -90,21 +77,18 @@ static void graphics_test_render_pass(void (*original)(void)) {
     glPopMatrix();glMatrixMode(0x1701);glPopMatrix();glMatrixMode((unsigned)matrix);glPopAttrib();
     glReadPixels(0,0,viewport[2],viewport[3],0x1908,0x1401,candidate);
     int background_equal=memcmp(background,candidate,bytes)==0;
-    char control[8];int original_control=GetEnvironmentVariableA("FPS_ORACLE_ORIGINAL",control,sizeof(control))>0;
-    batch_enabled=original_control?0:selected_batch;color_cache_enabled=original_control?0:selected_cache;
-    arrays_enabled=original_control?0:selected_arrays;texture_array_enabled=original_control?0:selected_layered;
-    color_valid=0;arrays_begin_frame();array_texture_begin_frame();
-    original();arrays_end_frame();batch_flush();
+    arrays_enabled=selected_arrays;texture_array_enabled=selected_layered;
+    arrays_begin_frame();array_texture_begin_frame();
+    original();arrays_end_frame();
     int have_candidate_state=oracle_draw_state(&candidate_state);
     int state_equal=have_baseline_state && have_candidate_state && !memcmp(&baseline_state,&candidate_state,sizeof(baseline_state));
     glReadPixels(0,0,viewport[2],viewport[3],0x1908,0x1401,candidate);
     unsigned candidate_error=glGetError();glPopClientAttrib();
-    batch_enabled=selected_batch;color_cache_enabled=selected_cache;arrays_enabled=selected_arrays;texture_array_enabled=selected_layered;
-    oracle_bitmap("original",baseline,viewport[2],viewport[3]);oracle_bitmap("candidate",candidate,viewport[2],viewport[3]);
+    arrays_enabled=selected_arrays;texture_array_enabled=selected_layered;
     size_t diff=0;unsigned max_delta=0;
     for(size_t i=0;i<bytes;i++) { unsigned a=baseline[i],b=candidate[i],d=a>b?a-b:b-a;if(d) diff++;if(d>max_delta) max_delta=d; }
-    char line[512];snprintf(line,sizeof(line),"fps_pixel_oracle width=%d height=%d background_exact=%d different_channels=%llu max_delta=%u baseline_gl_error=%u candidate_gl_error=%u batch=%d color_cache=%d arrays=%d state_equal=%d client_session_closed=%d original_control=%d quality=%d",
-       viewport[2],viewport[3],background_equal,(unsigned long long)diff,max_delta,baseline_error,candidate_error,selected_batch,selected_cache,selected_arrays,state_equal,!arrays_client_session,original_control,*(int *)(detail_base+0x1a50e2c));
+    char line[512];snprintf(line,sizeof(line),"fps_pixel_oracle width=%d height=%d background_exact=%d different_channels=%llu max_delta=%u baseline_gl_error=%u candidate_gl_error=%u arrays=%d state_equal=%d client_session_closed=%d quality=%d",
+       viewport[2],viewport[3],background_equal,(unsigned long long)diff,max_delta,baseline_error,candidate_error,selected_arrays,state_equal,!arrays_client_session,*(int *)(detail_base+0x1a50e2c));
     plugin_api->logLine((const void *)graphics_test_render_pass,line);HeapFree(GetProcessHeap(),0,mem);return;
 unavailable:
     plugin_api->logLine((const void *)graphics_test_render_pass,"fps_pixel_oracle unavailable=context_or_memory");

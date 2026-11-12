@@ -1,6 +1,5 @@
 #pragma once
-// The actual installation table is the source of truth. This preflight only
-// reads import slots, and must run before install_gl_batch writes any of them.
+// Checks the installation table without writing any import slots.
 typedef void (*FpsImportProblem)(const char *name,uintptr_t rva,void *actual,void *expected);
 static int fps_check_gl_imports(unsigned char *base,HMODULE gl,void *expected_glu,FpsImportProblem report) {
     if(!base || !gl)return 0;
