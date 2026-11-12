@@ -2,6 +2,7 @@
 #include "common.h"
 #include "build_path.h"
 #include "jazzy_api.h"
+#include "graphics/graphics.h"
 #define USER_DIR_FROM_INCLUDER
 #include "approvals.h"
 #include "auto_enable.h"
@@ -1935,6 +1936,7 @@ static void startCoe5se(const char *via) {
     if (featureOn(FEATURE_PLUGIN_CHECKS)) pluginStartInit();
     if (featureOn(FEATURE_MOD_SETTINGS)) modSettingsInit();
     if (featureOn(FEATURE_LOAD_ORDER)) loadOrderInit();
+    if (featureOn(FEATURE_MAP_RENDERING)) coe5seGraphicsInit(&API, userDir());
 #ifdef COE5SE_EXTRA_START
     COE5SE_EXTRA_START();
 #endif

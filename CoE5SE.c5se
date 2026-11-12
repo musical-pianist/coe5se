@@ -24,3 +24,26 @@ default 1
 restart
 label "List subscribed Workshop mods on the Mods screen"
 tip "Mac only. CoE5SE lists Workshop mods for the game, which can't ask Steam. Off: only mods in ~/.coe5/mods."
+
+newsettingheader "Windows only"
+
+newsetting graphics_changes
+onoff
+default 0
+restart
+label "Use CoE5SE graphics changes"
+tip "Enables the two options below. Off keeps native graphics and frame controls: no graphics hooks or extra menu choices. Takes effect next launch. Windows CoE5 5.43 only."
+
+newsetting smoother_map_rendering
+onoff
+default 1
+restart
+label "Use texture array batching"
+tip "Requires Use CoE5SE graphics changes. Batches map decorations at every quality with original detail and order. Off installs no rendering hooks. Takes effect next launch."
+
+newsetting frame_controls
+onoff
+default 1
+restart
+label "Frame Rate Limiting"
+tip "Requires Use CoE5SE graphics changes. Adds high-refresh FPS choices, GPU wait and optional precise pacing. Off installs no frame-control hooks or menu choices. Takes effect next launch."
