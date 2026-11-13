@@ -78,13 +78,13 @@ verify() {
   echo "    > \"$CC\" $FLAGS -o \"$OUT/glu32.dll\" frozen_stub/glu32_stub.c frozen_stub/glu32.def -lbcrypt -luser32"
   "$CC" $FLAGS -o "$OUT/glu32.dll" frozen_stub/glu32_stub.c frozen_stub/glu32.def -lbcrypt -luser32 || BUILD_FAILED=1
   echo "  coe5se_loader.dll"
-  echo "    > \"$WINDRES\" -O coff -o \"$WORK/coe5se_loader.rc.o\" coe5se_loader.rc"
-  "$WINDRES" -O coff -o "$WORK/coe5se_loader.rc.o" coe5se_loader.rc || BUILD_FAILED=1
+  echo "    > \"$WINDRES\" \"-DCOE5SE_VERSION_NUMBERS=3,4,3,0\" -O coff -o \"$WORK/coe5se_loader.rc.o\" coe5se_loader.rc"
+  "$WINDRES" "-DCOE5SE_VERSION_NUMBERS=3,4,3,0" -O coff -o "$WORK/coe5se_loader.rc.o" coe5se_loader.rc || BUILD_FAILED=1
   echo "    > \"$CC\" $FLAGS -o \"$OUT/coe5se_loader.dll\" coe5se_loader.c -lbcrypt -luser32 \"$WORK/coe5se_loader.rc.o\""
   "$CC" $FLAGS -o "$OUT/coe5se_loader.dll" coe5se_loader.c -lbcrypt -luser32 "$WORK/coe5se_loader.rc.o" || BUILD_FAILED=1
   echo "  coe5se.c5plugin.dll"
-  echo "    > \"$WINDRES\" -O coff -o \"$WORK/coe5se.c5plugin.rc.o\" coe5se.c5plugin.rc"
-  "$WINDRES" -O coff -o "$WORK/coe5se.c5plugin.rc.o" coe5se.c5plugin.rc || BUILD_FAILED=1
+  echo "    > \"$WINDRES\" \"-DCOE5SE_VERSION_NUMBERS=3,4,3,0\" -O coff -o \"$WORK/coe5se.c5plugin.rc.o\" coe5se.c5plugin.rc"
+  "$WINDRES" "-DCOE5SE_VERSION_NUMBERS=3,4,3,0" -O coff -o "$WORK/coe5se.c5plugin.rc.o" coe5se.c5plugin.rc || BUILD_FAILED=1
   echo "    > \"$CC\" $FLAGS -o \"$OUT/coe5se.c5plugin.dll\" coe5se_plugin.c graphics/graphics.c fanpatch/fix_feeblemind.c fanpatch/fix_item_reset.c fanpatch/fix_token_sprites.c lua/lapi.c lua/lauxlib.c lua/lbaselib.c lua/lcode.c lua/lcorolib.c lua/lctype.c lua/ldebug.c lua/ldo.c lua/ldump.c lua/lfunc.c lua/lgc.c lua/llex.c lua/lmathlib.c lua/lmem.c lua/lobject.c lua/lopcodes.c lua/lparser.c lua/lstate.c lua/lstring.c lua/lstrlib.c lua/ltable.c lua/ltablib.c lua/ltm.c lua/lundump.c lua/lutf8lib.c lua/lvm.c lua/lzio.c -I. -Ilua -lbcrypt -lshell32 -luser32 \"$WORK/coe5se.c5plugin.rc.o\""
   "$CC" $FLAGS -o "$OUT/coe5se.c5plugin.dll" coe5se_plugin.c graphics/graphics.c fanpatch/fix_feeblemind.c fanpatch/fix_item_reset.c fanpatch/fix_token_sprites.c lua/lapi.c lua/lauxlib.c lua/lbaselib.c lua/lcode.c lua/lcorolib.c lua/lctype.c lua/ldebug.c lua/ldo.c lua/ldump.c lua/lfunc.c lua/lgc.c lua/llex.c lua/lmathlib.c lua/lmem.c lua/lobject.c lua/lopcodes.c lua/lparser.c lua/lstate.c lua/lstring.c lua/lstrlib.c lua/ltable.c lua/ltablib.c lua/ltm.c lua/lundump.c lua/lutf8lib.c lua/lvm.c lua/lzio.c -I. -Ilua -lbcrypt -lshell32 -luser32 "$WORK/coe5se.c5plugin.rc.o" || BUILD_FAILED=1
   echo "  coe5se.dylib"

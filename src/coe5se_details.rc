@@ -1,5 +1,8 @@
 // The file details on a DLL's Properties > Details tab; the including .rc sets DETAILS_NAME and DETAILS_DESCRIPTION.
 #include "coe5se_version.h"
+#ifndef COE5SE_VERSION_NUMBERS
+#error COE5SE_VERSION_NUMBERS comes from the build (scripts/build_mod.sh), worked out from COE5SE_VERSION
+#endif
 
 1 VERSIONINFO
 FILEVERSION     COE5SE_VERSION_NUMBERS
