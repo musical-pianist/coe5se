@@ -13,7 +13,8 @@
     X(MONSTER_FLAGS, "monster_flags") X(HATES, "hates") X(RITUAL_WORDS, "ritual_words") \
     X(CORPSE_KINDS, "corpse_kinds") X(WEAPON_TRAITS, "weapon_traits") X(NO_EXPLODE, "no_explode") X(RANDOM_EVENTS, "random_events") \
     X(NAME_LISTS, "name_lists") X(AI_CLASS, "ai_class") X(MAXDATA, "maxdata") X(PERSONALMOD, "personalmod") X(LAN_SCRIPTS, "lan_scripts") X(SIDECAR, "sidecar") \
-    X(PLUGIN_CHECKS, "plugin_checks") X(MOD_SETTINGS, "mod_settings") X(LOAD_ORDER, "load_order")
+    X(PLUGIN_CHECKS, "plugin_checks") X(MOD_SETTINGS, "mod_settings") X(LOAD_ORDER, "load_order") X(ITEM_SLOTS, "item_slots") \
+    X(ITEM_SLOT_STATS, "item_slot_stats") X(MAP_RENDERING, "map_rendering")
 
 typedef enum {
 #define FEATURE_ENUM(id, name) FEATURE_##id,

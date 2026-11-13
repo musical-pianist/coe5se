@@ -924,6 +924,9 @@ static int lGet(lua_State *L) {
         break;
     }
     case T_CAST_COUNT: lua_pushinteger(L, *(const short *)p); break;
+    case T_RITUAL_CASTER_MAX_CAST: lua_pushinteger(L, ritualCasterMaxCast((int)lua_tointeger(L, 2))); break;
+    case T_UNIT_RITUAL_CASTS: lua_pushinteger(L, unitRitualCasts((int)lua_tointeger(L, 2), (int)lua_tointeger(L, 3))); break;
+    case T_UNIT_ITEM: lua_pushinteger(L, unitItemAt((int)lua_tointeger(L, 2), (int)lua_tointeger(L, 3))); break;
     case T_UNIT_AP_LEFT: lua_pushinteger(L, unitApLeft((int)lua_tointeger(L, 2))); break;
     case T_UNIT_STATIONARY: lua_pushboolean(L, unitStationary((int)lua_tointeger(L, 2))); break;
     case T_UNIT_BATTLE_X:

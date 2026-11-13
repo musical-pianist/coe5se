@@ -80,6 +80,38 @@ static int checkSettingPageSettings(int keptSettings, SettingProblem *p) {
     return 0;
 }
 
+#define SETTING_PARENT_WORD "parent"
+
+typedef enum {
+    UNDER_PARENT_NONE,
+    UNDER_PARENT_LATER,
+    UNDER_PARENT_LEFT_OUT,
+    UNDER_PARENT_ONOFF,
+    UNDER_PARENT_CHOICE,
+    UNDER_PARENT_KEY,
+} UnderParent;
+
+static int checkSettingUnder(const char *name, int isChoice, int isSelf, UnderParent parent, int samePage, int parentIsUnder,
+                             SettingProblem *p) {
+    if (isChoice) return settingProblem(p, "child_on_choice", "a choice can't have a " SETTING_PARENT_WORD);
+    if (isSelf) return settingProblem(p, "child_of_itself", SETTING_PARENT_WORD " names the setting itself");
+    switch (parent) {
+    case UNDER_PARENT_NONE: return settingProblem(p, "unknown_parent", SETTING_PARENT_WORD ": no setting named %.32s", name);
+    case UNDER_PARENT_LATER: return settingProblem(p, "parent_after", SETTING_PARENT_WORD ": %.32s must come before this setting", name);
+    case UNDER_PARENT_LEFT_OUT: return settingProblem(p, "parent_left_out", SETTING_PARENT_WORD ": %.32s was left out", name);
+    case UNDER_PARENT_CHOICE: return settingProblem(p, "parent_not_onoff", SETTING_PARENT_WORD ": %.32s is a choice, not on/off", name);
+    case UNDER_PARENT_KEY: return settingProblem(p, "parent_not_onoff", SETTING_PARENT_WORD ": %.32s is a key, not on/off", name);
+    case UNDER_PARENT_ONOFF: break;
+    }
+    if (!samePage) return settingProblem(p, "parent_other_page", SETTING_PARENT_WORD ": %.32s is on another page", name);
+    if (parentIsUnder) return settingProblem(p, "parent_is_child", SETTING_PARENT_WORD ": %.32s has a " SETTING_PARENT_WORD " itself", name);
+    return 0;
+}
+
+static int settingGreyedBy(int hasParent, int parentValue) {
+    return hasParent && parentValue == 0;
+}
+
 static int settingPageLines(int isChoice, int optionCount, int startsBox, int *boxOpen) {
     if (isChoice) {
         *boxOpen = 0;

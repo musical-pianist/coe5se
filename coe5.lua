@@ -686,6 +686,8 @@ function require(name) end
 ---| "ritualEffectTerrainName" # index: a ritual, then an effect 0-13, string: the game's own name for a nearby or nonearby effect's terrain, a group's included ("forest or jungle"); nil for any other effect. Read-only.
 ---| "effectName"            # index 0-1501, string: the mod command of a ritual effect id (ritualEffect), "maxcast" for 1057; nil for an id no mod command sets. Read-only.
 ---| "slotRitualCasts"       # per slot, then a ritual, integer: how many times that player has cast the ritual (what maxcast counts). Read-only.
+---| "ritualCasterMaxCast"      # index 0 to ritualLastIndex, integer: the ritual's castermaxcast, how many times each commander can cast it; 0 for no limit. Read-only.
+---| "unitRitualCasts"       # index: a unit, then a ritual, integer: how many times the commander whose unit it is has cast the ritual (what castermaxcast counts; only rituals with a castermaxcast are counted). Read-only.
 ---| "unitX"                 # index 0-98999, integer: the unit's square's x (ritualTerrainAt takes it). Read-only.
 ---| "unitY"                 # index 0-98999, integer: the unit's square's y. Read-only.
 ---| "unitBattleX"           # index 0-98999, integer: the battle cell of the unit's top-left corner, during a battle or on an open test field; nil off the field. Read-only.
@@ -800,7 +802,7 @@ function require(name) end
 ---| "ceremonyLastIndex"     # integer: the last ceremony number the game takes; ceremonyName runs 0 to it. Read-only.
 ---| "unitXp"                # index 0-98999, integer: the unit's experience (xp). Read-only.
 ---| "unitKills"             # index 0-98999, integer: the unit's kills. Read-only.
----| "unitItem"              # index: a unit, then an equipment place 0-7: integer, the item there (itemName takes it), -1 for an empty place. A place keeps its number when an earlier one is empty. Read-only.
+---| "unitItem"              # index: a unit, then an equipment place 0-19: integer, the item there (itemName takes it), -1 for an empty place. 0-7 are the game's; 8-19 only for a monster whose itemslots lines give it more than 8. A place keeps its number when an earlier one is empty. Read-only.
 ---| "unitKnownSpell"        # index: a unit, then 0-59: integer, a spell the unit knows. Nil at and past the first value below 0, the list's end. Read-only.
 ---| "unitMemorizedSpell"    # index: a unit, then 0-29: integer, a spell the unit memorized for battle. Nil at and past the list's end. Read-only.
 ---| "squareItem"            # index: x, y, then a place 0-5: integer, an item lying on the square (itemName takes it), -1 for an empty place. Read-only.
@@ -2100,7 +2102,6 @@ function coe5.unitRegenPercent(unit) end
 function coe5.unitAfflictionCount(unit) end
 
 ---Whether a unit's attacks hold a spell.
----Windows only for now.
 ---@param unit integer a living unit
 ---@return boolean|nil result nil when refused (lua_refused)
 function coe5.unitHasSpellAttack(unit) end
@@ -2257,7 +2258,6 @@ function coe5.teleportUnit(unit, x, y) end
 function coe5.unitAddXp(unit, xp) end
 
 ---Empties the slot holding an item, as the AI hands items on. -1 when the unit doesn't hold it.
----Windows only for now.
 ---@param unit integer a living unit
 ---@param item integer an item
 ---@return integer|nil result nil when refused (lua_refused)
@@ -2286,7 +2286,6 @@ function coe5.squareHold(player, x, y) end
 function coe5.spendAllApAt(player, x, y) end
 
 ---Uses each item of a commander's unit the AI rates worth using.
----Windows only for now.
 ---@param commander integer a commander with a living unit
 ---@return integer|nil result nil when refused (lua_refused)
 function coe5.commanderUseItems(commander) end
@@ -3167,7 +3166,7 @@ function coe5.battleCountRank(player, lowRank, highRank) end
 function coe5.battleWinner() end
 
 ---Whether two units on the field can reach each other past a siege wall.
----Windows only for now. Only during a battle or on an open test field.
+---Only during a battle or on an open test field.
 ---@param unit integer a living unit
 ---@param other integer a living unit
 ---@return boolean|nil result nil when refused (lua_refused)
@@ -3183,7 +3182,7 @@ function coe5.battleLineOfSight(unit, other) end
 function coe5.battleInRange(unit, other, range, flags) end
 
 ---Whether an enemy touches a unit on the field.
----Windows only for now. Only during a battle or on an open test field.
+---Only during a battle or on an open test field.
 ---@param unit integer a living unit
 ---@return boolean|nil result nil when refused (lua_refused)
 function coe5.unitInContact(unit) end
@@ -3198,14 +3197,14 @@ function coe5.unitInContact(unit) end
 function coe5.battleCanStand(unit, x, y, mode) end
 
 ---The squared distance between two units' footprints, then the distance in cells.
----Windows only for now. Only during a battle or on an open test field.
+---Only during a battle or on an open test field.
 ---@param unit integer a living unit
 ---@param other integer a living unit
 ---@return integer|nil result nil when refused (lua_refused)
 function coe5.battleUnitDistance(unit, other) end
 
 ---A unit's nearest enemy, then its squared distance.
----Windows only for now. Only during a battle or on an open test field.
+---Only during a battle or on an open test field.
 ---@param unit integer a living unit
 ---@return integer|nil result nil when refused (lua_refused)
 function coe5.battleNearestEnemy(unit) end

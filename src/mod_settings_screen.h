@@ -3,6 +3,13 @@
 // ---- The Mod Settings screen ---------------------------------------------------------------------
 typedef struct { char mod[MOD_NAME_MAX], label[80]; int plugin; } ListedMod;
 
+static int drawnBefore(const ModSetting *a, const ModSetting *b) {
+    int at = a->under ? a->under->order : a->order, bt = b->under ? b->under->order : b->order;
+    if (at != bt) return at < bt;
+    if (!a->under != !b->under) return !a->under;
+    return a->order < b->order;
+}
+
 static int subPageSettings(const char *mod, const char *page, ModSetting ***out, int *capacity) {
     int n = 0;
     for (int i = 0; i < settingCount; i++) {
@@ -10,7 +17,7 @@ static int subPageSettings(const char *mod, const char *page, ModSetting ***out,
         if (!s->declared || s->rejected || _stricmp(s->mod, mod) || _stricmp(s->page, page)) continue;
         if (!growList((void **)out, capacity, n + 1, sizeof (*out)[0])) break;
         int k = n++;
-        for (; k > 0 && (*out)[k - 1]->order > s->order; k--) (*out)[k] = (*out)[k - 1];
+        for (; k > 0 && drawnBefore(s, (*out)[k - 1]); k--) (*out)[k] = (*out)[k - 1];
         (*out)[k] = s;
     }
     return n;
@@ -96,20 +103,156 @@ static int layoutPageBoxes(ModSetting **page, int count, int subPages, int scree
     return n;
 }
 
-static void keySettingLine(const ModSetting *s, char *out, size_t size) {
+static void keySettingLine(const ModSetting *s, int value, char *out, size_t size) {
     char key[24];
-    if (s->value == KEY_NONE) snprintf(key, sizeof key, "(none)");
-    else keyValueName(s->value, key, sizeof key);
+    if (value == KEY_NONE) snprintf(key, sizeof key, "(none)");
+    else keyValueName(value, key, sizeof key);
     snprintf(out, size, "%s: %s", s->label, key);
 }
+
+#ifdef __APPLE__
+static void gridRowOpen(void) { rowBegin(1); }
+static void gridRowClose(void) { rowBegin(0); }
+static void gridColumn(float x) { columnX(x); }
+#else
+static void gridRowOpen(void) { GAME_FN(void (*)(int), RVA_ROW_BEGIN)(0); }
+static void gridRowClose(void) { GAME_FN(void (*)(int), RVA_ROW_BEGIN)(1); }
+static void gridColumn(float x) { GAME_FN(void (*)(float), RVA_COLUMN_X)(x); }
+#endif
 
 static void greyedButton(int id, const char *text) {
     GAME_FN(void (*)(int, float, float, float, float, FMT_ARGS), RVA_BUTTON_CORE)(id, -1.0f, -1.0f, -1.0f, 0.5f, "%s", text);
 }
 
+#define TREE_DIM_ALPHA 0.42f
+
+static void greyedCheckbox(int *value, const char *label) {
+    int before = G32(RVA_LAYOUT_LAST);
+    checkbox(CHECKBOX_ID_GREYED, value, label);
+    int last = G32(RVA_LAYOUT_LAST);
+    if (last < 0 || last == before) return;
+    unsigned char *e = GAME_PTR(RVA_LAYOUT_TABLE) + (size_t)last * LAYOUT_STRIDE;
+    LAYOUT_ID(e) = CHECKBOX_ID_OFF;
+    LAYOUT_F(e, LAYOUT_ELEMENT_COLOUR + 3 * sizeof(float)) = GF(RVA_TEXT_COLOUR + 3 * sizeof(float)) * TREE_DIM_ALPHA;
+}
+
+#define SETTING_UNDER_INDENT 20.0f
+
+// ---- The tree: an on/off setting and the settings under it (rule 10) ----------------------------------
+#define TREE_ROWS_MAX 64
+typedef struct {
+    int parent;
+    int on;
+    int last;
+    const int *value;
+    int id;
+    char text[SETTING_TEXT_MAX + 32];
+} TreeRow;
+static TreeRow treeRows[TREE_ROWS_MAX];
+static int treeRowCount;
+static int settingsPageWaiting;
+
+static float uiScaleX(void);
+static void drawUiRect(float x, float y, float w, float h, float r, float g, float b, float alpha);
+static void drawUiLine(float x1, float y1, float x2, float y2, float r, float g, float b, float alpha, float width);
+static void drawUiText(float x, float y, float size, const char *text, float r, float g, float b, float alpha);
+static void drawUiHalfDisc(float x, float y, float radius, int facing, float r, float g, float b, float alpha);
+static void drawUiQuarterRing(float x, float y, float radius, float from, float width, float r, float g, float b, float alpha);
+static double measureUiText(const char *text, float size);
+
+static void noteTreeRow(const ModSetting *s, const ModSetting *next, int j, int greyed, const char *line) {
+    int parent = next && next->under == s;
+    if ((!parent && !s->under) || treeRowCount >= TREE_ROWS_MAX) return;
+    TreeRow *r = &treeRows[treeRowCount++];
+    memset(r, 0, sizeof *r);
+    r->parent = parent;
+    r->on = s->value != 0;
+    r->last = !parent && !(next && next->under == s->under);
+    if (s->isKey) {
+        r->id = greyed ? 0 : ID_KEY + j;
+        snprintf(r->text, sizeof r->text, "%s", line);
+    } else {
+        r->value = &s->value;
+    }
+}
+
+static const unsigned char *findTreeElement(const TreeRow *r) {
+    const unsigned char *table = GAME_PTR(RVA_GUI_TABLE);
+    for (int i = 0, last = G32(RVA_GUI_LAST_SLOT); i <= last; i++) {
+        const unsigned char *e = table + (size_t)i * GUI_STRIDE;
+        float h;
+        memcpy(&h, e + GUI_ELEMENT_HEIGHT, sizeof h);
+        if (!(h > 0)) continue;
+        if (r->value) {
+            const int *value;
+            memcpy(&value, e + GUI_ELEMENT_VALUE, sizeof value);
+            if (*(const short *)(e + GUI_ELEMENT_KIND) == GUI_KIND_CHECKBOX && value == r->value) return e;
+        } else if (r->id ? *(const int *)e == r->id : *(const char *const *)(e + GUI_ELEMENT_LABEL) &&
+                                                       !strcmp(*(const char *const *)(e + GUI_ELEMENT_LABEL), r->text)) {
+            return e;
+        }
+    }
+    return NULL;
+}
+
+#define TREE_BOX_CENTRE   5.0f
+#define TREE_STUB_GAP     3.0f
+#define TREE_CORNER       4.0f
+#define TREE_CORNER_FROM  3.14159265f
+#define TREE_LINE_WIDTH   1.6f
+#define TREE_PILL_INSET   3.0f
+#define TREE_PILL_TEXT    13.0f
+#define TREE_PILL_HEIGHT  15.0f
+#define TREE_PILL_PAD     6.0f
+static const float TREE_LINE_COLOUR[4] = {96 / 255.0f, 70 / 255.0f, 24 / 255.0f, 0.85f};
+static const float TREE_PILL_ON[3] = {75 / 255.0f, 106 / 255.0f, 42 / 255.0f}, TREE_PILL_ON_INK[3] = {238 / 255.0f, 242 / 255.0f, 226 / 255.0f};
+static const float TREE_PILL_OFF[3] = {119 / 255.0f, 112 / 255.0f, 95 / 255.0f}, TREE_PILL_OFF_INK[3] = {236 / 255.0f, 229 / 255.0f, 210 / 255.0f};
+
+static void drawTreePill(float right, float mid, int on) {
+    const char *text = on ? "\xE2\x97\x8F On" : "\xE2\x97\x8B Off";
+    const float *face = on ? TREE_PILL_ON : TREE_PILL_OFF, *ink = on ? TREE_PILL_ON_INK : TREE_PILL_OFF_INK;
+    double width = measureUiText(text, TREE_PILL_TEXT);
+    float h = TREE_PILL_HEIGHT, radius = h / 2, w = (float)(width < 0 ? 0 : width) + 2 * TREE_PILL_PAD, x = right - w, y = mid - h / 2;
+    drawUiRect(x + radius, y, w - 2 * radius, h, face[0], face[1], face[2], 1.0f);
+    drawUiHalfDisc(x + radius, mid, radius, -1, face[0], face[1], face[2], 1.0f);
+    drawUiHalfDisc(x + w - radius, mid, radius, 1, face[0], face[1], face[2], 1.0f);
+    drawUiText(x + TREE_PILL_PAD, y + (h - TREE_PILL_TEXT) / 2 + 1.5f, TREE_PILL_TEXT, text, ink[0], ink[1], ink[2], 1.0f);
+}
+
+static void drawSettingsTrees(void) {
+    if (settingsPageWaiting <= 0 || !treeRowCount) return;
+    const float *ink = TREE_LINE_COLOUR, width = TREE_LINE_WIDTH * uiScaleX(), half = TREE_LINE_WIDTH / 2;
+    for (int i = 0; i < treeRowCount; i++) {
+        if (!treeRows[i].parent) continue;
+        const unsigned char *p = findTreeElement(&treeRows[i]);
+        if (!p) continue;
+        float px, py, ph, alpha = ink[3];
+        memcpy(&px, p + 4, 4), memcpy(&py, p + GUI_ELEMENT_Y, 4), memcpy(&ph, p + GUI_ELEMENT_HEIGHT, 4);
+        drawTreePill((float)G32(RVA_SCREEN_W) - px - TREE_PILL_INSET, py + ph / 2, treeRows[i].on);
+        float lineX = px + TREE_BOX_CENTRE, bottom = py;
+        for (int k = i + 1; k < treeRowCount && !treeRows[k].parent; k++) {
+            const unsigned char *c = findTreeElement(&treeRows[k]);
+            if (!c) continue;
+            float cx, cy, ch;
+            memcpy(&cx, c + 4, 4), memcpy(&cy, c + GUI_ELEMENT_Y, 4), memcpy(&ch, c + GUI_ELEMENT_HEIGHT, 4);
+            float mid = cy + ch / 2, end = cx - TREE_STUB_GAP;
+            if (treeRows[k].last) {
+                bottom = mid + TREE_CORNER;
+                drawUiQuarterRing(lineX + TREE_CORNER, mid + TREE_CORNER, TREE_CORNER, TREE_CORNER_FROM, width, ink[0], ink[1], ink[2], alpha);
+                drawUiLine(lineX + TREE_CORNER, mid, end, mid, ink[0], ink[1], ink[2], alpha, width);
+                break;
+            }
+            bottom = mid;
+            drawUiLine(lineX + half, mid, end, mid, ink[0], ink[1], ink[2], alpha, width);
+        }
+        if (bottom < py) drawUiLine(lineX, py, lineX, bottom, ink[0], ink[1], ink[2], alpha, width);
+    }
+}
+
 static void drawPageBoxes(ModSetting **page, const ModPage *const *subPages, const PageBox *boxes, int boxCount, int pageNumber,
                           int plugin) {
     char title[SETTING_TEXT_MAX + 16], line[SETTING_TEXT_MAX + 32];
+    treeRowCount = 0;
     for (int i = 0; i < boxCount; i++) {
         const PageBox *b = &boxes[i];
         if (b->page != pageNumber) continue;
@@ -139,14 +282,24 @@ static void drawPageBoxes(ModSetting **page, const ModPage *const *subPages, con
         api->ui->sectionBegin(title);
         for (int j = b->first; j < b->first + b->count; j++) {
             ModSetting *s = page[j];
+            int greyed = settingGreyed(s);
+            if (s->under) {
+                gridRowOpen();
+                gridColumn(SETTING_UNDER_INDENT);
+            }
+            line[0] = '\0';
             if (s->isKey) {
-                keySettingLine(s, line, sizeof line);
-                if (s->fixed) greyedButton(0, line);
+                keySettingLine(s, s->value, line, sizeof line);
+                if (s->fixed || greyed) greyedButton(0, line);
                 else api->ui->text(ID_KEY + j, line);
+            } else if (greyed) {
+                greyedCheckbox(&s->value, s->label);
             } else {
                 api->ui->checkbox(ID_ONOFF + j, &s->value, s->label);
             }
             if (s->tip[0]) api->ui->tooltip(s->tip);
+            if (s->under) gridRowClose();
+            noteTreeRow(s, j + 1 < b->first + b->count ? page[j + 1] : NULL, j, greyed, line);
         }
         api->ui->sectionEnd();
     }
@@ -168,16 +321,6 @@ static void drawIniSettings(ModSetting **page, int count) {
 #define PICK_ID_TAB      20
 #define PICK_ID_KEY      100
 #define PICK_KEYS_MAX    160
-
-#ifdef __APPLE__
-static void gridRowOpen(void) { rowBegin(1); }
-static void gridRowClose(void) { rowBegin(0); }
-static void gridColumn(float x) { columnX(x); }
-#else
-static void gridRowOpen(void) { GAME_FN(void (*)(int), RVA_ROW_BEGIN)(0); }
-static void gridRowClose(void) { GAME_FN(void (*)(int), RVA_ROW_BEGIN)(1); }
-static void gridColumn(float x) { GAME_FN(void (*)(float), RVA_COLUMN_X)(x); }
-#endif
 
 typedef struct { int id; char text[24]; int selected; const char *tip; } PickItem;
 
@@ -312,7 +455,8 @@ static int keyPickerScreen(const ModSetting *s) {
 }
 
 static int clickIniSetting(int id, ModSetting **page, int count) {
-    if (id >= ID_ONOFF && id < ID_ONOFF + count && !page[id - ID_ONOFF]->optionCount && !page[id - ID_ONOFF]->isKey) {
+    if (id >= ID_ONOFF && id < ID_ONOFF + count && !page[id - ID_ONOFF]->optionCount && !page[id - ID_ONOFF]->isKey &&
+        !settingGreyed(page[id - ID_ONOFF])) {
         saveValue(page[id - ID_ONOFF]);
         return 1;
     }
@@ -324,7 +468,7 @@ static int clickIniSetting(int id, ModSetting **page, int count) {
         saveValue(s);
         return 1;
     }
-    if (id >= ID_KEY && id < ID_KEY + count && page[id - ID_KEY]->isKey) {
+    if (id >= ID_KEY && id < ID_KEY + count && page[id - ID_KEY]->isKey && !settingGreyed(page[id - ID_KEY])) {
         ModSetting *s = page[id - ID_KEY];
         int picked = keyPickerScreen(s);
         if (picked < 0 || picked == s->value) return 1;
@@ -373,6 +517,7 @@ static void resetModToDefaults(const char *mod) {
     }
     writeLog("settings_reset", "mod=%s changed=%d", mod, changed);
     resolveKeyConflicts(mod);
+    refreshSettingReads();
 }
 
 static void drawResetButton(const char *mod) {
@@ -430,7 +575,9 @@ static void modScreen(const ListedMod *m, const char *subPage) {
         if (!subPage) drawResetButton(m->mod);
         api->ui->text(ID_MS_BACK, "Back");
         api->ui->bindKey(ID_MS_BACK, UI_KEY_ESCAPE);
+        settingsPageWaiting++;
         int id = api->ui->wait();
+        settingsPageWaiting--;
         if (id == ID_MS_BACK) return;
         if (id == ID_RESET && !subPage) clickResetButton(m);
         else if (id == ID_PAGE_PREV && pageNumber > 0) pageNumber--;
@@ -604,6 +751,9 @@ static void modsRunHook(int level) {
     beamWidthBeforePass(level);
     recBonusBeforePass(level);
     corpseWordsBeforePass(level);
+    commanderCastsBeforePass(level);
+    itemSlotsBeforePass(level);
+    keepWeaponsBeforePass(level);
     killWordsBeforePass(level);
     aiClassBeforePass(level);
     modEventsBeforePass(level);

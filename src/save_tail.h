@@ -150,6 +150,12 @@ static void useCustomCorpsesChunk(const SaveChunk *chunk, SaveFile kind);
 #define SAVE_TAG_EVOF SAVE_TAG('E', 'V', 'O', 'F')
 static void addRandomEventsChunk(SaveList *list);
 static void useRandomEventsChunk(const SaveChunk *chunk, SaveFile kind);
+#define SAVE_TAG_CMXC SAVE_TAG('C', 'M', 'X', 'C')
+static void addCommanderCastsChunk(SaveList *list);
+static void useCommanderCastsChunk(const SaveChunk *chunk, SaveFile kind);
+#define SAVE_TAG_ITMS SAVE_TAG('I', 'T', 'M', 'S')
+static void addItemSlotsChunk(SaveList *list);
+static void useItemSlotsChunk(const SaveChunk *chunk, SaveFile kind);
 
 static int saveVanillaLastIndex(int kind) {
     if (kind == 0) return VANILLA_SPELL_COUNT - 1;
@@ -171,6 +177,8 @@ static void buildSaveList(SaveList *list, SaveNamesWritten *written) {
     addGameDataChunk(list);
     addCustomCorpsesChunk(list);
     addRandomEventsChunk(list);
+    addCommanderCastsChunk(list);
+    addItemSlotsChunk(list);
     addHostSettingsChunk(list);
     addCoe5seVersionChunk(list);
     addFactionIndexChunk(list);
@@ -272,7 +280,8 @@ static void readSaveTail(void *file, int onlyPlayer, SaveFile kind) {
     SaveList list = {0};
     const char *versionResult = "none";
     char version[SAVE_STRING_MAX + 1] = "";
-    const SaveChunk *modc = NULL, *modh = NULL, *vers = NULL, *gameData = NULL, *customCorpses = NULL, *randomEvents = NULL;
+    const SaveChunk *modc = NULL, *modh = NULL, *vers = NULL, *gameData = NULL, *customCorpses = NULL, *randomEvents = NULL,
+                    *commanderCasts = NULL, *itemSlots = NULL;
     if (castCounts < 0) read->result = "bad_block", read->reason = "cast_counts_block";
     else if (castCounts > 0) {
         const char *failed = readSaveList(file, &list, &read->reason);
@@ -287,6 +296,8 @@ static void readSaveTail(void *file, int onlyPlayer, SaveFile kind) {
                 else if (list.chunks[i].tag == SAVE_TAG_GDAT) gameData = &list.chunks[i];
                 else if (list.chunks[i].tag == SAVE_TAG_CRPS) customCorpses = &list.chunks[i];
                 else if (list.chunks[i].tag == SAVE_TAG_EVOF) randomEvents = &list.chunks[i];
+                else if (list.chunks[i].tag == SAVE_TAG_CMXC) commanderCasts = &list.chunks[i];
+                else if (list.chunks[i].tag == SAVE_TAG_ITMS) itemSlots = &list.chunks[i];
                 else if (!isSaveNameTag(list.chunks[i].tag) && list.chunks[i].tag != SAVE_TAG_PLNS && list.chunks[i].tag != SAVE_TAG_FCTN &&
                          list.chunks[i].tag != SAVE_TAG_FCDT && list.chunks[i].tag != SAVE_TAG_MSET)
                     read->unknown++;
@@ -299,6 +310,8 @@ static void readSaveTail(void *file, int onlyPlayer, SaveFile kind) {
     useGameDataChunk(gameData, kind);
     useCustomCorpsesChunk(customCorpses, kind);
     useRandomEventsChunk(randomEvents, kind);
+    useCommanderCastsChunk(commanderCasts, kind);
+    useItemSlotsChunk(itemSlots, kind);
     writeLog("save_names_read", "file=%s result=%s reason=%s skipped=%s written_on=%s chunks=%d unknown=%d", SAVE_FILE_NAMES[kind],
              read->result, read->reason, read->skipped[0] ? read->skipped : "-", savePlatformName(read->writtenOn), read->chunks,
              read->unknown);

@@ -29,6 +29,16 @@ __asm__(
 extern const unsigned char coe5seSiteStubs[];
 #define STUB_CODE_SIZE 40
 
+__asm__(
+    ".text\n.p2align 2\n.globl _coe5seSiteDispatch\n_coe5seSiteDispatch:\n"
+    "  adrp x17, _coe5seSiteStubs@PAGE\n"
+    "  add x17, x17, _coe5seSiteStubs@PAGEOFF\n"
+    "  add x16, x16, x16, lsl #2\n"
+    "  add x17, x17, x16, lsl #3\n"
+    "  br x17\n");
+extern const unsigned char coe5seSiteDispatch[];
+_Static_assert(STUB_CODE_SIZE == 40, "coe5seSiteDispatch multiplies by 40");
+
 static void **siteHead(CallSite site) { return &coe5seStubData[site].head; }
 
 #define MAC_PAGE_MASK 0x3fff
@@ -82,7 +92,7 @@ static unsigned char *takePadding(size_t size) {
         unsigned char *text = getsectiondata(mh, "__TEXT", "__text", &textSize);
         paddingEnd = text ? text : paddingNext;
     }
-    size = (size + 15) & ~(size_t)15;
+    size = (size + 7) & ~(size_t)7;
     if (paddingNext + size > paddingEnd) return NULL;
     for (size_t i = 0; i < size; i++)
         if (paddingNext[i]) return NULL;
@@ -585,6 +595,24 @@ static int installParticipantsMac(void) {
     return 1;
 }
 
+static unsigned char *siteJump;
+
+static unsigned char *newSiteEntry(CallSite site) {
+    if (!siteJump) {
+        unsigned char *jump = takePadding(16);
+        uint32_t code[4] = {0x58000051u, 0xd61f0220u};
+        const void *dispatch = coe5seSiteDispatch;
+        memcpy(&code[2], &dispatch, 8);
+        if (!jump || !writeGameCode(jump, code, sizeof code)) return NULL;
+        siteJump = jump;
+    }
+    unsigned char *entry = takePadding(8);
+    if (!entry) return NULL;
+    uint32_t code[2] = {0x52800010u | ((uint32_t)site << 5),
+                        0x14000000u | ((uint32_t)((siteJump - (entry + 4)) >> 2) & 0x3ffffffu)};
+    return writeGameCode(entry, code, sizeof code) ? entry : NULL;
+}
+
 static int installSite(CallSite site) {
     const SiteInfo *info = &SITES[site];
     if (site == SITE_SEAL_EVENT) return installSealEventMac();
@@ -612,7 +640,7 @@ static int installSite(CallSite site) {
         return 0;
     }
     *siteHead(site) = siteGameFunction(site);
-    unsigned char *trampoline = newTrampoline((void *)(coe5seSiteStubs + site * STUB_CODE_SIZE));
+    unsigned char *trampoline = newSiteEntry(site);
     if (!trampoline) {
         writeLog("site_skipped", "site=%s reason=no_trampoline_room", info->name);
         return 0;

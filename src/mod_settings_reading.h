@@ -94,7 +94,9 @@ static void readSettingsIn(const char *mod, const char *dir) {
         readIniText(&r, text);
         free(text);
     }
+    settleLateUnderLines(mod);
     resolveKeyConflicts(mod);
+    refreshSettingReads();
 }
 
 static void readSettingsFile(const char *mod) {
@@ -234,7 +236,7 @@ static int settingLineHook(const char *line, size_t len, int mod, int level) {
 static void resetModSettings(const char *mod) {
     forgetSettingsRead(mod);
     for (int i = 0; i < settingCount; i++)
-        if (!_stricmp(settings[i]->mod, mod)) settings[i]->declared = settings[i]->value = 0;
+        if (!_stricmp(settings[i]->mod, mod)) settings[i]->declared = settings[i]->value = settings[i]->reads = 0;
     int kept = 0;
     for (int i = 0; i < badLineCount; i++)
         if (_stricmp(badLines[i].mod, mod)) badLines[kept++] = badLines[i];
@@ -348,5 +350,5 @@ static const int *pluginSetting(void *caller, const char *mod, const char *dir, 
         return (refuseApiCall(caller, "setting", "out_of_memory", "name=%s mod=%s", name, mod), &noSettingValue);
     }
     if (!s->declared) refuseApiCall(caller, "setting", "not_declared", "name=%s mod=%s", name, mod);
-    return &s->value;
+    return &s->reads;
 }

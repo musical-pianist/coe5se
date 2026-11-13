@@ -44,7 +44,7 @@ static void readIniText(IniParse *r, const char *text) {
 
 // ---- The mod's sidecar, <ModName>.c5se ------------------------------------------------------------
 static const char *const SETTING_BLOCK_WORDS[] = {"onoff", "choice", "key", "default", "label", "option", "optiontip", "tip",
-                                                  "restart", "group", "fixed"};
+                                                  "restart", "group", "fixed", SETTING_PARENT_WORD};
 
 static int isSettingLine(const char *line);
 static void eventFindersLineBegin(void);
@@ -154,6 +154,8 @@ static int readSidecarBlockLine(IniSection *s, const BlockLine *b, SettingProble
     char value[INI_LINE_MAX + 1];
     if (k == INI_KEY_RESTART || k == INI_KEY_FIXED) {
         snprintf(value, sizeof value, "1");
+    } else if (k == INI_KEY_UNDER) {
+        if (readSidecarName(&at, value, p)) return 1;
     } else if (k == INI_KEY_DEFAULT && s->type != SECTION_KEY) {
         skipSpaces(&at);
         if (*at == '"') return settingProblem(p, "quoted_number", "default is a number, without quotes");
@@ -200,7 +202,8 @@ static void finishSidecarBlock(IniParse *r) {
     for (int i = 0; s->type != SECTION_UNKNOWN && i < sidecarBlock.count; i++) {
         const BlockLine *b = &sidecarBlock.lines[i];
         if (isSetting && settingKindType(b->word)) continue;
-        if (readSidecarBlockLine(s, b, &p)) iniLineProblem(r, s, b->line, &p, b->source);
+        if (readSidecarBlockLine(s, b, &p)) settingLineProblem(r, s, sidecarKeyNamed(b->word), b->line, &p, b->source);
+        else if (!strcmp(b->word, SETTING_PARENT_WORD)) snprintf(s->underSource, sizeof s->underSource, "%s", b->source);
     }
     finishIniSection(r, s);
 }

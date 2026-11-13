@@ -19,8 +19,19 @@ static int entryHookAt(const void *target) {
     return -1;
 }
 
-#ifndef __APPLE__
 static unsigned char *entryHookPage;
+
+#ifdef __APPLE__
+#define MAC_ENTRY_HOOK_SLOT 32
+#define MAC_ENTRY_HOOK_PAGE ((ENTRY_HOOK_COUNT * MAC_ENTRY_HOOK_SLOT + MAC_PAGE_MASK) & ~MAC_PAGE_MASK)
+
+static int writeEntryHookSlot(unsigned char *slot, const void *code, size_t size) {
+    if (mprotect(entryHookPage, MAC_ENTRY_HOOK_PAGE, PROT_READ | PROT_WRITE)) return 0;
+    memcpy(slot, code, size);
+    if (mprotect(entryHookPage, MAC_ENTRY_HOOK_PAGE, PROT_READ | PROT_EXEC)) return 0;
+    sys_icache_invalidate(slot, size);
+    return 1;
+}
 #endif
 
 int fanpatchHookCreate(void *target, void *detour, void **original) {
@@ -67,18 +78,22 @@ int fanpatchHookCreate(void *target, void *detour, void **original) {
     entryHooks[i].trampoline = t;
     entryHooks[i].stub = stub;
 #else
-    unsigned char *t = takePadding(32);
-    if (!t) {
-        writeLogError("entry_hook_refused", "name=%s reason=no_trampoline_room", s->name);
-        return 0;
+    if (!entryHookPage) {
+        unsigned char *page = mmap(NULL, MAC_ENTRY_HOOK_PAGE, PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_ANON, -1, 0);
+        if (page == MAP_FAILED) {
+            writeLogError("entry_hook_refused", "name=%s reason=no_trampoline_room", s->name);
+            return 0;
+        }
+        entryHookPage = page;
     }
+    unsigned char *t = entryHookPage + i * MAC_ENTRY_HOOK_SLOT;
     uint32_t code[8];
     memcpy(code, entryHooks[i].saved, 16);
     code[4] = 0x58000050u;
     code[5] = 0xd61f0200u;
     unsigned char *back = at + 16;
     memcpy(&code[6], &back, 8);
-    if (!writeGameCode(t, code, sizeof code)) {
+    if (!writeEntryHookSlot(t, code, sizeof code)) {
         writeLogError("entry_hook_refused", "name=%s reason=trampoline_unwritable", s->name);
         return 0;
     }

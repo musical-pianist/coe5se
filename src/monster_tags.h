@@ -60,8 +60,8 @@ static int itemResBits(int item) {
 static int unitResBits(int unit) {
     int monster = unitMonsterNumber(unit), bits = monsterResBits(monster);
     if (monster < 0 || !monsterTags.itemResSize) return bits;
-    for (int i = 0; i < UNIT_ITEM_SLOTS; i++)
-        bits |= itemResBits((short)G16(RVA_UNIT_ITEMS + (size_t)unit * UNIT_SIZE + (size_t)i * 2));
+    int positions = unitExtraItemCount(unit) ? ITEM_POSITION_MAX : UNIT_ITEM_SLOTS;
+    for (int i = 0; i < positions; i++) bits |= itemResBits(unitItemAt(unit, i));
     return bits;
 }
 
@@ -219,6 +219,8 @@ static void carryCopiedMonsterWords(int source, int mod) {
     if (target < monsterTags.resSize) monsterTags.res[target] = (unsigned char)bits;
     if (!copyMonsterCorpseKind(source, target)) ok = 0;
     if (!copyMonsterFactionRefs(source, target)) ok = 0;
+    copyMonsterItemSlots(source, target);
+    copyMonsterKeepsWeapons(source, target);
     if (!ok) refuseC5mLine("copystats", spellModName(mod), "out_of_memory", "line=%d", G32(RVA_MOD_LINE));
 }
 
@@ -243,6 +245,8 @@ static void carryCopiedItemWords(int source, int mod) {
 
 static void clearspecLineHook(const char *line, int level) {
     if (level != 2 || !spellWordIs(line, strcspn(line, " \t\r\n"), "clearspec")) return;
+    clearMonsterItemSlots(G32(RVA_MONSTER_CURRENT));
+    clearMonsterKeepsWeapons(G32(RVA_MONSTER_CURRENT));
     if (!featureOn(FEATURE_WEAPON_TRAITS) && !featureOn(FEATURE_CORPSE_KINDS)) return;
     int monster = G32(RVA_MONSTER_CURRENT);
     if (!monsterRecord(monster)) return;

@@ -38,6 +38,7 @@ static int planeOrderStepCopy(int plane, int dir) {
     if (plane == 0) {
         if (step == -1) return 3;
         if (step == 1) return 2;
+        return at;
     } else if (plane == 1) {
         if (step == 1) return 1;
     } else if (plane == 9) {
@@ -57,15 +58,15 @@ static int planeIsReachableCopy(int plane, int x, int y) {
         if (px > x || x >= planeField(p, PLANE_W) + px || py > y || y >= py + planeField(p, PLANE_H)) continue;
         if (plane == p) return 1;
         int cx = planeField(plane, PLANE_W) / 2 + planeField(plane, PLANE_X), cy = planeField(plane, PLANE_H) / 2 + planeField(plane, PLANE_Y);
-        int (*path)(int, int, int, int, int, int) = GAME_FN(int (*)(int, int, int, int, int, int), RVA_MONSTER_PATH);
+        GameMonsterPath path = GAME_FN(GameMonsterPath, RVA_MONSTER_PATH);
         void (*trace)(const char *, ...) = GAME_FN(void (*)(const char *, ...), RVA_TRACE);
-        int r = path(SKY_PATH_MODE, x, y, cx, cy, SKY_PATH_AP_MAX);
+        int r = path(SKY_PATH_MODE, x, y, cx, cy, SKY_PATH_AP_MAX, 0, 0);
         trace("planeisreachable %d,%d -> pln %d = %d\n", x, y, plane, r);
         if (r >= 0) return 1;
-        r = path(SKY_PATH_MODE, x, y, cx - SKY_PATH_SHIFT, cy, SKY_PATH_AP_MAX);
+        r = path(SKY_PATH_MODE, x, y, cx - SKY_PATH_SHIFT, cy, SKY_PATH_AP_MAX, 0, 0);
         trace("planeisreachable %d,%d -> pln %d = %d\n", x - SKY_PATH_SHIFT, y, plane, r);
         if (r >= 0) return 1;
-        r = path(SKY_PATH_MODE, x, y, cx + SKY_PATH_SHIFT, cy, SKY_PATH_AP_MAX);
+        r = path(SKY_PATH_MODE, x, y, cx + SKY_PATH_SHIFT, cy, SKY_PATH_AP_MAX, 0, 0);
         trace("planeisreachable %d,%d -> pln %d = %d\n", x + SKY_PATH_SHIFT, y, plane, r);
         return r >= 0;
     }
@@ -204,6 +205,19 @@ static int commanderKnowsRitualCopy(int c, int slot) {
         if (known == slot) return 1;
     }
     return 0;
+}
+
+static int commanderUseItemsCopy(int c) {
+    if (c < 0 || c > G32(RVA_LAST_COMMANDER)) return 0;
+    int u = G32(RVA_COMMANDERS + (size_t)c * COMMANDER_SIZE), used = 0;
+    if (u < 0) return 0;
+    int (*rate)(int, int) = GAME_FN(int (*)(int, int), RVA_AI_ITEM_USE_RATING);
+    void (*use)(int, int) = GAME_FN(void (*)(int, int), RVA_ITEM_USE);
+    for (int i = 0; i < ITEM_POSITION_MAX; i++) {
+        int item = unitItemAt(u, i);
+        if (item >= 0 && rate(u, item) >= 2) use(u, item), used++;
+    }
+    return used;
 }
 
 // ---- Factions -------------------------------------------------------------------------------------

@@ -117,6 +117,8 @@ typedef struct {
     int hasDefault, defaultValue, restart, fixed;
     char label[SETTING_TEXT_MAX + 1], tip[SETTING_TIP_MAX + 1], group[SETTING_TEXT_MAX + 1];
     int optionLine[SETTING_OPTIONS_MAX], optionTipLine[SETTING_OPTIONS_MAX];
+    int underLine;
+    char under[SETTING_NAME_SIZE], underSource[160];
     char options[SETTING_OPTIONS_MAX][SETTING_TEXT_MAX + 1];
     char optionTips[SETTING_OPTIONS_MAX][SETTING_TIP_MAX + 1];
     int problems;
@@ -143,9 +145,12 @@ static const char *sidecarWordOf(const char *section) {
     return SETTING_WORD;
 }
 
+static void rejectSettingsLineIn(int in, const char *mod, const char *section, int line, const SettingProblem *p, const char *source) {
+    if (in) rejectSidecarLine(in, mod, sidecarWordOf(section), line, p, source);
+    else rejectIniLine(mod, section, line, p, source);
+}
 static void rejectSettingsLine(const IniParse *r, const char *section, int line, const SettingProblem *p, const char *source) {
-    if (r->sidecar) rejectSidecarLine(r->sidecar, r->mod, sidecarWordOf(section), line, p, source);
-    else rejectIniLine(r->mod, section, line, p, source);
+    rejectSettingsLineIn(r->sidecar, r->mod, section, line, p, source);
 }
 
 static void iniLineProblem(IniParse *r, IniSection *s, int line, const SettingProblem *p, const char *source) {
@@ -307,12 +312,12 @@ static int readQuotedText(const char *key, const char *raw, char *out, size_t si
 }
 
 typedef enum { INI_KEY_UNKNOWN, INI_KEY_LABEL, INI_KEY_DEFAULT, INI_KEY_TIP, INI_KEY_RESTART, INI_KEY_GROUP, INI_KEY_FIXED,
-               INI_KEY_OPTION, INI_KEY_OPTION_TIP } IniKey;
+               INI_KEY_OPTION, INI_KEY_OPTION_TIP, INI_KEY_UNDER } IniKey;
 
 static IniKey iniKeyNamed(const char *key, int *option) {
     static const struct { const char *name; IniKey key; } NAMED[] = {
         {"label", INI_KEY_LABEL}, {"default", INI_KEY_DEFAULT}, {"tip", INI_KEY_TIP},
-        {"restart", INI_KEY_RESTART}, {"group", INI_KEY_GROUP}, {"fixed", INI_KEY_FIXED},
+        {"restart", INI_KEY_RESTART}, {"group", INI_KEY_GROUP}, {"fixed", INI_KEY_FIXED}, {SETTING_PARENT_WORD, INI_KEY_UNDER},
     };
     *option = -1;
     for (size_t i = 0; i < sizeof NAMED / sizeof NAMED[0]; i++)
@@ -325,6 +330,12 @@ static IniKey iniKeyNamed(const char *key, int *option) {
     return INI_KEY_UNKNOWN;
 }
 
+static void settingLineProblem(IniParse *r, IniSection *s, IniKey k, int line, const SettingProblem *p, const char *source) {
+    if (k == INI_KEY_UNDER && (s->type == SECTION_ONOFF || s->type == SECTION_CHOICE || s->type == SECTION_KEY))
+        rejectSettingsLine(r, s->word, line, p, source);
+    else iniLineProblem(r, s, line, p, source);
+}
+
 static int *iniKeyLine(IniSection *s, IniKey k, int option) {
     switch (k) {
     case INI_KEY_LABEL: return &s->labelLine;
@@ -333,6 +344,7 @@ static int *iniKeyLine(IniSection *s, IniKey k, int option) {
     case INI_KEY_RESTART: return &s->restartLine;
     case INI_KEY_GROUP: return &s->groupLine;
     case INI_KEY_FIXED: return &s->fixedLine;
+    case INI_KEY_UNDER: return &s->underLine;
     case INI_KEY_OPTION: return option < SETTING_OPTIONS_MAX ? &s->optionLine[option] : NULL;
     case INI_KEY_OPTION_TIP: return option < SETTING_OPTIONS_MAX ? &s->optionTipLine[option] : NULL;
     default: return NULL;
@@ -378,6 +390,10 @@ static int storeIniKey(IniSection *s, const char *key, IniKey k, int option, con
         if (checkSettingText("tip", value, SETTING_TIP_MAX, p)) return 1;
         snprintf(s->tip, sizeof s->tip, "%.*s", SETTING_TIP_MAX, value);
         return 0;
+    case INI_KEY_UNDER:
+        if (checkSettingName(SETTING_PARENT_WORD, value, p)) return 1;
+        snprintf(s->under, sizeof s->under, "%.*s", SETTING_NAME_MAX, value);
+        return 0;
     case INI_KEY_OPTION_TIP:
         if (checkSettingText("optiontip", value, SETTING_TIP_MAX, p)) return 1;
         snprintf(s->optionTips[option], sizeof s->optionTips[option], "%.*s", SETTING_TIP_MAX, value);
@@ -401,19 +417,20 @@ static void readIniKey(IniParse *r, IniSection *s, const char *key, const char *
     IniKey k = iniKeyNamed(key, &option);
     int *seen = iniKeyLine(s, k, option);
     if (iniKeyRefused(s, key, k, option, seen, &p)) {
-        iniLineProblem(r, s, line, &p, source);
+        settingLineProblem(r, s, k, line, &p, source);
         return;
     }
     *seen = line;
     char value[INI_LINE_MAX + 1];
     int isText = k == INI_KEY_OPTION || k == INI_KEY_LABEL || k == INI_KEY_TIP || k == INI_KEY_GROUP ||
-                 (k == INI_KEY_DEFAULT && s->type == SECTION_KEY);
+                 (k == INI_KEY_DEFAULT && s->type == SECTION_KEY) || (k == INI_KEY_UNDER && raw[0] == '"');
     int bad = 0;
     if (isText) bad = readQuotedText(key, raw, value, sizeof value, &p);
     else if (raw[0] == '"') bad = settingProblem(&p, "quoted_number", "%.16s is a number, without quotes", key);
     else snprintf(value, sizeof value, "%s", raw);
     if (!bad) bad = storeIniKey(s, key, k, option, value, &p);
-    if (bad) iniLineProblem(r, s, line, &p, source);
+    if (bad) settingLineProblem(r, s, k, line, &p, source);
+    else if (k == INI_KEY_UNDER) snprintf(s->underSource, sizeof s->underSource, "%.150s", source);
 }
 
 static void finishIniHeader(IniParse *r, IniSection *s) {
@@ -470,20 +487,22 @@ static void declareLeftOutSetting(IniParse *r, const IniSection *s, int optionCo
     hidden->isKey = s->type == SECTION_KEY;
 }
 
-static void declareKeptSetting(IniParse *r, IniSection *s, int optionCount, int lines, int startsBox) {
+static ModSetting *declareKeptSetting(IniParse *r, IniSection *s, int optionCount, int lines, int startsBox, ModSetting *parent) {
     int created, isKey = s->type == SECTION_KEY;
     ModSetting *kept = settingEntry(r->mod, s->name, &created);
     if (!kept) {
         rejectIniSection(r, s, "out_of_memory", "out of memory");
-        return;
+        return NULL;
     }
+    kept->under = parent;
+    kept->underName[0] = '\0';
     kept->declared = 1;
     kept->rejected = 0;
     kept->line = s->line;
     kept->inSidecar = r->sidecar;
     kept->order = ++r->order;
     kept->restart = s->restart;
-    kept->defaultValue = s->defaultValue;
+    kept->defaultValue = settingDefaultHere(r->mod, s->name, s->defaultValue);
     kept->optionCount = optionCount;
     kept->isKey = isKey;
     kept->fixed = isKey && (s->fixed || s->defaultValue == KEY_ESC);
@@ -506,6 +525,49 @@ static void declareKeptSetting(IniParse *r, IniSection *s, int optionCount, int 
     }
     if (!kept->launchSet) kept->launchValue = kept->promptedValue = kept->value;
     kept->launchSet = 1;
+    return kept;
+}
+
+static ModSetting *settleUnder(IniParse *r, const IniSection *s, int isChoice, int *later) {
+    *later = 0;
+    ModSetting *parent = isChoice ? NULL : findDeclaredSetting(r->mod, s->under);
+    UnderParent kind = !parent ? UNDER_PARENT_NONE : parent->rejected ? UNDER_PARENT_LEFT_OUT : parent->optionCount ? UNDER_PARENT_CHOICE
+                       : parent->isKey ? UNDER_PARENT_KEY : UNDER_PARENT_ONOFF;
+    int isSelf = !_stricmp(s->under, s->name);
+    if (!isChoice && !isSelf && kind == UNDER_PARENT_NONE) {
+        *later = 1;
+        return NULL;
+    }
+    SettingProblem p;
+    if (checkSettingUnder(s->under, isChoice, isSelf, kind, parent && !_stricmp(parent->page, r->page), parent && parent->under, &p)) {
+        rejectSettingsLine(r, s->word, s->underLine, &p, s->underSource);
+        return NULL;
+    }
+    return parent;
+}
+
+static void settleLateUnderLines(const char *mod) {
+    for (int i = 0; i < settingCount; i++) {
+        ModSetting *s = settings[i];
+        if (!s->declared || s->rejected || !s->underName[0] || _stricmp(s->mod, mod)) continue;
+        const ModSetting *parent = findDeclaredSetting(mod, s->underName);
+        UnderParent kind = !parent ? UNDER_PARENT_NONE : parent->rejected ? UNDER_PARENT_LEFT_OUT : UNDER_PARENT_LATER;
+        SettingProblem p;
+        checkSettingUnder(s->underName, 0, 0, kind, 1, 0, &p);
+        rejectSettingsLineIn(s->underIn, mod, s->underWord, s->underLine, &p, s->underSource);
+        s->underName[0] = '\0';
+    }
+}
+
+static int settingGreyed(const ModSetting *s) {
+    return settingGreyedBy(s->under != NULL, s->under ? s->under->value : 1);
+}
+
+static void refreshSettingReads(void) {
+    for (int i = 0; i < settingCount; i++) {
+        ModSetting *s = settings[i];
+        s->reads = s->declared && !s->rejected && settingGreyed(s) ? 0 : s->value;
+    }
 }
 
 static int isPlainSettingName(const char *name) {
@@ -534,9 +596,18 @@ static void finishIniSection(IniParse *r, IniSection *s) {
         usedAt(r, same->inSidecar, same->line, where, sizeof where);
         rejectIniSection(r, s, "duplicate_name", "name already used %s", where);
     }
+    ModSetting *parent = NULL;
+    int underLater = 0;
+    if (!s->problems && s->under[0]) parent = settleUnder(r, s, isChoice, &underLater);
+    if (parent && r->headerPending) {
+        SettingProblem p;
+        settingProblem(&p, "header_before_child", "header must come before a setting with no " SETTING_PARENT_WORD);
+        rejectSettingsLine(r, "header", r->headerLine, &p, r->headerSource);
+        r->headerPending = 0;
+    }
     int boxOpen = r->boxOpen;
     int startsBox = r->headerPending && !isChoice;
-    int lines = s->problems ? 0 : settingPageLines(isChoice, isChoice ? optionCount : 0, startsBox, &boxOpen);
+    int lines = s->problems ? 0 : parent ? 1 : settingPageLines(isChoice, isChoice ? optionCount : 0, startsBox, &boxOpen);
 
     if (r->headerPending) {
         SettingProblem p;
@@ -554,7 +625,14 @@ static void finishIniSection(IniParse *r, IniSection *s) {
         if (isWord && s->hasDefault && !same && s->type != SECTION_UNKNOWN) declareLeftOutSetting(r, s, optionCount);
         return;
     }
-    declareKeptSetting(r, s, optionCount, lines, startsBox);
+    ModSetting *kept = declareKeptSetting(r, s, optionCount, lines, startsBox, parent);
+    if (kept && underLater) {
+        snprintf(kept->underName, sizeof kept->underName, "%s", s->under);
+        kept->underLine = s->underLine;
+        kept->underIn = r->sidecar;
+        snprintf(kept->underWord, sizeof kept->underWord, "%s", s->word);
+        snprintf(kept->underSource, sizeof kept->underSource, "%s", s->underSource);
+    }
     if (!s->problems) {
         r->pageLines += lines;
         r->boxOpen = boxOpen;

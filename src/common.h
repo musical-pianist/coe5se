@@ -433,6 +433,11 @@ static UNUSED void screenTitle(const char *t) {
     GAME_FN(void (*)(FMT_ARGS), RVA_SCREEN_TITLE)("%s", translateText(t, translated, sizeof translated));
 }
 
+#define LAYOUT_F(e, off) (*(float *)((e) + (off)))
+#define LAYOUT_ID(e)     (*(int *)(e))
+#define LAYOUT_TYPE(e)   (*(short *)((e) + LAYOUT_ELEMENT_TYPE))
+#define LAYOUT_ENDS(e)   (*(unsigned char *)((e) + LAYOUT_ELEMENT_LINE_END))
+
 #ifdef __APPLE__
 // ---- Mac: helpers the game inlined ------------------------------------------------------------
 
@@ -440,10 +445,6 @@ static UNUSED unsigned char *layoutNew(void) {
     int i = GAME_FN(int (*)(void), RVA_LAYOUT_NEW)();
     return i < 0 ? NULL : GAME_PTR(RVA_LAYOUT_TABLE) + (size_t)i * LAYOUT_STRIDE;
 }
-#define LAYOUT_F(e, off) (*(float *)((e) + (off)))
-#define LAYOUT_ID(e)     (*(int *)(e))
-#define LAYOUT_TYPE(e)   (*(short *)((e) + LAYOUT_ELEMENT_TYPE))
-#define LAYOUT_ENDS(e)   (*(unsigned char *)((e) + LAYOUT_ELEMENT_LINE_END))
 
 static UNUSED void closeLine(void) {
     if (GF(RVA_WIDEST_LINE) <= GF(RVA_LINE_WIDTH)) GF(RVA_WIDEST_LINE) = GF(RVA_LINE_WIDTH);

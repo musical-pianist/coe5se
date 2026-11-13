@@ -27,7 +27,7 @@ static const char *settingsFileSuffix(int in) {
 _Static_assert(ID_SCREEN_END <= ID_SUBPAGE && ID_SUBPAGE + SETTING_PAGES_MAX <= ID_ONOFF, "a mod page's id ranges overlap");
 #define SETTING_NAME_SIZE 64
 
-typedef struct {
+typedef struct ModSetting {
     int entry;
     char mod[MOD_NAME_MAX];
     char name[SETTING_NAME_SIZE];
@@ -49,6 +49,11 @@ typedef struct {
     char options[SETTING_OPTIONS_MAX][SETTING_TEXT_MAX + 1];
     char optionTips[SETTING_OPTIONS_MAX][SETTING_TIP_MAX + 1];
     char page[SETTING_NAME_MAX + 1];
+    struct ModSetting *under;
+    int reads;
+    char underName[SETTING_NAME_SIZE];
+    int underLine, underIn;
+    char underWord[16], underSource[160];
 } ModSetting;
 
 typedef struct {
@@ -363,6 +368,8 @@ static int loadValue(const ModSetting *s) {
     return v < 0 || v > max ? s->defaultValue : v;
 }
 
+static void refreshSettingReads(void);
+
 static void saveValue(const ModSetting *s) {
     char path[MAX_PATH], text[16];
     noteSettingsIniNow();
@@ -375,6 +382,7 @@ static void saveValue(const ModSetting *s) {
     noteOwnSettingsWrite(saved);
     if (saved) writeLog("setting_changed", "mod=%s name=%s value=%d", s->mod, s->name, s->value);
     else writeLogError("setting_not_saved", "reason=write_failed mod=%s name=%s value=%d path=%s", s->mod, s->name, s->value, path);
+    refreshSettingReads();
 }
 
 static void forgetValue(const ModSetting *s) {

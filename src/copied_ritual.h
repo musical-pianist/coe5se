@@ -16,6 +16,7 @@ static void carryCopiedRitualWords(int source, int mod) {
     int ok = copyNoExplodeStrings(source, target);
     ok &= copyCorpseRules(source, target);
     ok &= copyRandomEquipLines(source, target);
+    ok &= copyCasterMaxCast(source, target);
     ok &= copyFactionRefs(FACTION_REF_RITUAL, source, target);
     ok &= copyPlaneRefs(source, target);
     if (!ok) refuseC5mLine("copyritual", spellModName(mod), "out_of_memory", "line=%d", G32(RVA_MOD_LINE));

@@ -1,6 +1,6 @@
 #pragma once
 
-#define ENTRY_HOOK_COUNT 26
+#define ENTRY_HOOK_COUNT 51
 #ifndef __APPLE__
 static const EntryHookSite ENTRY_HOOK_SITES[ENTRY_HOOK_COUNT] = {
     {"find_all_mods", 0x1c9640, 5, 0, {{0, 0}}},
@@ -29,6 +29,31 @@ static const EntryHookSite ENTRY_HOOK_SITES[ENTRY_HOOK_COUNT] = {
     {"turn_unit_upkeep", 0x143a70, 8, 1, {{4, 0x147602}}},
     {"wanderer_pick_target", 0x169b90, 7, 0, {{0, 0}}},
     {"rulership_check", 0x10d140, 6, 0, {{0, 0}}},
+    {"give_item", 0x180030, 6, 0, {{0, 0}}},
+    {"can_equip_item", 0x184dd0, 7, 0, {{0, 0}}},
+    {"enforce_items", 0x1833d0, 8, 0, {{0, 0}}},
+    {"unit_remove_item", 0x184fc0, 7, 0, {{0, 0}}},
+    {"take_item_by_name", 0x17ff70, 5, 0, {{0, 0}}},
+    {"unit_nth_item_of_kind", 0x183520, 5, 0, {{0, 0}}},
+    {"item_slot_kind", 0x1806a0, 6, 0, {{0, 0}}},
+    {"alloc_unit", 0x10fff0, 5, 0, {{0, 0}}},
+    {"save_unit", 0x18bee0, 6, 0, {{0, 0}}},
+    {"load_unit", 0x18d200, 5, 0, {{0, 0}}},
+    {"battle_load_others", 0x18df60, 5, 0, {{0, 0}}},
+    {"drop_unit_items_at", 0x17dd50, 6, 0, {{0, 0}}},
+    {"dead_units_pass", 0x1809c0, 6, 0, {{0, 0}}},
+    {"find_item_holder_at", 0x17de70, 6, 0, {{0, 0}}},
+    {"item_use", 0x183c70, 8, 1, {{4, 0x184ce8}}},
+    {"unit_ability_total", 0x1174d0, 5, 0, {{0, 0}}},
+    {"item_castable_spell", 0x183220, 6, 0, {{0, 0}}},
+    {"battle_item_effects", 0x0d69a0, 6, 0, {{0, 0}}},
+    {"ai_redistribute_items", 0x0734b0, 5, 0, {{0, 0}}},
+    {"commander_use_items", 0x185060, 5, 0, {{0, 0}}},
+    {"unit_attack_row", 0x0d7570, 5, 0, {{0, 0}}},
+    {"net_put_unit_record", 0x1e7990, 7, 0, {{0, 0}}},
+    {"net_get_unit_items", 0x069480, 5, 0, {{0, 0}}},
+    {"save_battle_replay", 0x0f1780, 6, 0, {{0, 0}}},
+    {"load_battle_replay", 0x0f3cb0, 5, 0, {{0, 0}}},
 };
 #else
 static const EntryHookSite ENTRY_HOOK_SITES[ENTRY_HOOK_COUNT] = {
@@ -58,5 +83,30 @@ static const EntryHookSite ENTRY_HOOK_SITES[ENTRY_HOOK_COUNT] = {
     {"turn_unit_upkeep", 0x000000, 0, 0, {{0, 0}}},
     {"wanderer_pick_target", 0x000000, 0, 0, {{0, 0}}},
     {"rulership_check", 0x000000, 0, 0, {{0, 0}}},
+    {"give_item", 0x4e4e70, 16, 0, {{0, 0}}},
+    {"can_equip_item", 0x4e4548, 16, 0, {{0, 0}}},
+    {"enforce_items", 0x4e55ac, 16, 0, {{0, 0}}},
+    {"unit_remove_item", 0x4e6230, 16, 0, {{0, 0}}},
+    {"take_item_by_name", 0x4e582c, 16, 0, {{0, 0}}},
+    {"unit_nth_item_of_kind", 0x4e5f74, 16, 0, {{0, 0}}},
+    {"item_slot_kind", 0x000000, 0, 0, {{0, 0}}},
+    {"alloc_unit", 0x46d184, 16, 0, {{0, 0}}},
+    {"save_unit", 0x4f07d0, 16, 0, {{0, 0}}},
+    {"load_unit", 0x4ef09c, 16, 0, {{0, 0}}},
+    {"battle_load_others", 0x4f4bc8, 16, 0, {{0, 0}}},
+    {"drop_unit_items_at", 0x4ea188, 16, 0, {{0, 0}}},
+    {"dead_units_pass", 0x4ea3ac, 16, 0, {{0, 0}}},
+    {"find_item_holder_at", 0x4e997c, 16, 0, {{0, 0}}},
+    {"item_use", 0x4e6640, 16, 0, {{0, 0}}},
+    {"unit_ability_total", 0x4662fc, 16, 0, {{0, 0}}},
+    {"item_castable_spell", 0x4e8de0, 16, 0, {{0, 0}}},
+    {"battle_item_effects", 0x000000, 0, 0, {{0, 0}}},
+    {"ai_redistribute_items", 0x000000, 0, 0, {{0, 0}}},
+    {"commander_use_items", 0x000000, 0, 0, {{0, 0}}},
+    {"unit_attack_row", 0x3f184c, 16, 0, {{0, 0}}},
+    {"net_put_unit_record", 0x000000, 0, 0, {{0, 0}}},
+    {"net_get_unit_items", 0x000000, 0, 0, {{0, 0}}},
+    {"save_battle_replay", 0x000000, 0, 0, {{0, 0}}},
+    {"load_battle_replay", 0x000000, 0, 0, {{0, 0}}},
 };
 #endif

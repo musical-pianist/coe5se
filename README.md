@@ -97,7 +97,7 @@ Use new commands in your mod:
 
 Tie your mod's variables to [settings](https://musical-pianist.github.io/coe5se-docs/commands/mod-settings/), and you can craft a more dynamic experience around each player's preferences.
 
-Every command, with examples, is in the [CoE5SE docs](https://musical-pianist.github.io/coe5se-docs/). [ToolsAndExamples](ToolsAndExamples/) has MachineCult, an example mod.
+Every command, with examples, is in the [CoE5SE docs](https://musical-pianist.github.io/coe5se-docs/).
 
 ## Uninstall
 
@@ -146,6 +146,13 @@ Script extenders have been around in PC modding for a long time (SKSE, F4SE; the
 
 At a base level, I made this for myself. All the "Jazzy" mods above I've been wishing for since I first played this game! That said, I'm not a traditional modder. I hate creative writing and I hate sprites. So I decided my contribution to the community would be make other's stories a little bit easier to write and play. Hopefully, I'm not 5 years late to the table on this. If I am and there's no adoption, well, at least I made the mods I need to have a good time lol.
 
+## Credits
+
+Thank you to:
+- Alex the Beetrayer, for the CoE5 fan patch built into CoE5SE.
+- Chazammm, for graphics improvements (texture array batching and frame rate limiting) and creative vision.
+- Vorochí, for creative vision.
+
 ## License
 
-Terms of use: [LICENSE.txt](LICENSE.txt). The example mods in `ToolsAndExamples/` and `coe5.lua` are free to copy and change for your own mods.
+Terms of use: [LICENSE.txt](LICENSE.txt). `coe5.lua` is free to copy and change for your own mods.

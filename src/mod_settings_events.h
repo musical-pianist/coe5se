@@ -9,6 +9,7 @@ static int hostSettingPickOr(const char *mod, const char *name, int fallback);
 
 static int settingValueNow(const ModSetting *s) {
     if (s->rejected) return s->defaultValue;
+    if (s->under && settingValueNow(s->under) == 0) return 0;
     NetRole role = netRoleNow();
     if (role == NET_ROLE_SINGLE || role == NET_ROLE_HOST) return s->value;
     if (role == NET_ROLE_OFFICIAL) return s->defaultValue;

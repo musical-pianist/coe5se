@@ -83,6 +83,7 @@ static void gateMapEditorDraw(void) {
         if (mapScreenWaiting <= 0 || !siteInstalled[SITE_MAP_DRAW]) {
             ((void (*)(void))game)();
             drawUiButtons();
+            drawSettingsTrees();
             return;
         }
         previewBeforeMapDraw();
@@ -198,6 +199,7 @@ static void *glImport(uintptr_t rva) {
 #define GL_FLOAT_TYPE   0x1406
 #define GL_LINES_MODE   1
 #define GL_TRIANGLE_FAN_MODE 6
+#define GL_TRIANGLE_STRIP_MODE 5
 
 static float uiScaleX(void) { return G32(RVA_SCREEN_W) > 0 ? (float)G32(RVA_WINDOW_W) / (float)G32(RVA_SCREEN_W) : 1.0f; }
 static float uiScaleY(void) { return G32(RVA_SCREEN_H) > 0 ? (float)G32(RVA_WINDOW_H) / (float)G32(RVA_SCREEN_H) : 1.0f; }
@@ -257,6 +259,40 @@ static void drawUiRect(float x, float y, float w, float h, float r, float g, flo
     GL_IMPORT(void (*)(int, unsigned, int, const void *), RVA_GL_VERTEX_POINTER)(2, GL_FLOAT_TYPE, 0, corners);
     GL_IMPORT(void (*)(unsigned, int, int), RVA_GL_DRAW_ARRAYS)(GL_TRIANGLE_FAN_MODE, 0, 4);
     GL_IMPORT(void (*)(unsigned), RVA_GL_DISABLE_CLIENT_STATE)(GL_VERTEX_ARRAY);
+}
+
+#define UI_PI 3.14159265f
+#define UI_ARC_STEPS 12
+
+static void drawUiShape(unsigned mode, const float *points, int count, float r, float g, float b, float alpha) {
+    GAME_FN(void (*)(int, int), RVA_GL_STATE)(0, GL_STATE_LINES);
+    GL_IMPORT(void (*)(unsigned), RVA_GL_ENABLE_CLIENT_STATE)(GL_VERTEX_ARRAY);
+    GL_IMPORT(void (*)(float, float, float, float), RVA_GL_COLOR4F)(r, g, b, alpha);
+    GL_IMPORT(void (*)(int, unsigned, int, const void *), RVA_GL_VERTEX_POINTER)(2, GL_FLOAT_TYPE, 0, points);
+    GL_IMPORT(void (*)(unsigned, int, int), RVA_GL_DRAW_ARRAYS)(mode, 0, count);
+    GL_IMPORT(void (*)(unsigned), RVA_GL_DISABLE_CLIENT_STATE)(GL_VERTEX_ARRAY);
+}
+
+static void drawUiHalfDisc(float x, float y, float radius, int facing, float r, float g, float b, float alpha) {
+    float sx = uiScaleX(), sy = uiScaleY(), points[2 * (2 * UI_ARC_STEPS + 2)];
+    int n = 0;
+    points[n++] = x * sx, points[n++] = y * sy;
+    for (int i = 0; i <= 2 * UI_ARC_STEPS; i++) {
+        float a = UI_PI / 2 + (facing < 0 ? 0 : UI_PI) + UI_PI * (float)i / (float)(2 * UI_ARC_STEPS);
+        points[n++] = (x + radius * cosf(a)) * sx, points[n++] = (y + radius * sinf(a)) * sy;
+    }
+    drawUiShape(GL_TRIANGLE_FAN_MODE, points, n / 2, r, g, b, alpha);
+}
+
+static void drawUiQuarterRing(float x, float y, float radius, float from, float width, float r, float g, float b, float alpha) {
+    float sx = uiScaleX(), sy = uiScaleY(), points[4 * (UI_ARC_STEPS + 1)];
+    int n = 0;
+    for (int i = 0; i <= UI_ARC_STEPS; i++) {
+        float a = from + UI_PI / 2 * (float)i / (float)UI_ARC_STEPS, c = cosf(a), s = sinf(a);
+        points[n++] = x * sx + (radius * sx + width / 2) * c, points[n++] = y * sy + (radius * sy + width / 2) * s;
+        points[n++] = x * sx + (radius * sx - width / 2) * c, points[n++] = y * sy + (radius * sy - width / 2) * s;
+    }
+    drawUiShape(GL_TRIANGLE_STRIP_MODE, points, n / 2, r, g, b, alpha);
 }
 
 static void drawUiText(float x, float y, float size, const char *text, float r, float g, float b, float alpha) {

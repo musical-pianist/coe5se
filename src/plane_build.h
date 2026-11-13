@@ -489,15 +489,16 @@ static int lGenFindSpotByNeighbours(lua_State *L) {
 #define SKY_PATH_MODE    0x40
 #define SKY_PATH_AP_MAX  200
 #define SKY_PATH_SHIFT   10
+typedef int (*GameMonsterPath)(int, int, int, int, int, int, int, int);
 static int lGenReachesElysium(lua_State *L) {
     int x, y;
     if (!genSquare(L, "coe5.gen.reachesElysium", 1, &x, &y)) return 0;
     int plane = GAME_FN(int (*)(int, int), RVA_PLANE_AT)(x, y), reached = plane == 0;
     if (plane > 0) {
-        int (*path)(int, int, int, int, int, int) = GAME_FN(int (*)(int, int, int, int, int, int), RVA_MONSTER_PATH);
+        GameMonsterPath path = GAME_FN(GameMonsterPath, RVA_MONSTER_PATH);
         int cx = planeField(0, PLANE_X) + planeField(0, PLANE_W) / 2, cy = planeField(0, PLANE_Y) + planeField(0, PLANE_H) / 2;
-        reached = path(SKY_PATH_MODE, x, y, cx, cy, SKY_PATH_AP_MAX) >= 0 || path(SKY_PATH_MODE, x, y, cx - SKY_PATH_SHIFT, cy, SKY_PATH_AP_MAX) >= 0 ||
-                  path(SKY_PATH_MODE, x, y, cx + SKY_PATH_SHIFT, cy, SKY_PATH_AP_MAX) >= 0;
+        reached = path(SKY_PATH_MODE, x, y, cx, cy, SKY_PATH_AP_MAX, 0, 0) >= 0 || path(SKY_PATH_MODE, x, y, cx - SKY_PATH_SHIFT, cy, SKY_PATH_AP_MAX, 0, 0) >= 0 ||
+                  path(SKY_PATH_MODE, x, y, cx + SKY_PATH_SHIFT, cy, SKY_PATH_AP_MAX, 0, 0) >= 0;
     }
     lua_pushboolean(L, reached);
     return 1;

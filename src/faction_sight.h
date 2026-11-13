@@ -46,7 +46,7 @@ static unsigned long long sightTerrainFlags(int terrain) {
 #ifndef __APPLE__
 static int sightFirstTeamUnitAt(int player, int x, int y) { return GAME_FN(int (*)(int, int, int), RVA_FIRST_TEAM_UNIT_AT)(player, x, y); }
 static int sightTeamFarsight(int player, int x, int y) { return GAME_FN(int (*)(int, int, int), RVA_SQUARE_TEAM_ABILITY)(player, x, y); }
-static int sightTeamFarsightSea(int player, int x, int y) { return GAME_FN(int (*)(int, int, int), RVA_SQUARE_TEAM_ABILITY_B)(player, x, y); }
+static int sightTeamFarsightSea(int player, int x, int y) { return GAME_FN(int (*)(int, int, int, int, int), RVA_SQUARE_TEAM_ABILITY_B)(player, x, y, 0, 0); }
 static int sightSourceNear(int player, int x, int y) { return GAME_FN(int (*)(int, int, int), RVA_SIGHT_SOURCE_NEAR)(player, x, y); }
 static int sightSquareOwnerAt(int x, int y) { return GAME_FN(int (*)(int, int), RVA_SQUARE_OWNER_AT)(x, y); }
 static void sightUpdate(int player, int x0, int y0, int x1, int y1) { GAME_FN(UpdateSightFn, RVA_UPDATE_SIGHT)(player, x0, y0, x1, y1); }

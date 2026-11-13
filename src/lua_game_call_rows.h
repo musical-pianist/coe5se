@@ -38,7 +38,7 @@
     X(unitMindless, BOTH_BUILDS_CALL(RVA_UNIT_MINDLESS), "u", 'B') \
     X(unitRegenPercent, BOTH_BUILDS_CALL(RVA_UNIT_REGEN_PERCENT), "u", 'i') \
     X(unitAfflictionCount, MAC_COPY_CALL(RVA_UNIT_AFFLICTION_COUNT, unitAfflictionCountCopy), "u", 'i') \
-    X(unitHasSpellAttack, WINDOWS_ONLY_CALL(RVA_UNIT_HAS_SPELL_ATTACK), "u", 'B') \
+    X(unitHasSpellAttack, RVA_UNIT_HAS_SPELL_ATTACK, "u", 'B') \
     X(unitIsUndead, MAC_COPY_CALL(RVA_UNIT_IS_UNDEAD, unitIsUndeadCopy), "u", 'B') \
     X(unitIsDemon, MAC_COPY_CALL(RVA_UNIT_IS_DEMON, unitIsDemonCopy), "u", 'B') \
     X(unitAbilitySum, WINDOWS_ONLY_CALL(RVA_UNIT_ABILITY_SUM), "uai", 'i') \
@@ -62,11 +62,11 @@
     X(wandererAt, BOTH_BUILDS_CALL(RVA_WANDERER_AT), "xy", 'B') \
     X(teleportUnit, WINDOWS_ONLY_CALL(RVA_TELEPORT_UNIT), "uxy", 'v') \
     X(unitAddXp, WINDOWS_ONLY_CALL(RVA_UNIT_ADD_XP), "ui", 'v') \
-    X(unitRemoveItem, WINDOWS_ONLY_CALL(RVA_UNIT_REMOVE_ITEM), "uT", 'i') \
+    X(unitRemoveItem, RVA_UNIT_REMOVE_ITEM, "uT", 'i') \
     X(damageUnitPlain, WINDOWS_ONLY_CALL(RVA_DAMAGE_UNIT_PLAIN), "ui", 'v') \
     X(squareHold, WINDOWS_ONLY_CALL(RVA_SET_HOLDIT), "pxy", 'i') \
     X(spendAllApAt, BOTH_BUILDS_CALL(RVA_SPEND_ALL_AP_AT), "Pxy", 'v') \
-    X(commanderUseItems, WINDOWS_ONLY_CALL(RVA_COMMANDER_USE_ITEMS), "c", 'i') \
+    X(commanderUseItems, MAC_COPY_CALL(RVA_COMMANDER_USE_ITEMS, commanderUseItemsCopy), "c", 'i') \
     X(killUnit, WINDOWS_ONLY_CALL(RVA_KILL_UNIT_999), "u", 'v') \
     X(giveItem, BOTH_BUILDS_CALL(RVA_GIVE_ITEM_BY_NAME), "us", 'v') \
     X(takeItem, BOTH_BUILDS_CALL(RVA_TAKE_ITEM_BY_NAME), "us", 'v') \
@@ -205,12 +205,12 @@
     X(battleLocalLeadership, WINDOWS_ONLY_CALL(RVA_BATTLE_LOCAL_LEADERSHIP), "!XYp", 'i') \
     X(battleCountRank, BOTH_BUILDS_CALL(RVA_BATTLE_COUNT_RANK), "!pii", 'i') \
     X(battleWinner, MAC_COPY_CALL(RVA_BATTLE_WINNER, battleWinnerCopy), "!", 'i') \
-    X(battleLineOfSight, WINDOWS_ONLY_CALL(RVA_BATTLE_LINE_OF_SIGHT), "!uu", 'b') \
+    X(battleLineOfSight, RVA_BATTLE_LINE_OF_SIGHT, "!uu", 'b') \
     X(battleInRange, WINDOWS_ONLY_CALL(RVA_BATTLE_IN_RANGE), "!uuii", 'b') \
-    X(unitInContact, WINDOWS_ONLY_CALL(RVA_UNIT_IN_CONTACT), "!u", 'B') \
+    X(unitInContact, RVA_UNIT_IN_CONTACT, "!u", 'B') \
     X(battleCanStand, BOTH_BUILDS_CALL(RVA_BATTLE_CAN_STAND), "!uXYi", 'b') \
-    X(battleUnitDistance, WINDOWS_ONLY_CALL(RVA_BATTLE_UNIT_DISTANCE), "!uuO", 'i') \
-    X(battleNearestEnemy, WINDOWS_ONLY_CALL(RVA_BATTLE_NEAREST_ENEMY), "!uO", 'i') \
+    X(battleUnitDistance, RVA_BATTLE_UNIT_DISTANCE, "!uuO", 'i') \
+    X(battleNearestEnemy, RVA_BATTLE_NEAREST_ENEMY, "!uO", 'i') \
     X(battleEnemyExtent, MAC_COPY_CALL(RVA_BATTLE_ENEMY_EXTENT, battleEnemyExtentCopy), "!pOO", 'w') \
     X(battleSquareAbility, WINDOWS_ONLY_CALL(RVA_BATTLE_SQUARE_ABILITY), "!ua0", 'i') \
     X(battleWallCover, BOTH_BUILDS_CALL(RVA_BATTLE_WALL_COVER), "!ui", 'i') \

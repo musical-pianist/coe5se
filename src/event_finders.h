@@ -87,8 +87,9 @@ static int finderUnitMatches(int kind, int u, int player, const char *name) {
     size_t at = (size_t)u * UNIT_SIZE;
     if (player != FINDER_ANY_PLAYER && (short)G16(RVA_UNIT_PLAYER + at) != player) return 0;
     if (kind == EVENT_FINDER_UNIT) return !name[0] || !strcmp(finderMonsterName(u), name);
-    for (int i = 0; i < UNIT_ITEM_SLOTS; i++) {
-        short item = (short)G16(RVA_UNIT_ITEMS + at + (size_t)i * 2);
+    int positions = unitExtraItemCount(u) ? ITEM_POSITION_MAX : UNIT_ITEM_SLOTS;
+    for (int i = 0; i < positions; i++) {
+        int item = unitItemAt(u, i);
         if (item >= 0 && !strcmp((const char *)(tableAddress(TABLE_ITEM) + (size_t)item * ITEM_SIZE), name)) return 1;
     }
     return 0;

@@ -2,6 +2,9 @@
 #include "common.h"
 #include "build_path.h"
 #include "jazzy_api.h"
+#include "graphics/graphics.h"
+static int settingDefaultHere(const char *mod, const char *name, int declared);
+static void noteGraphicsVendorAtMenu(void);
 #define USER_DIR_FROM_INCLUDER
 #include "approvals.h"
 #include "auto_enable.h"
@@ -202,6 +205,11 @@ static void ritualWordsAfterPass(int level);
 static const char *corpseWordLineHook(const char *line, size_t len, int mod, int level);
 static int corpseEventLine(const char *line, int level);
 static void corpseWordsBeforePass(int level);
+static void commanderCastsBeforePass(int level);
+static void itemSlotsBeforePass(int level);
+static void keepWeaponsBeforePass(int level);
+static void copyMonsterKeepsWeapons(int source, int target);
+static void clearMonsterKeepsWeapons(int monster);
 static void corpseWordsAfterPass(int level);
 static const char *killWordLineHook(const char *line, size_t len, int mod, int level);
 static void killWordsBeforePass(int level);
@@ -533,6 +541,7 @@ static void finishStartup(void) {
 
 static void onFirstMenuFrame(const MenuColumn *col) {
     finishStartup();
+    noteGraphicsVendorAtMenu();
     writeLog("menu_hook_first_frame", "screen_w=%d screen_h=%d x=%.1f top=%.1f bg_alpha=%.3f fade_timer=%.3f buttons=%d room=%d quit_moved=%d",
              *(int *)(gameBase + RVA_SCREEN_W), *(int *)(gameBase + RVA_SCREEN_H), col->x, col->top, col->bgAlpha, *menuFadeTimer,
              col->count, col->room, col->moved);
@@ -1143,7 +1152,7 @@ static NetRole netRoleNow(void) {
 #include "mod_command_hook.h"
 
 // ---- Observers ---------------------------------------------------------------------------------
-typedef u64 (*ObservedCall)(u64, u64, u64, u64, u64, u64);
+typedef u64 (*ObservedCall)(u64, u64, u64, u64, u64, u64, u64, u64);
 typedef void (*ObserverFn)(const CallInfo *call);
 
 typedef struct { ObserverFn before, after; int scripts; } Observer;
@@ -1158,17 +1167,19 @@ static void notifyObservers(CallSite site, const CallInfo *call, int after) {
     }
 }
 
-static u64 runObserved(CallSite site, u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u64 a6) {
+static u64 runObserved(CallSite site, u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u64 a6, u64 a7, u64 a8) {
     CallInfo call = {{a1, a2, a3, a4, a5, a6}, 0};
     notifyObservers(site, &call, 0);
-    u64 result = nextObserved[site](a1, a2, a3, a4, a5, a6);
+    u64 result = nextObserved[site](a1, a2, a3, a4, a5, a6, a7, a8);
     call = (CallInfo){{a1, a2, a3, a4, a5, a6}, result};
     notifyObservers(site, &call, 1);
     return result;
 }
 
 #define OBSERVE_WRAPPER(s) \
-    static u64 observe_##s(u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u64 a6) { return runObserved(s, a1, a2, a3, a4, a5, a6); }
+    static u64 observe_##s(u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u64 a6, u64 a7, u64 a8) { \
+        return runObserved(s, a1, a2, a3, a4, a5, a6, a7, a8); \
+    }
 OBSERVE_ONLY_SITES(OBSERVE_WRAPPER)
 #undef OBSERVE_WRAPPER
 
@@ -1577,6 +1588,7 @@ static int apiSettingsPluginClick(int id) {
 #include "mod_settings_reading.h"
 #include "mod_settings_screen.h"
 #include "preview_results.h"
+#include "graphics_vendor.h"
 #include "mod_settings_events.h"
 #include "event_logic.h"
 
@@ -1685,7 +1697,9 @@ static void coe5sePageScreen(void) {
         textButton(ID_EXIT, "Back");
         bindHotkey(ID_EXIT, UI_KEY_ENTER);
         uiBindKey(ID_EXIT, UI_KEY_ESCAPE);
+        settingsPageWaiting++;
         int id = screenWait();
+        settingsPageWaiting--;
         if (id == ID_EXIT) return;
         clickIniSetting(id, page, settingCount);
         if (id >= ID_APPROVE_FIRST && id < ID_APPROVE_FIRST + n) {
@@ -1750,6 +1764,9 @@ static u64 modErrorDialogWrapper(u64 title, u64 text, u64 a3, u64 a4, u64 a5, u6
 #include "spells_changed.h"
 #include "code_check.h"
 #include "corpse_kinds.h"
+#include "commander_casts.h"
+#include "item_slots.h"
+#include "item_slot_stats.h"
 #include "kill_transforms.h"
 #include "weapon_traits.h"
 #include "heal_army.h"
@@ -1801,6 +1818,12 @@ static u64 modErrorDialogWrapper(u64 title, u64 text, u64 a3, u64 a4, u64 a5, u6
 #include "drown_search.h"
 #include "battle_snapshot.h"
 #include "fanpatch/fanpatch_host.h"
+#include "item_slot_hooks.h"
+#include "item_slot_card.h"
+#include "item_slot_battle.h"
+#include "item_slot_weapons.h"
+#include "item_slot_net.h"
+#include "item_slot_replay.h"
 #include "faction_words.h"
 #include "faction_movers.h"
 #include "faction_saves.h"
@@ -1919,6 +1942,8 @@ static void startCoe5se(const char *via) {
     if (featureOn(FEATURE_RITUAL_WORDS)) ritualWordsInit();
     if (featureOn(FEATURE_CORPSE_KINDS)) corpseKindsInit();
     if (featureOn(FEATURE_CORPSE_KINDS)) killTransformsInit();
+    if (featureOn(FEATURE_RITUAL_WORDS)) commanderCastsInit();
+    if (featureOn(FEATURE_ITEM_SLOTS)) itemSlotsInit();
     if (featureOn(FEATURE_WEAPON_TRAITS)) weaponTraitsInit();
     if (featureOn(FEATURE_SPELL_WORDS)) healArmyInit();
     if (featureOn(FEATURE_WEAPON_TRAITS)) beamWidthInit();
@@ -1935,6 +1960,11 @@ static void startCoe5se(const char *via) {
     if (featureOn(FEATURE_PLUGIN_CHECKS)) pluginStartInit();
     if (featureOn(FEATURE_MOD_SETTINGS)) modSettingsInit();
     if (featureOn(FEATURE_LOAD_ORDER)) loadOrderInit();
+#ifdef __APPLE__
+    static const GraphicsMacHost graphicsHost = {.pointCall = pointCustomPlaneCall, .makeDataWritable = makeGameDataWritable};
+    if (featureOn(FEATURE_MAP_RENDERING)) coe5seGraphicsMacHost(&graphicsHost);
+#endif
+    if (featureOn(FEATURE_MAP_RENDERING)) { applySavedGraphicsVendor(); coe5seGraphicsInit(&API, userDir()); }
 #ifdef COE5SE_EXTRA_START
     COE5SE_EXTRA_START();
 #endif

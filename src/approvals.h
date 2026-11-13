@@ -157,7 +157,10 @@ static __attribute__((unused)) int copyUserFile(const char *from, const char *to
     FILE *in = fopen(from, "rb"), *out = in ? fopen(fresh, "wb") : NULL;
     int ok = in && out;
     size_t n;
-    while (ok && (n = fread(buf, 1, sizeof buf, in)) > 0) ok = fwrite(buf, 1, n, out) == n;
+    while (ok && (n = fread(buf, 1, sizeof buf, in)) > 0) {
+        ok = fwrite(buf, 1, n, out) == n;
+        if (n < sizeof buf) break;
+    }
     if (in && ferror(in)) ok = 0;
     if (in) fclose(in);
     if (out && fclose(out)) ok = 0;

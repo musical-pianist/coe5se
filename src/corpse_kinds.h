@@ -35,12 +35,77 @@ static const struct {
     {"humanoid", CORPSE_MASK_HUMANOID},          {"animal", CORPSE_MASK_ANIMAL},        {"all", CORPSE_MASK_ALL},
 };
 
+typedef struct {
+    int count, sides;
+    long long plus;
+} CorpseAmount;
+
+static int (*corpseOpenDice)(int, int);
+
+static int readCorpseDigits(const char **p, long long *out) {
+    const char *s = *p;
+    long long v = 0;
+    int digits = 0;
+    for (; *s >= '0' && *s <= '9'; s++, digits++) {
+        if (digits == 9) return 0;
+        v = v * 10 + (*s - '0');
+    }
+    if (!digits) return 0;
+    *out = v;
+    *p = s;
+    return 1;
+}
+
+static int readCorpseAmount(const char **p, CorpseAmount *out) {
+    skipSpaces(p);
+    const char *s = *p;
+    long long count, sides, plus = 0;
+    if (!readCorpseDigits(&s, &count) || *s != 'd') {
+        long long n;
+        if (!readSpellNumber(p, &n)) return 0;
+        *out = (CorpseAmount){.plus = n};
+        return 1;
+    }
+    s++;
+    if (!readCorpseDigits(&s, &sides)) return -1;
+    if (*s == '+' || *s == '-') {
+        int minus = *s++ == '-';
+        if (!readCorpseDigits(&s, &plus)) return -1;
+        if (minus) plus = -plus;
+    }
+    if (*s && *s != ' ' && *s != '\t' && *s != '"' && *s != '\r' && *s != '\n') return -1;
+    if (count < 1 || sides < 1) return -1;
+    *out = (CorpseAmount){.count = (int)count, .sides = (int)sides, .plus = plus};
+    *p = s;
+    return 1;
+}
+
+static int corpseDiceFit(const CorpseAmount *a, int scaled) {
+    long long base = scaled && a->plus >= PUT_CORPSES_SCALED ? a->plus - PUT_CORPSES_SCALED : a->plus;
+    if (a->count < 1 || a->sides < 1 || a->count >= PUT_CORPSES_SCALED || a->sides >= PUT_CORPSES_SCALED) return 0;
+    long long top = base + (long long)a->count * a->sides;
+    return base > -PUT_CORPSES_SCALED && top >= 1 && top < PUT_CORPSES_SCALED;
+}
+
+static long long rollCorpseAmount(const CorpseAmount *a) {
+    if (!a->count) return a->plus;
+    if (a->sides == 1) return a->plus + a->count;
+    return a->plus + corpseOpenDice(a->sides, a->count);
+}
+
+static int putCorpseDiceCount(const CorpseAmount *a, int percent) {
+    long long n = rollCorpseAmount(a);
+    if (a->plus >= PUT_CORPSES_SCALED) n = (n - PUT_CORPSES_SCALED) * percent / 100;
+    return n <= 0 ? 0 : n > CORPSE_RAISE_CAP_MAX ? CORPSE_RAISE_CAP_MAX : (int)n;
+}
+
 enum { CORPSE_RULE_PUT, CORPSE_RULE_RAISE_DEAD, CORPSE_RULE_RAISE_ANIMALS, CORPSE_RULE_RAISE_CORPSES, CORPSE_RULE_DROPPED, CORPSE_RULE_NEED,
        CORPSE_RULE_EXCLUDE, CORPSE_RULE_MAX_RAISE };
 
 typedef struct {
     int ritual, type, occurrence, mask, custom, line;
-    int cap, commander, deadsAbove, animalsAbove, putsAbove;
+    int cap, commander, deadsAbove, animalsAbove, putsAbove, kindless;
+    CorpseAmount amount;
     char mod[64], monster[MONSTER_NAME_SIZE];
 } CorpseRule;
 
@@ -334,7 +399,9 @@ static const CorpseRule *corpseRuleFor(int ritual, int type, int occurrence) {
 
 static int ritualNamesCorpseKind(int ritual) {
     for (int i = 0; i < corpseRuleCount; i++)
-        if (corpseRules[i].ritual == ritual && corpseRules[i].type != CORPSE_RULE_DROPPED && corpseRules[i].type != CORPSE_RULE_NEED) return 1;
+        if (corpseRules[i].ritual == ritual && corpseRules[i].type != CORPSE_RULE_DROPPED && corpseRules[i].type != CORPSE_RULE_NEED &&
+            !corpseRules[i].kindless)
+            return 1;
     return 0;
 }
 
@@ -386,11 +453,21 @@ static const char *corpseWordLineHook(const char *line, size_t len, int mod, int
     else return line;
     const char *p = line + len;
     long long n = 0;
+    CorpseAmount amount = {0};
     skipSpaces(&p);
-    if (type == CORPSE_RULE_PUT && !readSpellNumber(&p, &n)) return line;
+    if (type == CORPSE_RULE_PUT) {
+        int amountRead = readCorpseAmount(&p, &amount);
+        if (!amountRead) return line;
+        if (amountRead < 0 || (amount.count && !corpseDiceFit(&amount, 1))) {
+            refuseC5mLine(word, spellModName(mod), "bad_value", "line=%d text=%.40s max=%d", G32(RVA_MOD_LINE), line + len, PUT_CORPSES_SCALED - 1);
+            return NULL;
+        }
+        n = amount.plus;
+    }
     skipSpaces(&p);
-    if (isLineEnd(p)) return line;
-    int mask = 0, custom = -1, read = readCorpseKind(&p, &mask, &custom);
+    int kindless = isLineEnd(p);
+    if (kindless && !amount.count) return line;
+    int mask = kindless ? 1 << CORPSE_KIND_HUMAN : 0, custom = -1, read = kindless ? 1 : readCorpseKind(&p, &mask, &custom);
     if (read < 0) {
         refuseC5mLine(word, spellModName(mod), "unknown_corpse_kind", "line=%d name=%.63s", G32(RVA_MOD_LINE), unknownCorpseKindName);
         return NULL;
@@ -423,7 +500,7 @@ static const char *corpseWordLineHook(const char *line, size_t len, int mod, int
         refuseC5mLine(word, spellModName(mod), "not_one_kind", "line=%d text=%.40s", G32(RVA_MOD_LINE), line + len);
         return NULL;
     }
-    if (type == CORPSE_RULE_PUT && n <= 0) {
+    if (type == CORPSE_RULE_PUT && !amount.count && n <= 0) {
         refuseC5mLine(word, spellModName(mod), "bad_value", "line=%d value=%lld min=1", G32(RVA_MOD_LINE), n);
         return NULL;
     }
@@ -431,8 +508,11 @@ static const char *corpseWordLineHook(const char *line, size_t len, int mod, int
     if (ritual < 0) return NULL;
     int id = type == CORPSE_RULE_PUT ? RITUAL_FX_PUT_CORPSES : type == CORPSE_RULE_RAISE_DEAD ? RITUAL_FX_RAISE_DEAD : RITUAL_FX_RAISE_ANIMALS;
     if (!addCorpseRule(word, mod, type, ritualEffectCount(ritual, id), mask, custom, NULL)) return NULL;
-    corpseRules[corpseRuleCount - 1].cap = (int)cap;
-    if (type == CORPSE_RULE_PUT) snprintf(rewritten, sizeof rewritten, "putcorpses %lld", n);
+    CorpseRule *added = &corpseRules[corpseRuleCount - 1];
+    added->cap = (int)cap;
+    if (amount.count) added->amount = amount, added->kindless = kindless;
+    if (type == CORPSE_RULE_PUT && amount.count) snprintf(rewritten, sizeof rewritten, "putcorpses 1");
+    else if (type == CORPSE_RULE_PUT) snprintf(rewritten, sizeof rewritten, "putcorpses %lld", n);
     else snprintf(rewritten, sizeof rewritten, "%s", word);
     return rewritten;
 }
@@ -694,8 +774,10 @@ static int corpseEventLine(const char *line, int level) {
     else return 0;
     const char *word = remove == 2 ? "putcorpses" : remove ? "removecorpses" : sign > 0 ? "+mincorpses" : "-mincorpses";
     long long n = 0;
+    CorpseAmount amount = {0};
     skipSpaces(&p);
-    int number = readSpellNumber(&p, &n);
+    int number = remove == 2 ? readCorpseAmount(&p, &amount) > 0 : readSpellNumber(&p, &n);
+    if (remove == 2) n = amount.plus;
     if (!number && remove != 2) return 0;
     skipSpaces(&p);
     if (isLineEnd(p) && remove != 2) return 0;
@@ -714,7 +796,7 @@ static int corpseEventLine(const char *line, int level) {
         refuseC5mLine(word, "-", "not_one_kind", "line=%.60s", line);
         return 1;
     }
-    if (remove == 2 && (n < 1 || n >= PUT_CORPSES_SCALED)) {
+    if (remove == 2 && (amount.count ? !corpseDiceFit(&amount, 0) : n < 1 || n >= PUT_CORPSES_SCALED)) {
         refuseC5mLine(word, "-", "bad_value", "line=%.60s min=1 max=%d", line, PUT_CORPSES_SCALED - 1);
         return 1;
     }
@@ -722,7 +804,7 @@ static int corpseEventLine(const char *line, int level) {
     if (G32(RVA_EVENT_STATE) == PLAYER_EVENT) {
         int x = G32(RVA_EVENT_TARGET_X), y = G32(RVA_EVENT_TARGET_Y);
         if (x < 0 || y < 0) return 1;
-        int holds = corpseEventSquare(squareCorpses(x, y), mask, custom, count, remove);
+        int holds = corpseEventSquare(squareCorpses(x, y), mask, custom, amount.count ? putCorpseDiceCount(&amount, 100) : count, remove);
         if (!remove && holds != (sign > 0)) G32(RVA_EVENT_STATE) = EVENT_FAILED;
         return 1;
     }
@@ -730,7 +812,8 @@ static int corpseEventLine(const char *line, int level) {
     int any = 0;
     for (size_t i = 0; i < SQUARE_EVENT_A_SIZE; i++) {
         if (!marks[i]) continue;
-        int holds = corpseEventSquare(squareCorpses((int)(i / MAP_COLUMN_SQUARES), (int)(i % MAP_COLUMN_SQUARES)), mask, custom, count, remove);
+        int squareCount = amount.count ? putCorpseDiceCount(&amount, 100) : count;
+        int holds = corpseEventSquare(squareCorpses((int)(i / MAP_COLUMN_SQUARES), (int)(i % MAP_COLUMN_SQUARES)), mask, custom, squareCount, remove);
         if (!remove && holds != (sign > 0)) marks[i] = 0;
         else any = 1;
     }
@@ -1098,9 +1181,11 @@ static const char *corpsePutText(int x, int y) {
     long long n = value >= PUT_CORPSES_SCALED ? (value - PUT_CORPSES_SCALED) * cast->percent / 100 : value;
     int added = n <= 0 ? 0 : n < corpses[CORPSE_KIND_HUMAN] ? (int)n : corpses[CORPSE_KIND_HUMAN];
     corpses[CORPSE_KIND_HUMAN] = (short)(corpses[CORPSE_KIND_HUMAN] - added);
+    const CorpseRule *rule = corpseRuleFor(cast->ritual, CORPSE_RULE_PUT, occurrence);
+    if (rule && rule->amount.count) added = putCorpseDiceCount(&rule->amount, cast->percent);
     runWaitingRaiseCorpses(cast, CORPSE_RULE_PUT, occurrence);
     fitCustomCorpses(corpses);
-    const CorpseRule *r = cast->human ? corpseRuleFor(cast->ritual, CORPSE_RULE_PUT, occurrence) : NULL;
+    const CorpseRule *r = cast->human && rule && !rule->kindless ? rule : NULL;
     if (r && r->custom >= 0) addCustomCorpses(corpses, r->custom, added);
     else addCorpses(corpses, r ? onlyCorpseKind(r->mask) : CORPSE_KIND_HUMAN, added);
     return squareTextGame(x, y);
@@ -1249,6 +1334,7 @@ static void corpseKindsInit(void) {
     senseDeadTextGame = GAME_FN(SenseDeadTextFn, RVA_SENSEDEAD_TEXT);
     corpseRandom = GAME_FN(int (*)(int), RVA_RANDOM);
     corpseOpenDie = GAME_FN(int (*)(int), RVA_RANDOM_OPEN_DIE);
+    corpseOpenDice = GAME_FN(int (*)(int, int), RVA_RANDOM_OPEN_DICE);
     corpseMindless = GAME_FN(int (*)(int), RVA_UNIT_MINDLESS);
     corpseAbilityTotal = GAME_FN(int (*)(int, int, int, char *, int, int *), RVA_UNIT_ABILITY_TOTAL);
     corpseSummon = GAME_FN(int (*)(int, const char *, int, int, int), RVA_RITUAL_SUMMON_UNITS);

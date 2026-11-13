@@ -76,6 +76,9 @@ enum {
     T_PREVIEW_WHEEL,
     T_KEY_HELD,
     T_SLOT_CITADELS,
+    T_RITUAL_CASTER_MAX_CAST,
+    T_UNIT_RITUAL_CASTS,
+    T_UNIT_ITEM,
 };
 typedef struct {
     const char *name;
@@ -290,6 +293,8 @@ static const GameVar GAME_VARS[] = {
      RITUAL_FX_MAX, RITUAL_FX_SIZE},
     {"effectName",     0,                                 T_EFFECT_NAME, RITUAL_EFFECT_ID_COUNT, 0, 0, 0, 0, 0, 0},
     {"slotRitualCasts", RVA_CAST_COUNTS,                  T_CAST_COUNT, PLAYER_SLOTS, PLAYER_BLOCK_SIZE, 0, 0, 0, COUNT_AT_CALL, 2},
+    {"ritualCasterMaxCast", RVA_RITUAL_TABLE,             T_RITUAL_CASTER_MAX_CAST, COUNT_AT_CALL, RITUAL_SIZE, 0, 0, 0, 0, 0},
+    {"unitRitualCasts", RVA_UNITS,                        T_UNIT_RITUAL_CASTS, UNIT_TABLE_MAX, UNIT_SIZE, 0, 0, 0, COUNT_AT_CALL, 0},
     {"unitX",          RVA_UNIT_X,                        T_I32, UNIT_TABLE_MAX, UNIT_SIZE, 0, 0, 0, 0, 0},
     {"unitY",          RVA_UNIT_X + 4,                    T_I32, UNIT_TABLE_MAX, UNIT_SIZE, 0, 0, 0, 0, 0},
     {"unitBattleX",    RVA_UNITS,                         T_UNIT_BATTLE_X, UNIT_TABLE_MAX, UNIT_SIZE, 0, 0, 0, 0, 0},
@@ -433,7 +438,7 @@ static const GameVar GAME_VARS[] = {
     {"ceremonyLastIndex", 0,                              T_CEREMONY_LAST,    1, 0, 0, 0, 0, 0, 0},
     {"unitXp",         RVA_UNIT_XP,                       T_I16, UNIT_TABLE_MAX, UNIT_SIZE, 0, 0, 0, 0, 0},
     {"unitKills",      RVA_UNIT_KILLS,                    T_I16, UNIT_TABLE_MAX, UNIT_SIZE, 0, 0, 0, 0, 0},
-    {"unitItem",       RVA_UNIT_ITEMS,                    T_I16, UNIT_TABLE_MAX, UNIT_SIZE, 0, 0, 0, UNIT_ITEM_SLOTS, 2},
+    {"unitItem",       RVA_UNIT_ITEMS,                    T_UNIT_ITEM, UNIT_TABLE_MAX, UNIT_SIZE, 0, 0, 0, ITEM_POSITION_MAX, 2},
     {"unitKnownSpell", RVA_UNIT_KNOWN_SPELLS,             T_I16, UNIT_TABLE_MAX, UNIT_SIZE, 0, 0, 0, UNIT_KNOWN_SPELLS_MAX, 2},
     {"unitMemorizedSpell", RVA_UNIT_MEMORIZED_SPELLS,     T_I16, UNIT_TABLE_MAX, UNIT_SIZE, 0, 0, 0, UNIT_MEMORIZED_SPELLS_MAX, 2},
     {"squareItem",     RVA_GROUND_ITEMS,                  T_I16, MAP_COLUMNS_MAX, MAP_COLUMN_SQUARES * GROUND_ITEMS_PER_SQUARE * 2, 0, 0, 0,
@@ -615,7 +620,7 @@ static unsigned char *gameVarAddress(lua_State *L, const GameVar **out, int *arg
         if (index < first || index >= count) luaL_error(L, "%s: index %I out of range %d-%d", name, (LUAI_UACINT)index, first, count - 1);
     }
     lua_Integer index2 = 0, index3 = 0;
-    int count2 = v->type == T_CAST_COUNT ? ritualSlotCount() : v->count2;
+    int count2 = v->type == T_CAST_COUNT || v->type == T_UNIT_RITUAL_CASTS ? ritualSlotCount() : v->count2;
     if (count2 > 1) {
         if (takesAbilityWord(v->type) && lua_type(L, *arg) == LUA_TSTRING && !lua_isnumber(L, *arg)) {
             const char *word = lua_tostring(L, *arg);
