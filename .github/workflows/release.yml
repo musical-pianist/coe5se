@@ -1,6 +1,6 @@
-# Builds each CoE5SE release on GitHub's own Mac from this repository's source, and publishes it.
+# Builds each CoE5SE release on a GitHub-hosted Linux runner from this repository's source, and publishes it.
 # On a CoE5SE-v<version> tag it:
-#   1. downloads the two pinned compilers (the same files, checked by the same SHA-256, as mac-verify.command),
+#   1. downloads the two pinned compilers (llvm-mingw 20260922 and zig 0.16.0, their Linux x86_64 builds, each checked by SHA-256),
 #   2. rebuilds the three DLLs and three dylibs from src/ (src/build.sh, src/build_mac.sh),
 #   3. stops unless every rebuilt file matches its line in SHA256.txt, byte for byte,
 #   4. zips the release (every file here but README.md, LICENSE.txt, CONTRIBUTING.md, .gitignore, .github/, .clusterfuzzlite/ and fuzz/, plus the six it built),
@@ -18,7 +18,7 @@ permissions: read-all
 
 jobs:
   release:
-    runs-on: macos-15
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
       id-token: write
@@ -26,12 +26,12 @@ jobs:
       artifact-metadata: write
     env:
       TAG: ${{ github.ref_name }}
-      TC_URL: https://github.com/mstorsjo/llvm-mingw/releases/download/20260922/llvm-mingw-20260922-ucrt-macos-universal.tar.xz
-      TC_SHA256: 52e5f5a7b131021d0c39a37a38fa380a1da7885cd04bd61afd0cd4ecfb8bc1f3
-      TC_DIR: llvm-mingw-20260922-ucrt-macos-universal
-      ZIG_URL: https://ziglang.org/download/0.16.0/zig-aarch64-macos-0.16.0.tar.xz
-      ZIG_SHA256: b23d70deaa879b5c2d486ed3316f7eaa53e84acf6fc9cc747de152450d401489
-      ZIG_DIR: zig-aarch64-macos-0.16.0
+      TC_URL: https://github.com/mstorsjo/llvm-mingw/releases/download/20260922/llvm-mingw-20260922-ucrt-ubuntu-22.04-x86_64.tar.xz
+      TC_SHA256: bb7bb7654b33d5aa8712acb837c963b2e0c56352560c76105270a3268c665c21
+      TC_DIR: llvm-mingw-20260922-ucrt-ubuntu-22.04-x86_64
+      ZIG_URL: https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz
+      ZIG_SHA256: 70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00
+      ZIG_DIR: zig-x86_64-linux-0.16.0
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Read the tag's message
