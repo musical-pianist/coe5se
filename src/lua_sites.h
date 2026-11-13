@@ -146,6 +146,7 @@ static const LuaSite luaSites[] = {
     {"MAP_DRAW",                      SITE_MAP_DRAW,                      K_CALL,    "v:"},
     {"BATTLE_DRAW",                   SITE_BATTLE_DRAW,                   K_CALL,    "v:"},
     {"TOP_BAR_INCOME",                SITE_TOP_BAR_INCOME,                K_CALL,    "i:iii"},
+    {"SQUARE_PANEL_WRAP",             SITE_SQUARE_PANEL_WRAP,             K_CALL,    "i:iii"},
     {"MESSAGES_WAIT",                 SITE_MESSAGES_WAIT,                 K_CALL,    "i:ii"},
     {"WARN_WAIT",                     SITE_WARN_WAIT,                     K_CALL,    "i:ii"},
     {"MESSAGE_BOX_WAIT",              SITE_MESSAGE_BOX_WAIT,              K_CALL,    "i:ii"},

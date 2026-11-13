@@ -1,0 +1,133 @@
+# Builds CoE5SE from dev at each push and puts it on one pre-release, "CoE5SE dev build" (tag dev-build), for
+# contributors to download and work from. Never a release: GitHub's releases/latest, which the installer and
+# Vortex read, leaves pre-releases out.
+# Its version is dev's base and a fourth number, n: the base is the last release (CoE5SE-v<x.y.z>), or the
+# repository variable DEV_VERSION when that is later (a bump on dev: its first build is <base>.0, and a tag
+# dev-v<base> marks where it began). n counts dev's commits since the last release or since that bump. So after
+# CoE5SE 3.6.2, dev builds are 3.6.2.1, 3.6.2.2, ..., a bump to 3.6.3 makes 3.6.3.0, 3.6.3.1, ..., and the next
+# release takes a later number than any dev base (publish_release.py refuses one that isn't).
+# It builds the three DLLs and three dylibs from src/ with release.yml's compilers, zips the mod as a release is
+# zipped (with a SHA256.txt of what it built, so the verify scripts work on it), and signs a build provenance
+# attestation for the six files and the zip.
+name: dev build
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions: read-all
+
+concurrency:
+  group: dev-build
+  cancel-in-progress: false
+
+jobs:
+  dev-build:
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    env:
+      DEV_VERSION: ${{ vars.DEV_VERSION }}
+      TC_URL: https://github.com/mstorsjo/llvm-mingw/releases/download/20260922/llvm-mingw-20260922-ucrt-ubuntu-22.04-x86_64.tar.xz
+      TC_SHA256: bb7bb7654b33d5aa8712acb837c963b2e0c56352560c76105270a3268c665c21
+      TC_DIR: llvm-mingw-20260922-ucrt-ubuntu-22.04-x86_64
+      ZIG_URL: https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz
+      ZIG_SHA256: 70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00
+      ZIG_DIR: zig-x86_64-linux-0.16.0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Work out the dev build's version
+        run: .github/dev-build-version.sh >> "$GITHUB_ENV"
+      - name: Put the version in the DLLs' file details
+        run: |
+          numbers="${VERSION//./,}"
+          sed -i -e "s/^#define COE5SE_VERSION_NUMBERS .*/#define COE5SE_VERSION_NUMBERS $numbers/" \
+                 -e "s/^#define COE5SE_VERSION \".*\"/#define COE5SE_VERSION \"$VERSION\"/" src/coe5se_version.h
+          cat src/coe5se_version.h
+      - name: Download the pinned compilers
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fL --retry 3 -sS -o tc.tar.xz "$TC_URL"
+          curl -fL --retry 3 -sS -o zig.tar.xz "$ZIG_URL"
+          echo "$TC_SHA256  tc.tar.xz" | shasum -a 256 -c
+          echo "$ZIG_SHA256  zig.tar.xz" | shasum -a 256 -c
+          tar -xf tc.tar.xz
+          tar -xf zig.tar.xz
+      - name: Build the DLLs and dylibs from src/
+        run: |
+          export CC="$RUNNER_TEMP/$TC_DIR/bin/x86_64-w64-mingw32-clang"
+          export WINDRES="$RUNNER_TEMP/$TC_DIR/bin/x86_64-w64-mingw32-windres"
+          export ZIG="$RUNNER_TEMP/$ZIG_DIR/zig"
+          export ZIG_GLOBAL_CACHE_DIR="$RUNNER_TEMP/zig-cache" ZIG_LOCAL_CACHE_DIR="$RUNNER_TEMP/zig-cache"
+          "$CC" --version | head -1
+          echo "zig $("$ZIG" version)"
+          src/build.sh
+          src/build_mac.sh
+      - name: Write SHA256.txt for what it built
+        run: shasum -a 256 glu32.dll coe5se_loader.dll coe5se.c5plugin.dll coe5se.dylib coe5se_loader.dylib coe5se.c5plugin.dylib > SHA256.txt
+      - name: Zip the dev build
+        run: |
+          python3 - "CoE5SE-$VERSION.zip" <<'PY'
+          import sys, zipfile
+          from pathlib import Path
+          skip = {"README.md", "LICENSE.txt", "CONTRIBUTING.md", ".gitignore"}
+          files = sorted(p for p in Path(".").rglob("*") if p.is_file() and p.parts[0] not in (".git", ".github", ".clusterfuzzlite", "fuzz")
+                         and p.as_posix() not in skip and p.name != ".DS_Store")
+          with zipfile.ZipFile(sys.argv[1], "w", zipfile.ZIP_DEFLATED) as z:
+              for p in files:
+                  info = zipfile.ZipInfo(f"CoE5SE/{p.as_posix()}", (1980, 1, 1, 0, 0, 0))
+                  info.external_attr = (p.stat().st_mode & 0o777 | 0o100000) << 16
+                  info.compress_type = zipfile.ZIP_DEFLATED
+                  z.writestr(info, p.read_bytes())
+          PY
+          shasum -a 256 "CoE5SE-$VERSION.zip"
+          echo "ZIP=CoE5SE-$VERSION.zip" >> "$GITHUB_ENV"
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        id: attest
+        with:
+          subject-path: |
+            glu32.dll
+            coe5se_loader.dll
+            coe5se.c5plugin.dll
+            coe5se.dylib
+            coe5se_loader.dylib
+            coe5se.c5plugin.dylib
+            ${{ env.ZIP }}
+      - name: Name the attestation bundle
+        env:
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          jq -c . "$BUNDLE" > "$RUNNER_TEMP/CoE5SE-$VERSION.intoto.jsonl"
+          echo "PROVENANCE=$RUNNER_TEMP/CoE5SE-$VERSION.intoto.jsonl" >> "$GITHUB_ENV"
+      - name: Mark where a bump began
+        if: env.NEW_MARKER != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$NEW_MARKER" -f sha="$GITHUB_SHA"
+      - name: Put it on the dev build pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          subject=$(git log -1 --format=%s "$GITHUB_SHA")
+          {
+            echo "CoE5SE $VERSION, built from dev at $GITHUB_SHA: $subject"
+            echo
+            echo "Not a release: the current state of dev, for contributors and testing. Players: the latest release is at https://github.com/$GITHUB_REPOSITORY/releases/latest"
+          } > "$RUNNER_TEMP/notes.md"
+          if gh release view dev-build > /dev/null 2>&1; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/dev-build" -f sha="$GITHUB_SHA" -F force=true > /dev/null
+            gh release edit dev-build --title "CoE5SE dev build $VERSION" --notes-file "$RUNNER_TEMP/notes.md" --prerelease --latest=false
+            gh release view dev-build --json assets --jq '.assets[].name' | while read -r old; do gh release delete-asset dev-build "$old" --yes; done
+            gh release upload dev-build "$ZIP" "$PROVENANCE"
+          else
+            gh release create dev-build "$ZIP" "$PROVENANCE" --target "$GITHUB_SHA" --title "CoE5SE dev build $VERSION" \
+              --notes-file "$RUNNER_TEMP/notes.md" --prerelease --latest=false
+          fi

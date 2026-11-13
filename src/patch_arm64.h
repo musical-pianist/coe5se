@@ -613,12 +613,15 @@ static unsigned char *newSiteEntry(CallSite site) {
     return writeGameCode(entry, code, sizeof code) ? entry : NULL;
 }
 
+static int installSquarePanelIcons(void);
+
 static int installSite(CallSite site) {
     const SiteInfo *info = &SITES[site];
     if (site == SITE_SEAL_EVENT) return installSealEventMac();
     if (site == SITE_NEW_WORLD_INIT_PARTICIPANTS) return installParticipantsMac();
     if (isSplitSite(site)) return installSplitSiteMac(site);
-    if (site == SITE_BATTLE_DRAW || site == SITE_WEAPON_HIT || site == SITE_BATTLE_TARGET_CHECK) {
+    if (site == SITE_SQUARE_PANEL_WRAP && !installSquarePanelIcons()) return 0;
+    if (site == SITE_BATTLE_DRAW || site == SITE_WEAPON_HIT || site == SITE_BATTLE_TARGET_CHECK || site == SITE_SQUARE_PANEL_WRAP) {
         *siteHead(site) = siteGameFunction(site);
         siteInstalled[site] = 1;
         return 1;

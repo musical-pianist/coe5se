@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define PLUGIN_API_VERSION 11
+#define PLUGIN_API_VERSION 12
 
 #define WRAP_PRIORITY_DEFAULT 0
 
@@ -492,6 +492,9 @@ typedef enum {
     SITE_HORROR_LORD_PICK,
     SITE_CLIENT_TURN,
     SITE_SETUP_SERVER,
+    SITE_SQUARE_PANEL_ICON,
+    SITE_SQUARE_PANEL_LAYOUT,
+    SITE_SQUARE_PANEL_WRAP,
     SITE_COUNT
 } CallSite;
 

@@ -288,12 +288,17 @@
 #define LAYOUT_ELEMENT_WIDTH                   0x10
 #define LAYOUT_ELEMENT_TYPE                    0x60
 #define LAYOUT_ELEMENT_LINE_END                0x6c
+#define LAYOUT_ELEMENT_LABEL                   0x58
 #define LAYOUT_ELEMENT_COLOUR                  0x14
 #define LAYOUT_TYPE_LIST_STYLE                 8
 #define LAYOUT_TYPE_BUTTON_ROW                 9
 #define LAYOUT_TYPE_LIST_GAP                   10
 #define LAYOUT_TYPE_COLUMN_X                   12
 #define LAYOUT_TYPE_ROW_AREA                   15
+#define LAYOUT_TYPE_OVERLAP                    14
+#define LAYOUT_ELEMENT_OVERLAP                 0x24
+#define SQUARE_PANEL_LINE_HEIGHT               15.0f
+#define LAYOUT_ELEMENT_PAD                     0.1f
 #define LAYOUT_TYPE_ROW_BEGIN_LIMIT            100
 #define RVA_LAYOUT_TABLE                       RVA_LAYOUT_ELEMENTS
 #define RVA_TOOLTIP_TABLE                      ADDR(        0x13190ac0,        0x10c057810)
@@ -1167,7 +1172,9 @@
 #define RVA_MONTHLY_UPDATE                     ADDR(        0x198880,          0x100333800)
 #define RVA_SQUARE_INFO                        ADDR(        0x3313f0,          0x1004c9c08)
 #define RVA_SQUARE_INFO_ROW_START              ADDR_DIFFERS(0x33422c,          0x1004cd304)
-#define RVA_SQUARE_PANEL                       ADDR(        0x0a3470,          MAC_NOT_FOUND)
+#define RVA_SQUARE_PANEL                       ADDR(        0x0a3470,          MAC_INLINED)
+#define RVA_MAP_SQUARE_INFO_PANEL              ADDR(        0x09fa00,          0x1003741b8)
+#define RVA_LAYOUT_OVERLAP                     ADDR(        0x03a2e0,          MAC_INLINED)
 #define RVA_LOBBY                              ADDR(        0x1e2fa0,          0x10059ee70)
 #define RVA_DISCONNECT                         ADDR(        0x1f25c0,          0x10050713c)
 #define RVA_SDL_MAIN                           ADDR(        0x18f8b0,          0x10032efe0)
@@ -5534,6 +5541,15 @@ static const SiteInfo SITES[SITE_COUNT] = {
     [SITE_SETUP_SERVER] = SITE("setup_server", 0,
  (0x190d9f, 0x1f1765),             0x1f0f10,
  (M(0x100333530), M(0x10032e214)), M(0x1005022f4)),
+    [SITE_SQUARE_PANEL_ICON] = SITE("square_panel_icon", 0,
+ (0x0a3592, 0x0a35c5, 0x0a35e7, 0x0a3653, 0x0a36cb, 0x0a375b, 0x0a3802, 0x0a389b, 0x0a3922, 0x0a39ab, 0x0a3a2b, 0x0a3afb, 0x0a3b66, 0x0a3c03, 0x0a3c3e, 0x0a3c71, 0x0a3c94, 0x0a3cbc, 0x0a3cda, 0x0a3dab, 0x0a3ea5), 0x038380,
+ (M(0x1003745a4), M(0x1003745e0), M(0x100374720), M(0x100374750), M(0x1003747ac), M(0x1003747e8), M(0x100374940), M(0x10037497c), M(0x100374b90), M(0x100374bec), M(0x100374e00), M(0x100374e5c), M(0x100375110), M(0x1003752b4), M(0x1003752f0), M(0x1003753ac), M(0x100375440), M(0x1003756c4), M(0x10037575c), M(0x1003757f0), M(0x100375884), M(0x100375910), M(0x100375998), M(0x100375a20), M(0x100375aa8), M(0x100375c70), M(0x100375cc4), M(0x100375ecc), M(0x100375f2c), M(0x100375f60), M(0x100375f84), M(0x10037600c), M(0x100376054), M(0x1003760b8), M(0x1003760d4), M(0x100376114), M(0x1003762c8), M(0x100376300)), M(0x10033df90)),
+    [SITE_SQUARE_PANEL_LAYOUT] = SITE("square_panel_layout", 0,
+ (0x0a0580),       0x0304e0,
+ (M(0x100376900)), M(0x10034198c)),
+    [SITE_SQUARE_PANEL_WRAP] = SITE("square_panel_wrap", 0,
+ (0), 0,
+ (0), 0),
 };
 #undef M
 #undef SITE

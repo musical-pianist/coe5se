@@ -885,7 +885,7 @@ static int setWeaponWord(lua_State *L, int weapon, unsigned char *record, int ar
 static int lGet(lua_State *L) {
     const GameVar *v;
     int arg = 2;
-    unsigned char *p = gameVarAddress(L, &v, &arg);
+    unsigned char *p = gameVarAddress(L, &v, &arg, 0);
     if (!p) { lua_pushnil(L); return 1; }
     switch (v->type) {
     case T_ARMY_OWNER: lua_pushinteger(L, armyOwnerAt((int)lua_tointeger(L, 2), (int)lua_tointeger(L, 3))); break;
@@ -1104,6 +1104,15 @@ static int lGet(lua_State *L) {
     return 1;
 }
 
+#define GAME_LAST_TURN 250
+#define BATTLE_WIDTH_FIRST 28
+#define BATTLE_WIDTH_MAX 0x600
+#define SAMPLE_SLOT_LAST 248
+#define MAP_ZOOM_MIN 8.0
+#define MAP_ZOOM_MAX 100.0
+#define MESSAGE_RECORDS 1000
+#define PATH_ENTRIES 256
+
 static const struct { const char *name; lua_Integer min, max; } GAME_VAR_RANGES[] = {
     {"mapW", INT_MIN, MAP_COLUMNS_MAX}, {"mapH", INT_MIN, MAP_COLUMN_SQUARES}, {"mapDepth", INT_MIN, MAP_COLUMNS_MAX},
     {"cliMapW", INT_MIN, MAP_COLUMNS_MAX}, {"cliMapH", INT_MIN, MAP_COLUMN_SQUARES},
@@ -1117,7 +1126,63 @@ static const struct { const char *name; lua_Integer min, max; } GAME_VAR_RANGES[
     {"traceLevel", 0, 3},
     {"slotTradeType", 0, 24},
     {"squareCorpses", 0, SHRT_MAX},
+    {"unitLastIndex", -1, UNIT_TABLE_MAX - 1}, {"unitLastSpawned", -1, UNIT_TABLE_MAX - 1},
+    {"commanderLastIndex", -1, COMMANDER_TABLE_MAX - 1}, {"commanderLastSpawned", -1, COMMANDER_TABLE_MAX - 1},
+    {"selectedCommander", -1, COMMANDER_TABLE_MAX - 1},
+    {"unitCommander", -1, COMMANDER_TABLE_MAX - 1}, {"slotLeader", -1, COMMANDER_TABLE_MAX - 1},
+    {"commanderUnit", -1, UNIT_TABLE_MAX - 1},
+    {"unitX", -1, MAP_COLUMNS_MAX - 1}, {"unitY", -1, MAP_COLUMN_SQUARES - 1},
+    {"slotHomeX", -1, MAP_COLUMNS_MAX - 1}, {"slotHomeY", -1, MAP_COLUMN_SQUARES - 1},
+    {"commanderAiTargetX", -1, MAP_COLUMNS_MAX - 1}, {"commanderAiTargetY", -1, MAP_COLUMN_SQUARES - 1},
+    {"recruitLocationLast", -1, 255}, {"recruitLocationX", 0, MAP_COLUMNS_MAX - 1}, {"recruitLocationY", 0, MAP_COLUMN_SQUARES - 1},
+    {"unitOwner", -1, INT_MAX}, {"activePlayer", -1, INT_MAX}, {"rulershipSlot", -1, INT_MAX}, {"unitMonster", -1, INT_MAX},
+    {"commanderRitual", 0, INT_MAX}, {"commanderRepeatRitual", -1, INT_MAX}, {"commanderRitualPlan", SHRT_MIN, INT_MAX},
+    {"unitKnownSpell", -1, INT_MAX}, {"unitMemorizedSpell", -1, INT_MAX},
+    {"unitTempAbilityId", -1, RITUAL_EFFECT_ID_COUNT - 1}, {"slotBlessingId", 0, RITUAL_EFFECT_ID_COUNT - 1},
+    {"aiAttackDivOther", 1, INT_MAX}, {"aiAttackDivAi", 1, INT_MAX}, {"aiAttackDivHuman", 1, INT_MAX},
+    {"turn", -1, GAME_LAST_TURN},
+    {"battleX", -1, MAP_COLUMNS_MAX - 1}, {"battleY", -1, MAP_COLUMN_SQUARES - 1},
+    {"mapPointerX", -1, MAP_COLUMNS_MAX - 1}, {"mapPointerY", -1, MAP_COLUMN_SQUARES - 1},
+    {"battleAttacker", -1, PLAYER_SLOTS_MOVED - 1}, {"battleDefender", -1, PLAYER_SLOTS_MOVED - 1},
+    {"battleWinner", -1, PLAYER_SLOTS_MOVED - 1}, {"loneHuman", -1, PLAYER_SLOTS_MOVED - 1},
+    {"gameWinner", -1, PLAYER_SLOTS_MOVED - 1},
+    {"battleWidth", BATTLE_WIDTH_FIRST, BATTLE_WIDTH_MAX},
+    {"sampleHighest", -1, SAMPLE_SLOT_LAST},
+    {"autoNameLast", -1, AUTO_NAME_LIST_SIZE - 1},
+    {"slotLockClass", INT_MIN, LAST_MOD_CLASS_SLOT}, {"slotLockAi", INT_MIN, AI_LEVEL_TABLE_MAX - 1},
+    {"mapViewPlane", 0, INT_MAX},
+    {"squareOwner", -1, INT_MAX},
+    {"squareItem", -1, INT_MAX},
+    {"planeX", 0, MAP_COLUMNS_MAX}, {"planeY", 0, MAP_COLUMN_SQUARES}, {"planeWidth", 0, MAP_COLUMNS_MAX},
+    {"planeHeight", 0, MAP_COLUMN_SQUARES}, {"worldW", 0, MAP_COLUMNS_MAX}, {"worldH", 0, MAP_COLUMN_SQUARES},
+    {"planeLastIndex", -1, INT_MAX}, {"mapPlaneIndex", -1, INT_MAX},
+    {"mapFilePlane", 0, 9},
+    {"worldNorthPart", 0, 100}, {"worldSouthPart", 0, 100},
+    {"season", 0, 3},
+    {"messageLastIndex", -1, MESSAGE_RECORDS - 1},
+    {"enchantLastIndex", -1, ENCHANTS_MAX - 1}, {"enchantCaster", -1, UNIT_TABLE_MAX - 1}, {"enchantOwner", -1, INT_MAX},
+    {"enchantX", INT_MIN, MAP_COLUMNS_MAX - 1}, {"enchantY", INT_MIN, MAP_COLUMN_SQUARES - 1},
+    {"eventTargetX", INT_MIN, MAP_COLUMNS_MAX - 1}, {"eventTargetY", INT_MIN, MAP_COLUMN_SQUARES - 1},
+    {"eventSquareX", INT_MIN, MAP_COLUMNS_MAX - 1}, {"eventSquareY", INT_MIN, MAP_COLUMN_SQUARES - 1},
+    {"pathLength", 0, PATH_ENTRIES}, {"pathX", 0, MAP_COLUMNS_MAX - 1}, {"pathY", 0, MAP_COLUMN_SQUARES - 1},
 };
+
+static const struct { const char *name; double min, max; } GAME_VAR_FLOAT_RANGES[] = {
+    {"mapZoom", MAP_ZOOM_MIN, MAP_ZOOM_MAX},
+    {"mapCameraX", 0, MAP_COLUMNS_MAX}, {"mapCameraY", 0, MAP_COLUMN_SQUARES},
+};
+
+static int gameVarFloatRange(const GameVar *v, double *min, double *max) {
+    for (size_t i = 0; i < sizeof GAME_VAR_FLOAT_RANGES / sizeof GAME_VAR_FLOAT_RANGES[0]; i++) {
+        if (strcmp(GAME_VAR_FLOAT_RANGES[i].name, v->name)) continue;
+        *min = GAME_VAR_FLOAT_RANGES[i].min, *max = GAME_VAR_FLOAT_RANGES[i].max;
+        return 1;
+    }
+    if (!strcmp(v->name, "uiPointerX")) *min = 0, *max = G32(RVA_SCREEN_W);
+    else if (!strcmp(v->name, "uiPointerY")) *min = 0, *max = G32(RVA_SCREEN_H);
+    else return 0;
+    return 1;
+}
 
 #define SLOT_COLOUR_MIN -8421505.0f
 #define SLOT_COLOUR_MAX 8421504.0f
@@ -1126,8 +1191,32 @@ static int isSlotColour(const GameVar *v) {
     return v->type == T_F32 && v->addr >= RVA_SLOT_COLOUR && v->addr <= RVA_SLOT_COLOUR + 8;
 }
 
+static int lastPlayerSlot(void) { return playerSlotCount() - 1; }
+static int lastMonsterNumber(void) { return tableRecords(TABLE_MONSTER) - 1; }
+static int lastItemNumber(void) { return tableRecords(TABLE_ITEM) - 1; }
+static int lastClassNumber(void) { return tableRecords(TABLE_CLASS) - 1; }
+static int lastPlaneRecord(void) { return planeTableRecords() - 1; }
+static int lastRitualSlot(void) { return ritualSlotCount() - 1; }
+static int lastSpellSlot(void) { return spellTableRecords() - 2; }
+static int lastPlaneInUse(void) {
+    int last = G32(RVA_LAST_PLANE);
+    return last < lastPlaneRecord() ? last : lastPlaneRecord();
+}
+static const struct { const char *name; int (*last)(void); } GAME_VAR_LAST[] = {
+    {"activePlayer", lastPlayerSlot}, {"battleAttacker", lastPlayerSlot}, {"battleDefender", lastPlayerSlot},
+    {"battleWinner", lastPlayerSlot}, {"enchantOwner", lastPlayerSlot}, {"eventPlayer", lastPlayerSlot},
+    {"gameWinner", lastPlayerSlot}, {"loneHuman", lastPlayerSlot}, {"rulershipSlot", lastPlayerSlot},
+    {"squareOwner", lastPlayerSlot}, {"unitOwner", lastPlayerSlot},
+    {"unitMonster", lastMonsterNumber}, {"squareItem", lastItemNumber},
+    {"slotClass", lastClassNumber}, {"slotLockClass", lastClassNumber},
+    {"planeLastIndex", lastPlaneRecord}, {"mapPlaneIndex", lastPlaneRecord}, {"mapViewPlane", lastPlaneInUse},
+    {"commanderRitual", lastRitualSlot}, {"commanderRepeatRitual", lastRitualSlot}, {"commanderRitualPlan", lastRitualSlot},
+    {"enchantRitual", lastRitualSlot}, {"unitKnownSpell", lastSpellSlot}, {"unitMemorizedSpell", lastSpellSlot},
+};
+
 static void gameVarRange(const GameVar *v, lua_Integer *min, lua_Integer *max) {
     if (v->type == T_U8) *min = SCHAR_MIN, *max = UCHAR_MAX;
+    else if (v->type == T_I8) *min = SCHAR_MIN, *max = SCHAR_MAX;
     else if (v->type == T_I16) *min = SHRT_MIN, *max = USHRT_MAX;
     else *min = INT_MIN, *max = UINT_MAX;
     for (size_t i = 0; i < sizeof GAME_VAR_RANGES / sizeof GAME_VAR_RANGES[0]; i++) {
@@ -1135,7 +1224,8 @@ static void gameVarRange(const GameVar *v, lua_Integer *min, lua_Integer *max) {
         if (GAME_VAR_RANGES[i].min > *min) *min = GAME_VAR_RANGES[i].min;
         if (GAME_VAR_RANGES[i].max < *max) *max = GAME_VAR_RANGES[i].max;
     }
-    if (!strcmp(v->name, "slotClass") && tableRecords(TABLE_CLASS) - 1 < *max) *max = tableRecords(TABLE_CLASS) - 1;
+    for (size_t i = 0; i < sizeof GAME_VAR_LAST / sizeof GAME_VAR_LAST[0]; i++)
+        if (!strcmp(GAME_VAR_LAST[i].name, v->name) && GAME_VAR_LAST[i].last() < *max) *max = GAME_VAR_LAST[i].last();
 }
 
 static void flushCommanderCache(int commander) {
@@ -1229,13 +1319,31 @@ static int setSquareValue(lua_State *L, const GameVar *v, unsigned char *p, int 
     return 0;
 }
 
+static int listEndMark(const char *name, short *mark) {
+    if (!strcmp(name, "unitKnownSpell") || !strcmp(name, "unitMemorizedSpell")) { *mark = -1; return 1; }
+    if (!strcmp(name, "commanderRitual")) { *mark = 0; return 1; }
+    return 0;
+}
+
+static void narrowPlaneRange(const GameVar *v, const unsigned char *p, lua_Integer *max) {
+    int across = !strcmp(v->name, "planeX") || !strcmp(v->name, "planeWidth") || !strcmp(v->name, "worldW");
+    int down = !strcmp(v->name, "planeY") || !strcmp(v->name, "planeHeight") || !strcmp(v->name, "worldH");
+    if (!across && !down) return;
+    ptrdiff_t start = across ? PLANE_X : PLANE_Y, size = across ? PLANE_W : PLANE_H;
+    ptrdiff_t here = !strcmp(v->name, "planeX") || !strcmp(v->name, "planeY") ? start : size;
+    int other = *(const int *)(p + (here == start ? size : start) - here);
+    lua_Integer limit = (across ? MAP_COLUMNS_MAX : MAP_COLUMN_SQUARES) - (lua_Integer)other;
+    if (limit < *max) *max = limit;
+}
+
 static int lSet(lua_State *L) {
     const GameVar *v;
     int arg = 2;
-    unsigned char *p = gameVarAddress(L, &v, &arg);
+    unsigned char *p = gameVarAddress(L, &v, &arg, 1);
     if (v->type == T_RECORD_WORD && v->size == RECORD_WEAPON && p) return setWeaponWord(L, (int)lua_tointeger(L, 2), p, arg);
     if (!v->writable) return luaL_error(L, "game variable '%s' is read-only", v->name);
-    if (!p) return luaL_error(L, "%s can only be set while a wrap of its site runs", v->name);
+    int pastListEnd = !p && gameVarShape(v).list != LIST_NONE;
+    if (!p && !pastListEnd) return luaL_error(L, "%s can only be set while a wrap of its site runs", v->name);
     if (v->writable == WRITABLE_WHILE_BUILDING) return setSquareValue(L, v, p, arg);
     if (v->type == T_WINDOWS_ONLY) {
         LuaScript *s = luaScriptOf(L);
@@ -1248,9 +1356,10 @@ static int lSet(lua_State *L) {
         return 0;
     }
     if (v->type == T_CEREMONY_COST) return setCeremonyCost(L, p, arg);
-    if (v->type == T_U8 || v->type == T_I16 || v->type == T_I32 || v->type == T_FRAME_I32) {
+    if (v->type == T_U8 || v->type == T_I8 || v->type == T_I16 || v->type == T_I32 || v->type == T_FRAME_I32 || v->type == T_SITE_I32) {
         lua_Integer value = luaL_checkinteger(L, arg), min, max;
         gameVarRange(v, &min, &max);
+        if (p) narrowPlaneRange(v, p, &max);
         if (value < min || value > max) {
             LuaScript *s = luaScriptOf(L);
             refuseLuaCall(s ? s->mod : "?", "coe5.set", "out_of_range", "name=%s value=%lld min=%lld max=%lld", v->name,
@@ -1278,8 +1387,24 @@ static int lSet(lua_State *L) {
             return 0;
         }
     }
+    if (pastListEnd) return luaL_error(L, "%s: the list ends before that index", v->name);
+    int oldLeader = !strcmp(v->name, "unitCommander") ? *(int *)p : -1;
+    short endMark = 0;
+    int appends = listEndMark(v->name, &endMark) && *(short *)p <= endMark;
+    double floatMin, floatMax;
+    if (v->type == T_F32 && gameVarFloatRange(v, &floatMin, &floatMax)) {
+        lua_Number value = luaL_checknumber(L, arg);
+        const char *reason = !isfinite(value) ? "not_finite" : value < floatMin || value > floatMax ? "out_of_range" : NULL;
+        if (reason) {
+            LuaScript *s = luaScriptOf(L);
+            refuseLuaCall(s ? s->mod : "?", "coe5.set", reason, "name=%s value=%.14g min=%.14g max=%.14g", v->name, (double)value,
+                          floatMin, floatMax);
+            return 0;
+        }
+    }
     switch (v->type) {
     case T_U8: *p = (unsigned char)luaL_checkinteger(L, arg); break;
+    case T_I8: *(signed char *)p = (signed char)luaL_checkinteger(L, arg); break;
     case T_I16: *(short *)p = (short)luaL_checkinteger(L, arg); break;
     case T_FLAG_U8: *p = lua_toboolean(L, arg) ? 1 : 0; break;
     case T_FLAG_I32: *(int *)p = lua_toboolean(L, arg) ? 1 : 0; break;
@@ -1290,14 +1415,18 @@ static int lSet(lua_State *L) {
         *(float *)p = value > FLT_MAX ? INFINITY : value < -FLT_MAX ? -INFINITY : (float)value;
         break;
     }
-    case T_STR: snprintf((char *)p, v->size, "%s", luaL_checkstring(L, arg)); break;
+    case T_STR:
+    case T_FRAME_STR: snprintf((char *)p, v->size, "%s", luaL_checkstring(L, arg)); break;
     case T_I32:
+    case T_SITE_I32:
     case T_FRAME_I32: *(int *)p = (int)luaL_checkinteger(L, arg); break;
     default: {
         LuaScript *s = luaScriptOf(L);
         refuseLuaCall(s ? s->mod : "?", "coe5.set", "not_writable", "name=%s", v->name);
     }
     }
+    if (appends && *(short *)p > endMark && lua_tointeger(L, arg - 1) + 1 < v->count2) *(short *)(p + v->stride2) = endMark;
+    if (!strcmp(v->name, "unitCommander")) flushCommanderCache(oldLeader), flushCommanderCache(*(int *)p);
     if (!strcmp(v->name, "unitApUsed")) flushArmyApCaches((int)((p - GAME_PTR(v->addr)) / UNIT_SIZE));
     if (!strcmp(v->name, "loadedGame") && lua_tointeger(L, arg)) {
         LuaScript *s = luaScriptOf(L);

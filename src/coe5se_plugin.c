@@ -660,12 +660,14 @@ static unsigned char *siteCallAt(CallSite site, int i) {
     return i < MAX_SITE_CALLS && SITES[site].rvas[i] ? gameBase + SITES[site].rvas[i] : NULL;
 }
 static int topBarIncomeAsGame(int player, int resource, int income);
+static int squarePanelWrapAsGame(int right, int limit, int line);
 static int weaponHitDamageAsGame(int attacker, int target, int weapon, int damage, int value, int dmgtype);
 static int targetCheckAsGame(int unit, int type, int weapon, int value, int target);
 static unsigned char *siteCallTarget(CallSite site) {
     unsigned char *generated = generatedSiteTarget(site);
     if (generated) return generated;
     if (site == SITE_TOP_BAR_INCOME) return (unsigned char *)topBarIncomeAsGame;
+    if (site == SITE_SQUARE_PANEL_WRAP) return (unsigned char *)squarePanelWrapAsGame;
     if (site == SITE_WEAPON_HIT) return (unsigned char *)weaponHitDamageAsGame;
     if (site == SITE_BATTLE_TARGET_CHECK) return (unsigned char *)targetCheckAsGame;
     if (!SITES[site].targetRva) return NULL;
@@ -685,7 +687,7 @@ static int isSiteCall(const unsigned char *call, const unsigned char *target, co
 
 static int siteRunByCoe5se(CallSite site) {
     return site == SITE_MAP_DRAW || site == SITE_BATTLE_DRAW || site == SITE_TOP_BAR_INCOME || site == SITE_WEAPON_HIT ||
-           site == SITE_BATTLE_TARGET_CHECK;
+           site == SITE_BATTLE_TARGET_CHECK || site == SITE_SQUARE_PANEL_WRAP;
 }
 
 static int installSite(CallSite site) {
@@ -861,7 +863,7 @@ static int isInternalSite(CallSite site) {
            site == SITE_RUN_ONE_MOD_PATH || site == SITE_GAME_MENU_SETTINGS_SECTION_END || site == SITE_ELIMINATED_WARN ||
            site == SITE_TURN_MESSAGES ||
            site == SITE_MAP_EDITOR_TOOLBOX_LINE || site == SITE_RUN_ONE_MOD_LINE_READ || site == SITE_TOP_BAR ||
-           site == SITE_TOP_BAR_INCOME_DRAW || site == SITE_SETUP_SERVER;
+           site == SITE_TOP_BAR_INCOME_DRAW || site == SITE_SETUP_SERVER || site == SITE_SQUARE_PANEL_ICON || site == SITE_SQUARE_PANEL_LAYOUT;
 }
 
 static int isObserveOnlySite(CallSite site) {
@@ -1778,6 +1780,7 @@ static u64 modErrorDialogWrapper(u64 title, u64 text, u64 a3, u64 a4, u64 a5, u6
 #include "data_area_max.h"
 #include "map_editor.h"
 #include "top_bar_income.h"
+#include "square_panel_wrap.h"
 #include "commander_lines.h"
 #include "lua_scripts.h"
 #include "lua_game_data.h"
