@@ -16,6 +16,13 @@ default 0
 label "Rehearse LAN games in single player"
 tip "For mod authors. Content mods' scripts restart at each human turn's start and end, keeping only coe5.gameData and coe5.playerData. Writes a LAN client can't make are refused during the turn."
 
+newsetting cache_player_arguments
+onoff
+default 0
+restart
+label "Reuse numeric arguments in turn-start player rules"
+tip "Windows CoE5 5.43. Speeds up repeated +player conditions in content mods. The game resolves the player for every condition."
+
 newsettingheader "Mac only"
 
 newsetting mac_workshop_list
@@ -42,6 +49,14 @@ parent graphics_changes
 label "Use texture array batching on the world map"
 tip "Batches map decorations at every quality, plus compatible terrain and army sprites on Windows. Preserves original detail and order. Off by default on NVIDIA. Takes effect next launch."
 
+newsetting optimize_map_textures
+onoff
+default 0
+restart
+parent graphics_changes
+label "Speed up world map texture preparation"
+tip "Requires world map batching on Windows. Reuses matching mipmaps and speeds up compatible texture copies and external army sprites. Takes effect next launch."
+
 newsetting scene_sprite_batching
 onoff
 default 0
@@ -49,6 +64,14 @@ restart
 parent graphics_changes
 label "Use texture array batching in battles"
 tip "Windows CoE5 5.43. Batches compatible terrain, unit sprites, spell particles and projectiles with original detail and order. Unsupported draws stay native. Takes effect next launch."
+
+newsetting gui_frame_batching
+onoff
+default 0
+restart
+parent graphics_changes
+label "Batch textured scrollbars and tooltip frames"
+tip "Windows CoE5 5.43. Groups compatible scrollbar and tooltip frame pieces using the original texture and drawing order."
 
 newsetting frame_controls
 onoff

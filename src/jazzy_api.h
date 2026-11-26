@@ -561,6 +561,7 @@ typedef enum {
     SITE_STORED_FORMAT,
     SITE_RITUAL_SCREEN_WAIT,
     SITE_ATTACK_INIT,
+    SITE_TURN_RULE_PLAYER_NUMBER,
     SITE_COUNT
 } CallSite;
 #define SITE_UNIT_STRENGTH SITE_UNIT_BATTLE_STRENGTH
@@ -643,6 +644,17 @@ static inline const PluginApi *jazzyConnect(void) {
     typedef const PluginApi *(*GetApiFn)(int);
     GetApiFn getApi = coe5se ? (GetApiFn)(void *)GetProcAddress(coe5se, "jazzyGetApi") : NULL;
     return getApi ? getApi(PLUGIN_API_VERSION) : NULL;
+}
+
+// Call on the game thread and context that draw this 2D texture, before changing its pixels or sampling.
+// Call outside glBegin/glEnd and restore any GL bindings you change. 1 permits the edit now.
+// Moving this context between batching threads disables live edits. Keep editable textures on one context.
+// On 0, defer the edit or require the player to turn off batching.
+static inline int jazzyBeforeTextureUpdate(unsigned int texture) {
+    typedef int (*NotifyFn)(unsigned int);
+    HMODULE core = GetModuleHandleA(COE5SE_DLL);
+    NotifyFn notify = core ? (NotifyFn)(void *)GetProcAddress(core, "coe5seBeforeTextureUpdate") : NULL;
+    return notify ? notify(texture) : 0;
 }
 
 #ifndef PRINTF_FORMAT

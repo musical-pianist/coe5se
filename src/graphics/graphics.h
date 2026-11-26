@@ -2,6 +2,7 @@
 #include "jazzy_api.h"
 
 int coe5seGraphicsInit(const PluginApi *api, const char *userFolder);
+void coe5seGraphicsNativePluginLoading(void);
 
 #ifdef __APPLE__
 typedef struct {

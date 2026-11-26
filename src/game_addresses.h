@@ -45,6 +45,23 @@
 #define RVA_FPS_SCENE_PROJECTILES_CALL         ADDR(        0x23fd25,          MAC_NO_CALL)
 #define RVA_FPS_SCENE_PROJECTILES_DRAW         ADDR(        0x100ca0,          MAC_INLINED)
 #define RVA_FPS_TERRAIN_RECT_DRAW              ADDR(        0x02fe60,          0x1003413d0)
+#define RVA_GUI_PANEL_RECT_1                   ADDR(        0x02f7c4,          MAC_NOT_LOOKED_UP)
+#define RVA_GUI_PANEL_RECT_2                   ADDR(        0x02f806,          MAC_NOT_LOOKED_UP)
+#define RVA_GUI_PANEL_RECT_3                   ADDR(        0x02f83f,          MAC_NOT_LOOKED_UP)
+#define RVA_GUI_PANEL_RECT_4                   ADDR(        0x02f878,          MAC_NOT_LOOKED_UP)
+#define RVA_GUI_PANEL_RECT_5                   ADDR(        0x02f8ad,          MAC_NOT_LOOKED_UP)
+#define RVA_GUI_PANEL_RECT_6                   ADDR(        0x02f8de,          MAC_NOT_LOOKED_UP)
+#define RVA_GUI_PANEL_RECT_7                   ADDR(        0x02f90f,          MAC_NOT_LOOKED_UP)
+#define RVA_GUI_PANEL_RECT_8                   ADDR(        0x02f940,          MAC_NOT_LOOKED_UP)
+#define RVA_GUI_PANEL_RECT_9                   ADDR(        0x02f971,          MAC_NOT_LOOKED_UP)
+#define RVA_GUI_BORDER_RECT_1                  ADDR(        0x0347a5,          MAC_NOT_LOOKED_UP)
+#define RVA_GUI_BORDER_RECT_2                  ADDR(        0x03480b,          MAC_NOT_LOOKED_UP)
+#define RVA_GUI_BORDER_RECT_3                  ADDR(        0x034866,          MAC_NOT_LOOKED_UP)
+#define RVA_GUI_BORDER_RECT_4                  ADDR(        0x0348c7,          MAC_NOT_LOOKED_UP)
+#define RVA_GUI_BORDER_RECT_5                  ADDR(        0x03491f,          MAC_NOT_LOOKED_UP)
+#define RVA_GUI_BORDER_RECT_6                  ADDR(        0x034974,          MAC_NOT_LOOKED_UP)
+#define RVA_GUI_BORDER_RECT_7                  ADDR(        0x0349cd,          MAC_NOT_LOOKED_UP)
+#define RVA_GUI_BORDER_RECT_8                  ADDR(        0x034a21,          MAC_NOT_LOOKED_UP)
 #define RVA_FPS_MAP_TERRAIN_RECT_CALL          ADDR(        0x0b31a0,          0x10049b5b4)
 #define RVA_FPS_SCENE_TERRAIN_RECT_CALL        ADDR(        0x0fbd86,          0x100581344)
 #define RVA_FPS_HIGH_DECOR_CALL                ADDR(        0x19d621,          MAC_NO_CALL)
@@ -5364,6 +5381,19 @@
 #define RVA_MAP_BG_W_SQUARES                   ADDR(        0x580338c,         0x10c77c118)
 #define RVA_MAP_BG_H_SQUARES                   ADDR(        0x5803388,         0x10c77c11c)
 #define RVA_MAP_BG_IMAGE                       ADDR(        0x5803398,         0x10c922c70)
+#define RVA_MAP_ARMY_BOUNDS_CALL               ADDR(        0x01a1e06,          MAC_NOT_LOOKED_UP)
+#define RVA_EXTERNAL_IMAGE_PATHS               ADDR(        0x5e6daa0,          MAC_NOT_LOOKED_UP)
+#define RVA_IMAGE_CACHE_SEMAPHORE              ADDR(        0x58426a0,          MAC_NOT_LOOKED_UP)
+#define RVA_IMAGE_CACHE_LAST                   ADDR(        0x042ce3c,          MAC_NOT_LOOKED_UP)
+#define RVA_IMAGE_CACHE_FIND                   ADDR(        0x0027c80,          MAC_NOT_LOOKED_UP)
+#define RVA_IMAGE_CACHE_SAMPLE                 ADDR(        0x0027190,          MAC_NOT_LOOKED_UP)
+#define RVA_IMAGE_CACHE_WIDTHS                 ADDR(        0x5842eb0,          MAC_NOT_LOOKED_UP)
+#define RVA_IMAGE_CACHE_HEIGHTS                ADDR(        0x58426b0,          MAC_NOT_LOOKED_UP)
+#define RVA_IMAGE_CACHE_PIXELS                 ADDR(        0x58feeb0,          MAC_NOT_LOOKED_UP)
+#define RVA_MAP_TILE_CREATE_CALL               ADDR(        0x00b305e,          MAC_NOT_LOOKED_UP)
+#define RVA_MAP_MAX_TILE_TEXTURE               ADDR(        0x04396c4,          MAC_NOT_LOOKED_UP)
+#define RVA_MAP_TILE_CROP_CALL                 ADDR(        0x00b3026,          MAC_NOT_LOOKED_UP)
+#define RVA_MAP_TILE_CROP                      ADDR(        0x00255d0,          MAC_NOT_LOOKED_UP)
 #define RVA_MAP_BG_TILE_DRAW                   ADDR(        0x0b2f10,          MAC_INLINED)
 #define RVA_MAP_BG_TILE_DRAW_CALL              ADDR(        0x19c7a4,          MAC_NO_CALL)
 #define SQUARE_FLAG_FLOODED                    0x2000
@@ -5782,6 +5812,8 @@ typedef struct {
 #define SITE(name, fade, winCalls, winTarget, macCalls, macTarget) {{SITE_CALLS winCalls}, winTarget, name, fade, SITE_ON(macCalls, macTarget)}
 #endif
 static const SiteInfo SITES[SITE_COUNT] = {
+    [SITE_TURN_RULE_PLAYER_NUMBER] = SITE("turn_rule_player_number", 0,
+ (0x1c586a), RVA_EVENT_INT_ARG, (0), 0),
     [SITE_MAIN_MENU_WAIT] = SITE("main_menu_wait", 1,
  (0x192092),       0x23ec30,
  (M(0x10032e068)), M(0x100485000)),

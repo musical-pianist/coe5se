@@ -776,6 +776,9 @@ static void modDescriptionsAfterPass(int level);
 #ifndef __APPLE__
 static void captureTestFieldSceneryTemplates(int level);
 #endif
+#ifdef _WIN32
+#include "player_rule_cache.h"
+#endif
 static void modsRunHook(int level) {
     if (level == 2) beginContentPass();
 #ifndef __APPLE__
@@ -818,7 +821,16 @@ static void modsRunHook(int level) {
     drawnTextAroundPass(level);
     fallbackFontsBeforePass(level);
     translatorsBeforePass(level);
+#ifdef _WIN32
+    int outerPlayerPass = playerNumberActive;
+    playerNumberActive = level == 3 && nextPlayerNumber != NULL;
+    playerNumberKey[0] = 0;
+#endif
     nextModsRun(level);
+#ifdef _WIN32
+    playerNumberActive = outerPlayerPass;
+    playerNumberKey[0] = 0;
+#endif
     finishReading();
     spellsAfterPass(level, spellPasses);
     syncLuaScriptsBeforeSaveApplied(level);

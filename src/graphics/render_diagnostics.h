@@ -6,7 +6,7 @@ typedef enum {
     FPS_SAMPLER_OBJECT,FPS_FIXED_FUNCTION,FPS_EXTRA_TEXTURE_UNIT,FPS_TEXTURE_MATRIX,
     FPS_RENDER_MODE,FPS_VBO_BOUND,FPS_VAO_BOUND,FPS_TEXTURE_SIZE,FPS_TEXTURE_FORMAT,
     FPS_TEXTURE_SAMPLING,FPS_TEXTURE_LEVELS,FPS_ALLOCATION,FPS_CACHE_LIMIT,
-    FPS_CACHE_TABLE_FULL,FPS_BATCH_REPLAY,FPS_REASON_COUNT
+    FPS_CACHE_TABLE_FULL,FPS_BATCH_REPLAY,FPS_TEXTURE_TRANSFER,FPS_CLIENT_STACK_FULL,FPS_REASON_COUNT
 } FpsFallbackReason;
 _Static_assert(FPS_REASON_COUNT<=32,"diagnostic mask capacity");
 static _Thread_local unsigned fps_fallback_reasons;
@@ -19,7 +19,7 @@ static inline const char *fps_fallback_name(FpsFallbackReason reason) {
         "sampler_object_bound","unsupported_fixed_function_state","additional_texture_unit_enabled","texture_matrix_changed",
         "render_mode_or_display_list","vertex_buffer_bound","vertex_array_object_bound","texture_size_unsupported","texture_format_unsupported",
         "texture_sampling_unsupported","texture_mip_chain_unsupported","texture_allocation_failed","texture_cache_limit",
-        "texture_cache_table_full","buffered_batch_replayed"
+        "texture_cache_table_full","buffered_batch_replayed","texture_transfer_unverified","client_attribute_stack_full"
     };
     return (unsigned)reason<FPS_REASON_COUNT?names[reason]:"unknown";
 }

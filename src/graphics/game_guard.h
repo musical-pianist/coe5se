@@ -1,8 +1,10 @@
 #ifdef _WIN32
-static int game_hash_matches(void) {
+#include "../stub_hash.h"
+// Hash a loaded module's file using the same pinned-build check as the game.
+static int fps_module_hash(HMODULE module,unsigned char digest[32]) {
     wchar_t path[32768];
-    unsigned char buffer[65536], digest[32];
-    DWORD n = GetModuleFileNameW(NULL, path, (DWORD)(sizeof(path)/sizeof(path[0])));
+    unsigned char buffer[65536];
+    DWORD n = GetModuleFileNameW(module, path, (DWORD)(sizeof(path)/sizeof(path[0])));
     if (!n || n >= sizeof(path)/sizeof(path[0])) return 0;
     HANDLE file = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                               NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -22,14 +24,35 @@ static int game_hash_matches(void) {
         if (!read) break;
         if (BCryptHashData(hash, buffer, read, 0) < 0) goto done;
     }
-    if (BCryptFinishHash(hash, digest, sizeof(digest), 0) < 0) goto done;
-    ok = memcmp(digest, expected_sha256, sizeof(digest)) == 0;
+    ok = BCryptFinishHash(hash, digest, 32, 0) >= 0;
 done:
     if (hash) BCryptDestroyHash(hash);
     if (object) HeapFree(GetProcessHeap(), 0, object);
     if (algorithm) BCryptCloseAlgorithmProvider(algorithm, 0);
     CloseHandle(file);
     return ok;
+}
+static int game_hash_matches(void) {
+    unsigned char digest[32];
+    return fps_module_hash(NULL,digest) && !memcmp(digest,expected_sha256,sizeof digest);
+}
+
+// The optimized filters implement the Windows system GLU or its shipped forwarding stub.
+static int fps_standard_glu(void *entry) {
+    HMODULE owner=NULL;
+    if(!entry || !GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                                     (LPCWSTR)entry,&owner))return 0;
+    wchar_t path[32768];
+    UINT length=GetSystemDirectoryW(path,32768);
+    if(length && length<32750){
+        wcscat(path,L"\\glu32.dll");
+        if(owner==GetModuleHandleW(path))return 1;
+    }
+    unsigned char digest[32];
+    if(!fps_module_hash(owner,digest))return 0;
+    char hex[65];
+    for(unsigned i=0;i<32;i++)snprintf(hex+2*i,3,"%02x",digest[i]);
+    return !strcmp(hex,SHIPPED_GLU32_SHA256);
 }
 #else
 #include <CommonCrypto/CommonDigest.h>

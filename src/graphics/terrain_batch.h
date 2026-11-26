@@ -14,12 +14,14 @@ static _Thread_local unsigned terrain_count,terrain_page;
 static _Thread_local int terrain_client_ready;
 static _Thread_local long long terrain_upload_start;
 static _Thread_local long long terrain_batches,terrain_tiles;
-static void (*terrain_draw_elements)(unsigned,int,unsigned,const void *);
+static _Thread_local void (*terrain_draw_elements)(unsigned,int,unsigned,const void *);
 
 static void terrain_native_rect(TerrainQuad q) {
     ((TerrainNativeRect)(detail_base+RVA_FPS_TERRAIN_RECT_DRAW))(q.x,q.y,q.w,q.h,q.u,q.v,q.du,q.dv);
 }
+// Replay captured fixed-function tiles with their original sampling state, then return it to the caller.
 static void terrain_replay(unsigned count) {
+    TaReplaySampling saved=ta_begin_native_replay();
     int restore=0;
     arrays_get_int(0x8069,&restore);
     for(unsigned i=0;i<count;i++) {
@@ -27,9 +29,12 @@ static void terrain_replay(unsigned count) {
         terrain_native_rect(terrain_quads[i]);
     }
     real_gl_bind(0x0de1,(unsigned)restore);
+    ta_end_native_replay(saved);
 }
 
 static int terrain_submission_available(void) {
+    if(!ta_client_stack_room() || (ta_has_restart && arrays_is_enabled(0x8f9d)) ||
+       (ta_has_nv_restart && arrays_is_enabled(0x8558)))return 0;
     int value=0;
     ta_get_int(0x8b8d,&value);if(value)return 0;
     ta_get_int(0x84e0,&value);if(value!=0x84c0)return 0;
@@ -49,7 +54,7 @@ static void terrain_flush(void) {
     unsigned count=terrain_count;
     if(!count)return;
     terrain_count=0;
-    if(!ta_allowed_state() || !terrain_submission_available()) {terrain_replay(count);return;}
+    if(!ta_allowed_state() || !terrain_submission_available() || !ta_legacy_sampling_allowed()) {terrain_replay(count);return;}
     unsigned unit=ta_multi_page?0x84c1u:0x84c0u;
     int saved_array=0,saved_sampler=0;
     ta_active_texture(unit);
@@ -95,7 +100,8 @@ static void terrain_rect(float x,float y,float w,float h,float u,float v,float d
     FpsTextureLayer layer;
     if(terrain_client_ready<0)terrain_client_ready=terrain_check_client();
     int allow_upload=ta_terrain_cache.attempts-terrain_upload_start<TERRAIN_UPLOADS_PER_PASS;
-    if(!terrain_client_ready || !ta_prepare(&ta_terrain_cache,arrays_texture,&layer,allow_upload)) {
+    if(!terrain_client_ready || !ta_prepare(&ta_terrain_cache,arrays_texture,&layer,allow_upload) ||
+       !ta_capture_sampling_allowed(!terrain_count)) {
         terrain_flush();terrain_native_rect(q);return;
     }
     if(terrain_count==TERRAIN_QUADS || (terrain_count && terrain_page!=layer.array_texture))terrain_flush();
@@ -132,7 +138,7 @@ static int terrain_begin_scope(void) {
     }
     array_texture_begin_frame();arrays_begin_frame();
     ++ta_terrain_cache.pass;
-    if(ta_terrain_cache.pressure && !(ta_terrain_cache.pass%16) && ta_context_ok && ta_current_context()==ta_context)
+    if(ta_terrain_cache.pressure && !(ta_terrain_cache.pass%16) && ta_context_ok && ta_cache_owned(ta_current_context()))
         ta_trim_terrain_cache(&ta_terrain_cache);
     terrain_client_ready=-1;
     terrain_upload_start=ta_terrain_cache.attempts;

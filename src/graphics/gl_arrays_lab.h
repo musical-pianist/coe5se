@@ -54,8 +54,8 @@ static void (*arrays_draw)(unsigned,int,int);
 static void (*arrays_tex2)(float,float);
 static void (*arrays_tex4)(float,float,float,float);
 static void (*arrays_vertex3)(float,float,float);
-static void (*arrays_client_active)(unsigned);
-static void (*arrays_multi_tex4)(unsigned,float,float,float,float);
+static _Thread_local void (*arrays_client_active)(unsigned);
+static _Thread_local void (*arrays_multi_tex4)(unsigned,float,float,float,float);
 static void (*arrays_raw_matrix_mode)(unsigned);
 static void (*arrays_load_matrix)(const float *);
 static HGLRC (WINAPI *arrays_current_context)(void);
@@ -186,11 +186,15 @@ static void arrays_flush(void) {
     long long begin=now_ticks();
     int complete=(arrays_count%4)==0;
     if(!arrays_output_layered)array_texture_end_draw();
-    int shader_ok=complete && (!arrays_output_layered || array_texture_begin_draw(&ta_sprite_cache,arrays_output_texture));
+    int shader_ok=complete && (arrays_client_session || ta_client_stack_room()) &&
+        (!arrays_output_layered || array_texture_begin_draw(&ta_sprite_cache,arrays_output_texture));
     if(!shader_ok) {
         array_texture_end_draw();
         arrays_end_client_session();
+        TaReplaySampling saved={0};
+        if(arrays_output_layered)saved=ta_begin_native_replay();
         arrays_replay();
+        if(arrays_output_layered)ta_end_native_replay(saved);
     }
     else {
         if(arrays_output_texture && !arrays_output_layered) real_gl_bind(0x0de1,arrays_output_texture);
@@ -229,6 +233,9 @@ static int arrays_capture_allowed(void) {
 static void arrays_invalidate(void) { arrays_allowed_cached=-1; }
 static void arrays_begin_frame(void) {
     arrays_end_frame();arrays_invalidate();
+    ++ta_sprite_cache.pass;
+    if(ta_sprite_cache.pressure && ta_context_ok && ta_cache_owned(ta_current_context()))
+        ta_trim_empty_pages(&ta_sprite_cache);
     arrays_scene_caps_known=arrays_scene_caps_on=0;
     arrays_projection_capture=0;arrays_projection_dirty=1;
     if(arrays_enabled && arrays_lazy_bindings) (void)arrays_check_context();
@@ -252,6 +259,7 @@ static void arrays_begin_probe(unsigned mode) {
         if(arrays_count || arrays_capture_allowed()) {
             FpsTextureLayer layer;
             int layered=arrays_native_texture?0:array_texture_prepare(arrays_texture,&layer);
+            if(layered && !ta_capture_sampling_allowed(!arrays_count))layered=0;
             if(texture_array_enabled && !layered && !arrays_native_texture) {
                 arrays_end_frame();arrays_restore_current();
                 real_gl_begin(mode);arrays_native_open=1;return;
@@ -372,7 +380,8 @@ ARR_WRAP2(glHint,unsigned,unsigned) ARR_WRAP2(glLightModeli,unsigned,int) ARR_WR
 static void (*arrays_real_glDeleteTextures)(int,const unsigned *);
 static void arrays_glDeleteTextures(int n,const unsigned *ids) {
     arrays_end_frame();
-    for(int i=0;i<n;i++) {array_texture_remove(ids[i]);}
+    if(ta_current_context && ta_cache_owned(ta_current_context()))
+        for(int i=0;i<n;i++)array_texture_remove(ids[i]);
     arrays_real_glDeleteTextures(n,ids);
     for(int i=0;i<n;i++)if(ids[i]==arrays_texture){arrays_texture=0;arrays_binding_dirty=0;}
 }
@@ -384,11 +393,12 @@ static void arrays_glTexEnvi(unsigned target,unsigned name,int value) {
     }else arrays_end_frame();
     arrays_real_glTexEnvi(target,name,value);
     if(target==0x2300 && name==0x2200){ta_modulate=value==0x2100;ta_env_mode=value;}
+    if(target==0x8500 && name==0x8501)array_texture_invalidate_state();
     ARR_AFTER_STATE();
 }
 static void (*arrays_real_glTexParameteri)(unsigned,unsigned,int);
 static void arrays_forget_bound_texture(unsigned target) {
-    if(target!=0x0de1)return;
+    if(target!=0x0de1 || !ta_current_context || !ta_cache_owned(ta_current_context()))return;
     int binding=0;
     arrays_get_int(0x8069,&binding);
     array_texture_forget((unsigned)binding);
@@ -439,14 +449,23 @@ static void arrays_glTexImage2D(unsigned target,int level,int internal,int width
     ARR_AFTER_STATE();
 }
 static int (WINAPI *arrays_real_gluBuild2DMipmaps)(unsigned,int,int,int,unsigned,unsigned,const void *);
+#ifdef _WIN32
+#include "map_mipmaps.h"
+#endif
 static int WINAPI arrays_gluBuild2DMipmaps(unsigned target,int components,int width,int height,unsigned format,unsigned type,const void *pixels) {
     arrays_end_frame();
     arrays_forget_bound_texture(target);
+#ifdef _WIN32
+    if(map_build_mips(target,components,width,height,format,type,pixels)){ARR_AFTER_STATE();return 0;}
+#endif
     int result=arrays_real_gluBuild2DMipmaps(target,components,width,height,format,type,pixels);
     ARR_AFTER_STATE();return result;
 }
 static unsigned (*arrays_real_glGetError)(void);
-static unsigned arrays_glGetError(void){arrays_flush();return arrays_real_glGetError();}
+static unsigned arrays_glGetError(void){
+    arrays_flush();
+    return arrays_real_glGetError();
+}
 #undef ARR_WRAP0
 #undef ARR_WRAP1
 #undef ARR_WRAP2
@@ -508,8 +527,8 @@ static int arrays_restore_imports(FpsArrayInstall *install,FpsReplaceImport repl
     return restored;
 }
 
-static int install_gl_arrays(FpsArrayInstall *install) {
-    arrays_enabled=1;arrays_lazy_bindings=1;arrays_client_sessions=1;
+// Resolve the native client-array functions without changing game imports.
+static int arrays_load_functions(void) {
     HMODULE gl=GetModuleHandleA(FPS_GL_LIBRARY);if(!gl) return 0;
 #ifdef __APPLE__
     arrays_gl=gl;
@@ -526,6 +545,13 @@ static int install_gl_arrays(FpsArrayInstall *install) {
     ARR_PROC(arrays_wgl_proc,"wglGetProcAddress");
 #endif
 #undef ARR_PROC
+    return 1;
+}
+
+static int install_gl_arrays(FpsArrayInstall *install) {
+    arrays_enabled=1;arrays_lazy_bindings=1;arrays_client_sessions=1;
+    HMODULE gl=GetModuleHandleA(FPS_GL_LIBRARY);
+    if(!arrays_load_functions())return 0;
     for(size_t i=0;i<sizeof(arrays_imports)/sizeof(arrays_imports[0]);i++) {
         void *native=(void *)GetProcAddress(gl,arrays_imports[i].name);if(!native)return 0;
         if(arrays_imports[i].save) memcpy(arrays_imports[i].save,&native,sizeof(native));

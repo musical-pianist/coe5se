@@ -925,6 +925,7 @@ static void pluginLoadingDone(const char *path);
 
 __declspec(dllexport) void coe5sePluginLoading(const char *path) {
     if (path) {
+        coe5seGraphicsNativePluginLoading();
         snprintf(loadingPlugin, sizeof loadingPlugin, "%s", path);
         return;
     }
@@ -1003,7 +1004,7 @@ static int isInternalSite(CallSite site) {
            site == SITE_UNIT_LIST_SHEET || site == SITE_POLL_EVENT || site == SITE_KEY_TEXT_BAR ||
            site == SITE_KEY_HELP_TEXT || site == SITE_KEY_TEXT_BUTTON || site == SITE_RUN_ONE_MOD ||
            site == SITE_RUN_ONE_MOD_PATH || site == SITE_GAME_MENU_SETTINGS_SECTION_END || site == SITE_ELIMINATED_WARN ||
-           site == SITE_TURN_MESSAGES ||
+           site == SITE_TURN_MESSAGES || site == SITE_TURN_RULE_PLAYER_NUMBER ||
            site == SITE_MAP_EDITOR_TOOLBOX_LINE || site == SITE_RUN_ONE_MOD_LINE_READ || site == SITE_TOP_BAR ||
            site == SITE_TOP_BAR_INCOME_DRAW || site == SITE_SETUP_SERVER || site == SITE_SQUARE_PANEL_ICON || site == SITE_SQUARE_PANEL_LAYOUT ||
            site == SITE_ELIMINATED_TEXT || site == SITE_STORED_FORMAT;
@@ -2267,6 +2268,9 @@ static void startCoe5se(const char *via) {
     if (featureOn(FEATURE_SIDECAR)) sidecarInit();
     if (featureOn(FEATURE_PLUGIN_CHECKS)) pluginStartInit();
     if (featureOn(FEATURE_MOD_SETTINGS)) modSettingsInit();
+#ifdef _WIN32
+    if (featureOn(FEATURE_MOD_SETTINGS)) initPlayerNumberCache(nextModsRun != NULL);
+#endif
     if (featureOn(FEATURE_LOAD_ORDER)) loadOrderInit();
 #ifdef __APPLE__
     static const GraphicsMacHost graphicsHost = {.pointCall = pointCustomPlaneCall, .makeDataWritable = makeGameDataWritable};
